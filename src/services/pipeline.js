@@ -7,6 +7,7 @@ const { StreamEngine } = require('./streamEngine');
 const { CacheService } = require('./cacheService');
 const { GitHubService } = require('./githubService');
 const { generateFlutterJson } = require('./jsonGenerator');
+const { buildDeliveryBundle } = require('./deliveryFormats');
 const { MatchMerger } = require('./matchMerger');
 const { LuongSonSource } = require('../sources/luongson');
 const { SocoliveSource } = require('../sources/socolive');
@@ -128,12 +129,14 @@ class Pipeline {
         matches = fixtures;
       }
 
-      // Soco (socolivemm.io) — HTTP scraper from MM_TV.Pro
-      matches = await this._mergeSocoStreams(matches, config.sources);
+      // Soco (socolivemm.io) — full scrape for soco.json + merge into main live
+      const previous = this.cache.getCurrent();
+      const socoResult = await this._scrapeSocoFull(matches, config.sources);
+      matches = socoResult.matches;
 
       // Highlights + Myanmar TV channels
-      const previous = this.cache.getCurrent();
       const extras = await this._collectExtraContent(config.sources, previous);
+      extras.socoMatches = socoResult.socoMatches;
 
       const sourceNames = [
         ...streamingSources.map((s) => s.name),
@@ -212,13 +215,23 @@ class Pipeline {
       }
 
       const { changed, payload: cached } = this.cache.saveGenerated(payload);
-      let githubResult = { uploaded: false, reason: 'local_unchanged' };
-      if (changed) {
-        githubResult = await this.github.uploadIfChanged(cached, {
-          previousLocal: previousCache,
-        });
-      } else {
-        logEvent(events.GITHUB_SKIPPED, 'GitHub upload skipped — local compare unchanged');
+      const delivery = buildDeliveryBundle({
+        matchesPayload: cached,
+        socoMatches: extras.socoMatches || [],
+        highlights: extras.highlights || [],
+        channels: extras.channels || [],
+      });
+      const { previous: prevDelivery } = this.cache.saveDeliveryBundle(delivery);
+      let githubResult = { uploaded: false, reason: 'local_unchanged', feeds: {} };
+      try {
+        githubResult = await this.github.uploadDeliveryBundle(delivery, prevDelivery);
+      } catch (err) {
+        githubResult = {
+          uploaded: false,
+          reason: 'github_error',
+          error: err.message,
+          feeds: {},
+        };
       }
 
       const durationMs = Date.now() - startedAt;
@@ -231,7 +244,14 @@ class Pipeline {
         at: new Date().toISOString(),
       };
 
-      return { ok: true, payload: cached, changed, github: githubResult, durationMs };
+      return {
+        ok: true,
+        payload: cached,
+        delivery,
+        changed,
+        github: githubResult,
+        durationMs,
+      };
     } catch (err) {
       logEvent(events.SCRAPER_ERROR, 'Pipeline fatal error', { error: err.message });
       const kept = this.cache.keepPreviousOnFailure();
@@ -281,31 +301,69 @@ class Pipeline {
     return true;
   }
 
-  async _mergeSocoStreams(matches, sourcesDoc) {
-    if (!this._isSourceEnabled(sourcesDoc, 'soco')) return matches;
+  /**
+   * Full soco scrape for Flutter soco.json (leagues format) and merge into main live matches.
+   */
+  async _scrapeSocoFull(matches, sourcesDoc) {
+    const empty = { matches, socoMatches: [] };
+    if (!this._isSourceEnabled(sourcesDoc, 'soco')) return empty;
+
     const cfg = this.configLoader.getSourceConfig(sourcesDoc, 'soco') || {
       name: 'soco',
       enabled: true,
       domains: ['https://socolivemm.io'],
     };
+
     try {
       const soco = new SocoSource({ config: cfg, normalizer: this.normalizer });
-      const groups = await soco.collectForFixtures(matches);
+      const full = await soco.scrapeFull({ fetchStreams: true });
+      const socoMatches = full.matches || [];
+
+      // Merge into FotMob fixtures when matchId aligns
       const merger = new MatchMerger();
       let next = matches;
-      for (const group of groups) {
-        const idx = next.findIndex((m) => m.matchId === group.matchId);
+      let streamCount = 0;
+      for (const sm of socoMatches) {
+        const streams = (sm.links || [])
+          .filter((l) => l.url)
+          .map((l) => ({
+            source: 'soco',
+            type: 'm3u8',
+            quality: l.name || 'HD',
+            url: l.url,
+            headers: {
+              'User-Agent': process.env.USER_AGENT || '',
+              Referer: l.reffer || sm.matchUrl || '',
+            },
+            active: true,
+            checkedAt: new Date().toISOString(),
+          }));
+        if (!streams.length) continue;
+        streamCount += streams.length;
+        const idx = next.findIndex((m) => m.matchId === sm.matchId);
         if (idx < 0) continue;
-        next[idx] = merger.mergeMatch(next[idx], [group]);
+        next[idx] = merger.mergeMatch(next[idx], [
+          {
+            matchId: sm.matchId,
+            source: 'soco',
+            matchUrl: sm.matchUrl,
+            streams,
+            originalNames: sm.originalNames,
+            sourceLive: sm.live || sm.status === 'LIVE',
+          },
+        ]);
       }
-      const streamCount = groups.reduce((n, g) => n + (g.streams?.length || 0), 0);
+
       if (this.admin?.sources) this.admin.sources.recordSuccess('soco', streamCount);
-      logger.info('Soco streams merged', { matches: groups.length, streams: streamCount });
-      return next;
+      logger.info('Soco full scrape merged', {
+        socoMatches: socoMatches.length,
+        streams: streamCount,
+      });
+      return { matches: next, socoMatches };
     } catch (err) {
-      logEvent(events.SCRAPER_ERROR, 'Soco merge failed', { error: err.message });
+      logEvent(events.SCRAPER_ERROR, 'Soco full scrape failed', { error: err.message });
       if (this.admin?.sources) this.admin.sources.recordError('soco', err.message);
-      return matches;
+      return empty;
     }
   }
 

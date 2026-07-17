@@ -112,6 +112,16 @@ class SocoSource {
         card.find('.grid-match__league span').first().text().trim() ||
         card.find('.grid-match__league').first().text().trim() ||
         '';
+      const homeLogo = this.absUrl(
+        card.find('.grid-match__team--home img, .grid-match__home img').first().attr('src') || ''
+      );
+      const awayLogo = this.absUrl(
+        card.find('.grid-match__team--away img, .grid-match__away img').first().attr('src') || ''
+      );
+      const leagueIcon = this.absUrl(
+        card.find('.grid-match__league img, .grid-match__competition img').first().attr('src') ||
+          ''
+      );
 
       if (!homeRaw || !awayRaw || !matchUrl) return;
 
@@ -133,6 +143,9 @@ class SocoSource {
         leagueAllowed: Boolean(standardLeague),
         homeTeam,
         awayTeam,
+        homeLogo,
+        awayLogo,
+        leagueIcon,
         date: formatDate(kickoff),
         time: formatTime(kickoff),
         kickoff: kickoff.toISO(),
@@ -233,6 +246,55 @@ class SocoSource {
       if (row) results.push(row);
     }
     return results;
+  }
+
+  /**
+   * Full scrape for Flutter soco.json (all today/tomorrow cards + stream links).
+   * Unlike collectForFixtures, this is not limited to FotMob matchIds.
+   */
+  async scrapeFull({ fetchStreams = true } = {}) {
+    logEvent(events.SCRAPER_START, 'Soco full scrape start', { source: this.name });
+    const discovered = await this.discoverMatches();
+    const targets = fetchStreams
+      ? discovered.filter((m) => shouldAttemptStreamFetch(m))
+      : [];
+
+    const linksById = new Map();
+    const enriched = await mapWithConcurrency(targets, STREAM_CONCURRENCY, async (match) => {
+      try {
+        const links = await this.buildMatchLinks(match.matchUrl, true);
+        return { matchId: match.matchId, links };
+      } catch (err) {
+        logEvent(events.SCRAPER_ERROR, 'Soco full scrape match failed', {
+          source: this.name,
+          matchId: match.matchId,
+          error: err.message,
+        });
+        return { matchId: match.matchId, links: [] };
+      }
+    });
+
+    for (const row of enriched) {
+      if (row) linksById.set(row.matchId, row.links || []);
+    }
+
+    const matches = discovered.map((m) => ({
+      ...m,
+      links: linksById.get(m.matchId) || [],
+    }));
+
+    logEvent(events.SCRAPER_SUCCESS, 'Soco full scrape success', {
+      source: this.name,
+      count: matches.length,
+      withLinks: matches.filter((m) => (m.links || []).some((l) => l.url)).length,
+    });
+
+    return {
+      generatedAt: new Date().toISOString(),
+      today: matches.filter((m) => m.sectionKey === 'today'),
+      tomorrow: matches.filter((m) => m.sectionKey === 'tomorrow'),
+      matches,
+    };
   }
 
   parseListStreamGroups(html) {

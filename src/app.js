@@ -14,7 +14,15 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
   const publicJson = env.ENABLE_PUBLIC_JSON === 'true';
 
   function requireApiKey(req, res) {
-    if (publicJson && req.path === '/matches' && req.method === 'GET') {
+    if (
+      publicJson &&
+      req.method === 'GET' &&
+      (req.path === '/matches' ||
+        req.path.startsWith('/flutter/') ||
+        req.path === '/soco' ||
+        req.path === '/highlights' ||
+        req.path === '/channels')
+    ) {
       return true;
     }
     if (!apiKey) return true;
@@ -24,6 +32,12 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
       return false;
     }
     return true;
+  }
+
+  function sendDelivery(res, feed, fallback = null) {
+    const data = cache.getDelivery(feed) ?? fallback;
+    if (data == null) return res.status(404).json({ ok: false, error: 'No data' });
+    return res.json(data);
   }
 
   // Admin web UI
@@ -38,10 +52,19 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
       name: 'Football Live Streaming Backend',
       timezone: 'Asia/Yangon',
       adminPanel: '/admin',
+      feeds: {
+        matches: '/flutter/matches.json',
+        soco: '/flutter/soco.json',
+        highlight: '/flutter/highlight.json',
+        myanmartv: '/flutter/myanmartv.json',
+      },
       endpoints: [
         'GET /api/health',
         'GET /api/matches',
         'GET /flutter/matches.json',
+        'GET /flutter/soco.json',
+        'GET /flutter/highlight.json',
+        'GET /flutter/myanmartv.json',
         'POST /api/pipeline/run',
         'POST /api/admin/auth/login',
         'GET /api/admin/dashboard',
@@ -49,11 +72,59 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
     });
   });
 
+  // Flutter delivery aliases (same shapes as GitHub raw JSON)
   app.get('/flutter/matches.json', (req, res) => {
     if (!publicJson && !requireApiKey(req, res)) return;
+    const delivery = cache.getDelivery('matches');
+    if (delivery) return res.json(delivery);
     const data = cache.getCurrent();
     if (!data) return res.status(404).json({ ok: false, error: 'No data' });
     return res.json(data);
+  });
+
+  app.get('/flutter/soco.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    return sendDelivery(res, 'soco');
+  });
+
+  app.get('/flutter/highlight.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    const delivery = cache.getDelivery('highlight');
+    if (delivery) return res.json(delivery);
+    const current = cache.getCurrent();
+    if (!current?.highlights) return res.status(404).json({ ok: false, error: 'No data' });
+    return res.json({
+      source: 'https://hoofoot.com/',
+      scraped_at: current.generatedAt || new Date().toISOString(),
+      count: current.highlights.length,
+      highlights: current.highlights,
+    });
+  });
+
+  app.get('/flutter/myanmartv.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    const delivery = cache.getDelivery('myanmartv');
+    if (delivery) return res.json(delivery);
+    const current = cache.getCurrent();
+    if (!current?.channels) return res.status(404).json({ ok: false, error: 'No data' });
+    return res.json(
+      current.channels.map((c) => ({
+        title: c.title,
+        img: c.img || null,
+        streamUrl: c.streamUrl || '',
+      }))
+    );
+  });
+
+  // Short aliases
+  app.get('/flutter/channels.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    return sendDelivery(res, 'myanmartv');
+  });
+
+  app.get('/flutter/highlights.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    return sendDelivery(res, 'highlight');
   });
 
   app.use('/api', createApiRouter({ pipeline, cache, requireApiKey }));

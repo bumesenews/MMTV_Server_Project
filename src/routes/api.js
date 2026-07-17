@@ -52,6 +52,32 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
     res.json(cache.getPrevious() || { ok: false, error: 'empty' });
   });
 
+  router.get('/feeds', (req, res) => {
+    if (!requireApiKey(req, res)) return;
+    res.json({
+      ok: true,
+      delivery: cache.getDeliveryBundle(),
+    });
+  });
+
+  router.get('/feeds/:name', (req, res) => {
+    if (!requireApiKey(req, res)) return;
+    const name = String(req.params.name || '').toLowerCase();
+    const map = {
+      matches: 'matches',
+      soco: 'soco',
+      highlight: 'highlight',
+      highlights: 'highlight',
+      channels: 'myanmartv',
+      myanmartv: 'myanmartv',
+    };
+    const key = map[name];
+    if (!key) return res.status(404).json({ ok: false, error: 'Unknown feed' });
+    const data = cache.getDelivery(key);
+    if (data == null) return res.status(404).json({ ok: false, error: 'No data' });
+    return res.json(data);
+  });
+
   return router;
 }
 
