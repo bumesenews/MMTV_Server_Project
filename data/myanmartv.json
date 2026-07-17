@@ -1,0 +1,222 @@
+{
+  "generatedAt": "2026-07-17T16:28:04.982Z",
+  "count": 18,
+  "channels": [
+    {
+      "title": "5 Plus",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/5plus-80x80-92d.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/5-plus-channel.html",
+      "streamUrl": "https://streammain.myanmartvchannels.com:999/website-5plus-stream/website-5plus-stream/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDMgUE0maGFzaF92YWx1ZT1ZcUl3dDkydEhLN3o2c3lOTUF1Q0J3PT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/5-plus-channel.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "Channel 7",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/channel7-80x80-83b.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/channel-7.html",
+      "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/channel7/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDMgUE0maGFzaF92YWx1ZT1ZcUl3dDkydEhLN3o2c3lOTUF1Q0J3PT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/channel-7.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "Channel 9",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/channel9-80x80-7b1.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/channel9.html",
+      "streamUrl": "https://streammain.myanmartvchannels.com:999/website-channel9-stream/website-channel9-stream/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDMgUE0maGFzaF92YWx1ZT1ZcUl3dDkydEhLN3o2c3lOTUF1Q0J3PT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/channel9.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "Channel K",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/channelk-80x80-d7c.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/channel-k.html",
+      "streamUrl": "https://l1-xl1.myanmarnet.com/relay/channelk/ch1/stream.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDMgUE0maGFzaF92YWx1ZT1ZcUl3dDkydEhLN3o2c3lOTUF1Q0J3PT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/channel-k.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "Channel ME",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channelicon/mrtvent-80x80-26a.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/mrtv-entertainment.html",
+      "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mrtv-entertainment/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDMgUE0maGFzaF92YWx1ZT1ZcUl3dDkydEhLN3o2c3lOTUF1Q0J3PT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/mrtv-entertainment.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "DVB",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/dvb-80x80-064.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/dvb.html",
+      "streamUrl": "https://live-stream.dvb.no/hls/stream.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDMgUE0maGFzaF92YWx1ZT1ZcUl3dDkydEhLN3o2c3lOTUF1Q0J3PT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/dvb.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "Farmer",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/farmer-80x80-bfa.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/farmer.html",
+      "streamUrl": "https://mrtvott.com/cache/MRTV-FARMER/master.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDMgUE0maGFzaF92YWx1ZT1zZi9oajJGTlNxMlpTaUZjOHBic21nPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/farmer.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "Fortune",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/fortune-80x80-0b5.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/fortune.html",
+      "streamUrl": "https://streammain.myanmartvchannels.com:999/website-fortune-stream/website-fortune-stream/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1UZGtScGRZN2xUVlM4Zy9EZU15NG1RPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/fortune.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "Hluttaw",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/hluttaw-80x80-b92.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/hluttaw.html",
+      "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/hluttaw/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1UZGtScGRZN2xUVlM4Zy9EZU15NG1RPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/hluttaw.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "M Channel",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mchannel-80x80-1da.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/m-channel.html",
+      "streamUrl": "https://streammain.myanmartvchannels.com:999/website-ytv-stream/website-ytv-stream/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1UZGtScGRZN2xUVlM4Zy9EZU15NG1RPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/m-channel.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "Mahar",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mahar-80x80-1ee.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/mahar.html",
+      "streamUrl": "https://tv.mahar.live/mahar/website.stream/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1UZGtScGRZN2xUVlM4Zy9EZU15NG1RPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/mahar.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "Mahar BawDi",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/maharbawdi-80x80-ed0.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/mahar-bawdi.html",
+      "streamUrl": "https://pplive.comquas.com:5443/LiveApp/streams/rHEBIW7pjQLU1677679374164.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1UZGtScGRZN2xUVlM4Zy9EZU15NG1RPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/mahar-bawdi.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "MITV",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mitv-80x80-c76.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/mitv.html",
+      "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mitv/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1UZGtScGRZN2xUVlM4Zy9EZU15NG1RPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/mitv.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "MRTV",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mrtv-80x80-d7c.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/mrtv.html",
+      "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mrtv/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1UZGtScGRZN2xUVlM4Zy9EZU15NG1RPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/mrtv.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "MRTV News",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mrtvnews-80x80-d3f.png",
+      "pageUrl": "https://www.myanmartvchannels.com/mrtv-news.html",
+      "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mrtv/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1UZGtScGRZN2xUVlM4Zy9EZU15NG1RPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/mrtv-news.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "MRTV Sport",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mrtvsport-80x80-a10.png",
+      "pageUrl": "https://www.myanmartvchannels.com/mrtv-sport.html",
+      "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mrtv/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1UZGtScGRZN2xUVlM4Zy9EZU15NG1RPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/mrtv-sport.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "MRTV4",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mrtv42-80x80-83b.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/mrtv4.html",
+      "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mrtv-4/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1UZGtScGRZN2xUVlM4Zy9EZU15NG1RPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/mrtv4.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    },
+    {
+      "title": "NRC",
+      "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/nrc-80x80-294.jpg",
+      "pageUrl": "https://www.myanmartvchannels.com/nrc.html",
+      "streamUrl": "https://mrtvott.com/cache/MRTV-NRC-HD/master.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xNy8yMDI2IDQ6Mjg6MDQgUE0maGFzaF92YWx1ZT1PMWhMc2ViYTh5SWlyK21xaWVUY3ZBPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDExMDI3",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://www.myanmartvchannels.com/nrc.html"
+      },
+      "active": true,
+      "source": "myanmartv"
+    }
+  ]
+}

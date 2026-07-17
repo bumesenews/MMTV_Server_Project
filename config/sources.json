@@ -1,0 +1,142 @@
+{
+  "updatedAt": "2026-07-16T00:00:00.000Z",
+  "sources": [
+    {
+      "name": "fotmob",
+      "enabled": true,
+      "type": "fixtures",
+      "domains": ["https://www.fotmob.com"],
+      "api": {
+        "matches": "https://www.fotmob.com/api/data/matches",
+        "leagues": "https://www.fotmob.com/api/data/leagues"
+      },
+      "selectors": {},
+      "headers": {
+        "Accept": "application/json",
+        "Referer": "https://www.fotmob.com/"
+      }
+    },
+    {
+      "name": "luongson",
+      "enabled": true,
+      "type": "streaming",
+      "domains": ["https://luongsontvv.org"],
+      "mirrorDomains": [],
+      "paths": {
+        "home": "/",
+        "schedule": "/lich-thi-dau"
+      },
+      "selectors": {
+        "matchCard": [".match-item", ".match-card", ".event-card", ".list-match .item", "a.match"],
+        "league": [".league-name", ".competition", ".tour-title", ".league"],
+        "homeTeam": [".home-team", ".team-home", ".team.home", ".home .name"],
+        "awayTeam": [".away-team", ".team-away", ".team.away", ".away .name"],
+        "time": [".match-time", ".time", ".kickoff", ".hour"],
+        "matchLink": ["a", "a.match-link", "a[href*='/truc-tiep']", "a[href*='/live']"],
+        "qualityButton": [".quality-btn", ".server-btn", ".stream-option", ".btn-quality", ".list-server button", ".server-list a"],
+        "iframe": ["iframe", "iframe.player", "iframe#player", ".player-container iframe"],
+        "video": ["video", "video source", "#player video"]
+      },
+      "streamDetection": {
+        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8"],
+        "waitAfterLoadMs": 8000,
+        "waitAfterClickMs": 4000
+      },
+      "playerRules": {
+        "autoPlay": true,
+        "clickPlaySelectors": [".vjs-big-play-button", ".play-btn", "#play", ".btn-play"]
+      }
+    },
+    {
+      "name": "socolive",
+      "enabled": true,
+      "type": "streaming",
+      "domains": ["https://socoliveku.cc"],
+      "mirrorDomains": [],
+      "paths": {
+        "home": "/",
+        "schedule": "/lich-thi-dau"
+      },
+      "selectors": {
+        "matchCard": [".match-item", ".match-card", ".event-item", ".schedule-item", ".list-game .item"],
+        "league": [".league", ".league-name", ".competition-name", ".tour"],
+        "homeTeam": [".home", ".team-home", ".home-name", ".name-home"],
+        "awayTeam": [".away", ".team-away", ".away-name", ".name-away"],
+        "time": [".time", ".match-time", ".start-time"],
+        "matchLink": ["a", "a[href*='/live']", "a[href*='/truc-tiep']"],
+        "qualityButton": [".quality", ".server", ".btn-server", ".stream-btn", ".list-btn button"],
+        "iframe": ["iframe", "iframe[src*='player']", "#live-player iframe"],
+        "video": ["video", "video source"]
+      },
+      "streamDetection": {
+        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8"],
+        "waitAfterLoadMs": 8000,
+        "waitAfterClickMs": 4000
+      },
+      "playerRules": {
+        "autoPlay": true,
+        "clickPlaySelectors": [".play", ".vjs-big-play-button", ".btn-play"]
+      }
+    },
+    {
+      "name": "xoilac",
+      "enabled": true,
+      "type": "streaming",
+      "domains": ["https://xoilacxyy.io"],
+      "mirrorDomains": [],
+      "paths": {
+        "home": "/",
+        "schedule": "/lich-thi-dau"
+      },
+      "selectors": {
+        "matchCard": [".match", ".match-item", ".fixture-item", ".event-card", ".list-match li"],
+        "league": [".league-name", ".tour-name", ".competition"],
+        "homeTeam": [".home-team", ".team1", ".club-home"],
+        "awayTeam": [".away-team", ".team2", ".club-away"],
+        "time": [".time", ".kick-off", ".match-hour"],
+        "matchLink": ["a", "a[href*='/live']", "a[href*='/watch']"],
+        "qualityButton": [".server-item", ".quality-item", ".btn-quality", ".list-server a", ".cdn-list button"],
+        "iframe": ["iframe", ".embed iframe", "#player iframe"],
+        "video": ["video", "video source"]
+      },
+      "streamDetection": {
+        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8"],
+        "waitAfterLoadMs": 9000,
+        "waitAfterClickMs": 4500
+      },
+      "playerRules": {
+        "autoPlay": true,
+        "clickPlaySelectors": [".vjs-big-play-button", ".play-button", ".btn-play"]
+      }
+    },
+    {
+      "name": "soco",
+      "enabled": true,
+      "type": "streaming",
+      "domains": ["https://socolivemm.io"],
+      "mirrorDomains": [],
+      "paths": {
+        "today": "/sport/football/filter/today",
+        "tomorrow": "/sport/football/filter/tomorrow"
+      },
+      "notes": "HTTP API scraper from MM_TV.Pro — no Puppeteer"
+    },
+    {
+      "name": "highlight",
+      "enabled": true,
+      "type": "highlights",
+      "domains": ["https://hoofoot.com/"],
+      "recentDays": 4,
+      "maxItems": 20
+    },
+    {
+      "name": "myanmartv",
+      "enabled": true,
+      "type": "channels",
+      "domains": ["https://www.myanmartvchannels.com/"],
+      "paths": {
+        "channels": "https://www.myanmartvchannels.com/tv-channels.html"
+      }
+    }
+  ]
+}

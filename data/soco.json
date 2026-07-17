@@ -1,0 +1,1292 @@
+{
+  "generatedAt": "2026-07-17T16:28:18.354Z",
+  "discoveredCount": 287,
+  "sampleStreamMatches": [
+    {
+      "matchId": "nu_abff_u19_nu_energetik_bgu_20260717",
+      "homeTeam": "Nữ ABFF U19",
+      "awayTeam": "Nữ Energetik-BGU",
+      "league": "Ngoại hạng Nữ Belarus",
+      "status": "LIVE",
+      "matchUrl": "https://socolivemm.io/truc-tiep/nu-abff-u19-vs-nu-energetik-bgu-luc-2100-ngay-17-07-2026/",
+      "streams": [
+        {
+          "source": "soco",
+          "type": "m3u8",
+          "quality": "HD 1",
+          "url": "https://live1.streambylivepulse.com/live/channel9.m3u8?wsSecret=457cf68c725c18c48d1991db0fc700f8&wsABSTime=1784348894",
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Referer": "https://socolivemm.io/truc-tiep/nu-abff-u19-vs-nu-energetik-bgu-luc-2100-ngay-17-07-2026/"
+          },
+          "active": true,
+          "checkedAt": "2026-07-17T16:28:14.638Z"
+        }
+      ]
+    },
+    {
+      "matchId": "sparta_praha_b_fsv_zwickau_20260717",
+      "homeTeam": "Sparta Praha B",
+      "awayTeam": "FSV Zwickau",
+      "league": "Giao Hữu CLB",
+      "status": "LIVE",
+      "matchUrl": "https://socolivemm.io/truc-tiep/sparta-praha-b-vs-fsv-zwickau-luc-2130-ngay-17-07-2026/",
+      "streams": [
+        {
+          "source": "soco",
+          "type": "m3u8",
+          "quality": "HD 1",
+          "url": "https://live1.streambylivepulse.com/live/channel12.m3u8?wsSecret=42613b0cb4bdefc627ea361b93716e41&wsABSTime=1784348895",
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Referer": "https://socolivemm.io/truc-tiep/sparta-praha-b-vs-fsv-zwickau-luc-2130-ngay-17-07-2026/"
+          },
+          "active": true,
+          "checkedAt": "2026-07-17T16:28:15.300Z"
+        }
+      ]
+    },
+    {
+      "matchId": "pakhtakor_lokomotiv_tashkent_20260717",
+      "homeTeam": "Pakhtakor",
+      "awayTeam": "Lokomotiv Tashkent",
+      "league": "VĐQG Uzbekistan",
+      "status": "LIVE",
+      "matchUrl": "https://socolivemm.io/truc-tiep/pakhtakor-vs-lokomotiv-tashkent-luc-2200-ngay-17-07-2026/",
+      "streams": [
+        {
+          "source": "soco",
+          "type": "m3u8",
+          "quality": "JEAN",
+          "url": "https://live2.streambylivepulse.com/live/channel7.m3u8",
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Referer": "https://socolivemm.io/truc-tiep/pakhtakor-vs-lokomotiv-tashkent-luc-2200-ngay-17-07-2026/"
+          },
+          "active": true,
+          "checkedAt": "2026-07-17T16:28:16.290Z"
+        },
+        {
+          "source": "soco",
+          "type": "m3u8",
+          "quality": "HD JEAN",
+          "url": "https://live3.procdnlive.com/livecdn/channel7.m3u8?auth_key=3000001784305696-0-0-7c45b04c2c0f133dbd16193342e9af2d",
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Referer": "https://socolivemm.io/truc-tiep/pakhtakor-vs-lokomotiv-tashkent-luc-2200-ngay-17-07-2026/"
+          },
+          "active": true,
+          "checkedAt": "2026-07-17T16:28:16.290Z"
+        }
+      ]
+    },
+    {
+      "matchId": "mashal_muborak_fk_kokand_1912_20260717",
+      "homeTeam": "Mashal Muborak",
+      "awayTeam": "FK Kokand 1912",
+      "league": "VĐQG Uzbekistan",
+      "status": "LIVE",
+      "matchUrl": "https://socolivemm.io/truc-tiep/mashal-muborak-vs-fk-kokand-1912-luc-2200-ngay-17-07-2026/",
+      "streams": [
+        {
+          "source": "soco",
+          "type": "m3u8",
+          "quality": "OLER",
+          "url": "https://live2.streambylivepulse.com/live/channel28.m3u8",
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Referer": "https://socolivemm.io/truc-tiep/mashal-muborak-vs-fk-kokand-1912-luc-2200-ngay-17-07-2026/"
+          },
+          "active": true,
+          "checkedAt": "2026-07-17T16:28:17.300Z"
+        },
+        {
+          "source": "soco",
+          "type": "m3u8",
+          "quality": "HD OLER",
+          "url": "https://live3.procdnlive.com/livecdn/channel28.m3u8?auth_key=3000001784305697-0-0-507af8592fe5601620d822cc5c262d79",
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Referer": "https://socolivemm.io/truc-tiep/mashal-muborak-vs-fk-kokand-1912-luc-2200-ngay-17-07-2026/"
+          },
+          "active": true,
+          "checkedAt": "2026-07-17T16:28:17.300Z"
+        }
+      ]
+    },
+    {
+      "matchId": "navbahor_namangan_fc_okmk_olmaliq_20260717",
+      "homeTeam": "Navbahor Namangan",
+      "awayTeam": "FC OKMK Olmaliq",
+      "league": "VĐQG Uzbekistan",
+      "status": "LIVE",
+      "matchUrl": "https://socolivemm.io/truc-tiep/navbahor-namangan-vs-fc-okmk-olmaliq-luc-2200-ngay-17-07-2026/",
+      "streams": [
+        {
+          "source": "soco",
+          "type": "m3u8",
+          "quality": "HD 1",
+          "url": "https://live1.streambylivepulse.com/live/channel15.m3u8?wsSecret=2e8cf7db30b71a89473979c0424a0a8c&wsABSTime=1784348898",
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Referer": "https://socolivemm.io/truc-tiep/navbahor-namangan-vs-fc-okmk-olmaliq-luc-2200-ngay-17-07-2026/"
+          },
+          "active": true,
+          "checkedAt": "2026-07-17T16:28:18.353Z"
+        }
+      ]
+    }
+  ],
+  "matches": [
+    {
+      "matchId": "nu_abff_u19_nu_energetik_bgu_20260717",
+      "league": "Ngoại hạng Nữ Belarus",
+      "leagueAllowed": false,
+      "homeTeam": "Nữ ABFF U19",
+      "awayTeam": "Nữ Energetik-BGU",
+      "date": "2026-07-17",
+      "time": "20:30",
+      "kickoff": "2026-07-17T20:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/nu-abff-u19-vs-nu-energetik-bgu-luc-2100-ngay-17-07-2026/",
+      "kickoffUnix": 1784296800,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Ngoại hạng Nữ Belarus",
+          "homeTeam": "Nữ ABFF U19",
+          "awayTeam": "Nữ Energetik-BGU"
+        }
+      }
+    },
+    {
+      "matchId": "sparta_praha_b_fsv_zwickau_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Sparta Praha B",
+      "awayTeam": "FSV Zwickau",
+      "date": "2026-07-17",
+      "time": "21:00",
+      "kickoff": "2026-07-17T21:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/sparta-praha-b-vs-fsv-zwickau-luc-2130-ngay-17-07-2026/",
+      "kickoffUnix": 1784298600,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Sparta Praha B",
+          "awayTeam": "FSV Zwickau"
+        }
+      }
+    },
+    {
+      "matchId": "pakhtakor_lokomotiv_tashkent_20260717",
+      "league": "VĐQG Uzbekistan",
+      "leagueAllowed": false,
+      "homeTeam": "Pakhtakor",
+      "awayTeam": "Lokomotiv Tashkent",
+      "date": "2026-07-17",
+      "time": "21:30",
+      "kickoff": "2026-07-17T21:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/pakhtakor-vs-lokomotiv-tashkent-luc-2200-ngay-17-07-2026/",
+      "kickoffUnix": 1784300400,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Uzbekistan",
+          "homeTeam": "Pakhtakor",
+          "awayTeam": "Lokomotiv Tashkent"
+        }
+      }
+    },
+    {
+      "matchId": "mashal_muborak_fk_kokand_1912_20260717",
+      "league": "VĐQG Uzbekistan",
+      "leagueAllowed": false,
+      "homeTeam": "Mashal Muborak",
+      "awayTeam": "FK Kokand 1912",
+      "date": "2026-07-17",
+      "time": "21:30",
+      "kickoff": "2026-07-17T21:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/mashal-muborak-vs-fk-kokand-1912-luc-2200-ngay-17-07-2026/",
+      "kickoffUnix": 1784300400,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Uzbekistan",
+          "homeTeam": "Mashal Muborak",
+          "awayTeam": "FK Kokand 1912"
+        }
+      }
+    },
+    {
+      "matchId": "navbahor_namangan_fc_okmk_olmaliq_20260717",
+      "league": "VĐQG Uzbekistan",
+      "leagueAllowed": false,
+      "homeTeam": "Navbahor Namangan",
+      "awayTeam": "FC OKMK Olmaliq",
+      "date": "2026-07-17",
+      "time": "21:30",
+      "kickoff": "2026-07-17T21:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/navbahor-namangan-vs-fc-okmk-olmaliq-luc-2200-ngay-17-07-2026/",
+      "kickoffUnix": 1784300400,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Uzbekistan",
+          "homeTeam": "Navbahor Namangan",
+          "awayTeam": "FC OKMK Olmaliq"
+        }
+      }
+    },
+    {
+      "matchId": "montpellier_le_puy_foot_43_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Montpellier",
+      "awayTeam": "Le Puy Foot 43",
+      "date": "2026-07-17",
+      "time": "21:30",
+      "kickoff": "2026-07-17T21:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/montpellier-vs-le-puy-foot-43-luc-2200-ngay-17-07-2026/",
+      "kickoffUnix": 1784300400,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Montpellier",
+          "awayTeam": "Le Puy Foot 43"
+        }
+      }
+    },
+    {
+      "matchId": "metz_rfc_seraing_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Metz",
+      "awayTeam": "RFC Seraing",
+      "date": "2026-07-17",
+      "time": "21:30",
+      "kickoff": "2026-07-17T21:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/metz-vs-rfc-seraing-luc-2200-ngay-17-07-2026/",
+      "kickoffUnix": 1784300400,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Metz",
+          "awayTeam": "RFC Seraing"
+        }
+      }
+    },
+    {
+      "matchId": "annecy_fc_sion_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Annecy",
+      "awayTeam": "FC Sion",
+      "date": "2026-07-17",
+      "time": "21:30",
+      "kickoff": "2026-07-17T21:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/annecy-vs-fc-sion-luc-2200-ngay-17-07-2026/",
+      "kickoffUnix": 1784300400,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Annecy",
+          "awayTeam": "FC Sion"
+        }
+      }
+    },
+    {
+      "matchId": "paderborn_07_fagiano_okayama_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Paderborn 07",
+      "awayTeam": "Fagiano Okayama",
+      "date": "2026-07-17",
+      "time": "21:30",
+      "kickoff": "2026-07-17T21:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/paderborn-07-vs-fagiano-okayama-luc-2300-ngay-17-07-2026/",
+      "kickoffUnix": 1784300400,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Paderborn 07",
+          "awayTeam": "Fagiano Okayama"
+        }
+      }
+    },
+    {
+      "matchId": "fc_voluntari_fc_botosani_20260717",
+      "league": "VĐQG Romania",
+      "leagueAllowed": false,
+      "homeTeam": "FC Voluntari",
+      "awayTeam": "FC Botosani",
+      "date": "2026-07-17",
+      "time": "22:00",
+      "kickoff": "2026-07-17T22:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/fc-voluntari-vs-fc-botosani-luc-2230-ngay-17-07-2026/",
+      "kickoffUnix": 1784302200,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Romania",
+          "homeTeam": "FC Voluntari",
+          "awayTeam": "FC Botosani"
+        }
+      }
+    },
+    {
+      "matchId": "rennes_guingamp_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Rennes",
+      "awayTeam": "Guingamp",
+      "date": "2026-07-17",
+      "time": "22:00",
+      "kickoff": "2026-07-17T22:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/rennes-vs-guingamp-luc-2230-ngay-17-07-2026/",
+      "kickoffUnix": 1784302200,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Rennes",
+          "awayTeam": "Guingamp"
+        }
+      }
+    },
+    {
+      "matchId": "fc_flora_tallinn_fc_nomme_united_20260717",
+      "league": "VĐQG Estonia",
+      "leagueAllowed": false,
+      "homeTeam": "FC Flora Tallinn",
+      "awayTeam": "FC Nomme United",
+      "date": "2026-07-17",
+      "time": "22:30",
+      "kickoff": "2026-07-17T22:30:00.000+06:30",
+      "status": "END",
+      "live": false,
+      "matchUrl": "https://socolivemm.io/truc-tiep/fc-flora-tallinn-vs-fc-nomme-united-luc-2300-ngay-17-07-2026/",
+      "kickoffUnix": 1784304000,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Estonia",
+          "homeTeam": "FC Flora Tallinn",
+          "awayTeam": "FC Nomme United"
+        }
+      }
+    },
+    {
+      "matchId": "spartak_varna_cska_1948_sofia_20260717",
+      "league": "VĐQG Bulgaria",
+      "leagueAllowed": false,
+      "homeTeam": "Spartak Varna",
+      "awayTeam": "CSKA 1948 Sofia",
+      "date": "2026-07-17",
+      "time": "22:30",
+      "kickoff": "2026-07-17T22:30:00.000+06:30",
+      "status": "END",
+      "live": false,
+      "matchUrl": "https://socolivemm.io/truc-tiep/spartak-varna-vs-cska-1948-sofia-luc-2300-ngay-17-07-2026/",
+      "kickoffUnix": 1784304000,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Bulgaria",
+          "homeTeam": "Spartak Varna",
+          "awayTeam": "CSKA 1948 Sofia"
+        }
+      }
+    },
+    {
+      "matchId": "nk_nafta_fc_koper_20260717",
+      "league": "VĐQG Slovenia",
+      "leagueAllowed": false,
+      "homeTeam": "NK Nafta",
+      "awayTeam": "FC Koper",
+      "date": "2026-07-17",
+      "time": "22:30",
+      "kickoff": "2026-07-17T22:30:00.000+06:30",
+      "status": "END",
+      "live": false,
+      "matchUrl": "https://socolivemm.io/truc-tiep/nk-nafta-vs-fc-koper-luc-2300-ngay-17-07-2026/",
+      "kickoffUnix": 1784304000,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Slovenia",
+          "homeTeam": "NK Nafta",
+          "awayTeam": "FC Koper"
+        }
+      }
+    },
+    {
+      "matchId": "klubi_04_helsinki_fc_haka_20260717",
+      "league": "Hạng 2 Phần Lan",
+      "leagueAllowed": false,
+      "homeTeam": "Klubi 04 Helsinki",
+      "awayTeam": "FC Haka",
+      "date": "2026-07-17",
+      "time": "22:30",
+      "kickoff": "2026-07-17T22:30:00.000+06:30",
+      "status": "END",
+      "live": false,
+      "matchUrl": "https://socolivemm.io/truc-tiep/klubi-04-helsinki-vs-fc-haka-luc-2300-ngay-17-07-2026/",
+      "kickoffUnix": 1784304000,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Hạng 2 Phần Lan",
+          "homeTeam": "Klubi 04 Helsinki",
+          "awayTeam": "FC Haka"
+        }
+      }
+    },
+    {
+      "matchId": "wolfsberger_ac_kapfenberg_sv_1919_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Wolfsberger AC",
+      "awayTeam": "Kapfenberg SV 1919",
+      "date": "2026-07-17",
+      "time": "22:30",
+      "kickoff": "2026-07-17T22:30:00.000+06:30",
+      "status": "END",
+      "live": false,
+      "matchUrl": "https://socolivemm.io/truc-tiep/wolfsberger-ac-vs-kapfenberg-sv-1919-luc-2200-ngay-17-07-2026/",
+      "kickoffUnix": 1784304000,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Wolfsberger AC",
+          "awayTeam": "Kapfenberg SV 1919"
+        }
+      }
+    },
+    {
+      "matchId": "kapylan_pallo_sjk_akatemia_20260717",
+      "league": "Hạng 2 Phần Lan",
+      "leagueAllowed": false,
+      "homeTeam": "Käpylän Pallo",
+      "awayTeam": "SJK Akatemia",
+      "date": "2026-07-17",
+      "time": "22:30",
+      "kickoff": "2026-07-17T22:30:00.000+06:30",
+      "status": "END",
+      "live": false,
+      "matchUrl": "https://socolivemm.io/truc-tiep/kapylan-pallo-vs-sjk-akatemia-luc-2300-ngay-17-07-2026/",
+      "kickoffUnix": 1784304000,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Hạng 2 Phần Lan",
+          "homeTeam": "Käpylän Pallo",
+          "awayTeam": "SJK Akatemia"
+        }
+      }
+    },
+    {
+      "matchId": "wsg_tirol_hertha_berlin_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "WSG Tirol",
+      "awayTeam": "Hertha Berlin",
+      "date": "2026-07-17",
+      "time": "23:00",
+      "kickoff": "2026-07-17T23:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/wsg-tirol-vs-hertha-berlin-luc-2330-ngay-17-07-2026/",
+      "kickoffUnix": 1784305800,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "WSG Tirol",
+          "awayTeam": "Hertha Berlin"
+        }
+      }
+    },
+    {
+      "matchId": "eldense_millwall_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Eldense",
+      "awayTeam": "Millwall",
+      "date": "2026-07-17",
+      "time": "23:00",
+      "kickoff": "2026-07-17T23:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/eldense-vs-millwall-luc-2330-ngay-17-07-2026/",
+      "kickoffUnix": 1784305800,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Eldense",
+          "awayTeam": "Millwall"
+        }
+      }
+    },
+    {
+      "matchId": "fortuna_sittard_olympiakos_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Fortuna Sittard",
+      "awayTeam": "Olympiakos",
+      "date": "2026-07-17",
+      "time": "23:00",
+      "kickoff": "2026-07-17T23:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/fortuna-sittard-vs-olympiakos-luc-2330-ngay-17-07-2026/",
+      "kickoffUnix": 1784305800,
+      "sectionKey": "today",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Fortuna Sittard",
+          "awayTeam": "Olympiakos"
+        }
+      }
+    },
+    {
+      "matchId": "fc_viktoria_koln_sv_elversberg_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "FC Viktoria Köln",
+      "awayTeam": "SV Elversberg",
+      "date": "2026-07-17",
+      "time": "23:30",
+      "kickoff": "2026-07-17T23:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/fc-viktoria-koln-vs-sv-elversberg-luc-2300-ngay-17-07-2026/",
+      "kickoffUnix": 1784307600,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "FC Viktoria Köln",
+          "awayTeam": "SV Elversberg"
+        }
+      }
+    },
+    {
+      "matchId": "club_brugge_sc_heerenveen_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Club Brugge",
+      "awayTeam": "SC Heerenveen",
+      "date": "2026-07-17",
+      "time": "23:30",
+      "kickoff": "2026-07-17T23:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/club-brugge-vs-sc-heerenveen-luc-0000-ngay-18-07-2026/",
+      "kickoffUnix": 1784307600,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Club Brugge",
+          "awayTeam": "SC Heerenveen"
+        }
+      }
+    },
+    {
+      "matchId": "mjallby_aif_vasteras_sk_fk_20260717",
+      "league": "VĐQG Thụy Điển",
+      "leagueAllowed": false,
+      "homeTeam": "Mjallby AIF",
+      "awayTeam": "Vasteras SK FK",
+      "date": "2026-07-17",
+      "time": "23:30",
+      "kickoff": "2026-07-17T23:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/mjallby-aif-vs-vasteras-sk-fk-luc-0000-ngay-18-07-2026/",
+      "kickoffUnix": 1784307600,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Thụy Điển",
+          "homeTeam": "Mjallby AIF",
+          "awayTeam": "Vasteras SK FK"
+        }
+      }
+    },
+    {
+      "matchId": "ifk_goteborg_brommapojkarna_20260717",
+      "league": "VĐQG Thụy Điển",
+      "leagueAllowed": false,
+      "homeTeam": "IFK Goteborg",
+      "awayTeam": "Brommapojkarna",
+      "date": "2026-07-17",
+      "time": "23:30",
+      "kickoff": "2026-07-17T23:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/ifk-goteborg-vs-brommapojkarna-luc-0000-ngay-18-07-2026/",
+      "kickoffUnix": 1784307600,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Thụy Điển",
+          "homeTeam": "IFK Goteborg",
+          "awayTeam": "Brommapojkarna"
+        }
+      }
+    },
+    {
+      "matchId": "winterthur_union_berlin_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Winterthur",
+      "awayTeam": "Union Berlin",
+      "date": "2026-07-17",
+      "time": "23:30",
+      "kickoff": "2026-07-17T23:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/winterthur-vs-union-berlin-luc-0000-ngay-18-07-2026/",
+      "kickoffUnix": 1784307600,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Winterthur",
+          "awayTeam": "Union Berlin"
+        }
+      }
+    },
+    {
+      "matchId": "nu_syria_u17_nu_a_rap_xe_ut_u17_20260717",
+      "league": "WAFF WU17",
+      "leagueAllowed": false,
+      "homeTeam": "Nữ Syria U17",
+      "awayTeam": "Nữ Ả Rập Xê Út U17",
+      "date": "2026-07-17",
+      "time": "23:30",
+      "kickoff": "2026-07-17T23:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/nu-syria-u17-vs-nu-a-rap-xe-ut-u17-luc-0000-ngay-18-07-2026/",
+      "kickoffUnix": 1784307600,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "WAFF WU17",
+          "homeTeam": "Nữ Syria U17",
+          "awayTeam": "Nữ Ả Rập Xê Út U17"
+        }
+      }
+    },
+    {
+      "matchId": "getafe_reading_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Getafe",
+      "awayTeam": "Reading",
+      "date": "2026-07-17",
+      "time": "23:30",
+      "kickoff": "2026-07-17T23:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/getafe-vs-reading-luc-0000-ngay-18-07-2026/",
+      "kickoffUnix": 1784307600,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Getafe",
+          "awayTeam": "Reading"
+        }
+      }
+    },
+    {
+      "matchId": "fc_utrecht_v_varen_nagasaki_20260717",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "FC Utrecht",
+      "awayTeam": "V-Varen Nagasaki",
+      "date": "2026-07-17",
+      "time": "23:30",
+      "kickoff": "2026-07-17T23:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/fc-utrecht-vs-v-varen-nagasaki-luc-0000-ngay-18-07-2026/",
+      "kickoffUnix": 1784307600,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "FC Utrecht",
+          "awayTeam": "V-Varen Nagasaki"
+        }
+      }
+    },
+    {
+      "matchId": "bodo_glimt_fredrikstad_20260717",
+      "league": "VĐQG Na Uy",
+      "leagueAllowed": false,
+      "homeTeam": "Bodo Glimt",
+      "awayTeam": "Fredrikstad",
+      "date": "2026-07-17",
+      "time": "23:45",
+      "kickoff": "2026-07-17T23:45:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/bodo-glimt-vs-fredrikstad-luc-0015-ngay-18-07-2026/",
+      "kickoffUnix": 1784308500,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Na Uy",
+          "homeTeam": "Bodo Glimt",
+          "awayTeam": "Fredrikstad"
+        }
+      }
+    },
+    {
+      "matchId": "rapperswil_jona_sc_cham_20260718",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Rapperswil Jona",
+      "awayTeam": "SC Cham",
+      "date": "2026-07-18",
+      "time": "00:00",
+      "kickoff": "2026-07-18T00:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/rapperswil-jona-vs-sc-cham-luc-0030-ngay-18-07-2026/",
+      "kickoffUnix": 1784309400,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Rapperswil Jona",
+          "awayTeam": "SC Cham"
+        }
+      }
+    },
+    {
+      "matchId": "sc_vorwarts_wacker_billstedt_eimsbutteler_tv_20260718",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "SC Vorwarts Wacker Billstedt",
+      "awayTeam": "Eimsbutteler TV",
+      "date": "2026-07-18",
+      "time": "00:00",
+      "kickoff": "2026-07-18T00:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/sc-vorwarts-wacker-billstedt-vs-eimsbutteler-tv-luc-0030-ngay-18-07-2026/",
+      "kickoffUnix": 1784309400,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "SC Vorwarts Wacker Billstedt",
+          "awayTeam": "Eimsbutteler TV"
+        }
+      }
+    },
+    {
+      "matchId": "albion_fc_ca_juventud_20260718",
+      "league": "VĐQG Uruguay",
+      "leagueAllowed": false,
+      "homeTeam": "Albion FC",
+      "awayTeam": "CA Juventud",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/albion-fc-vs-ca-juventud-luc-0100-ngay-18-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Uruguay",
+          "homeTeam": "Albion FC",
+          "awayTeam": "CA Juventud"
+        }
+      }
+    },
+    {
+      "matchId": "fc_cajamarca_juan_pablo_ii_20260718",
+      "league": "VĐQG Peru",
+      "leagueAllowed": false,
+      "homeTeam": "FC Cajamarca",
+      "awayTeam": "Juan Pablo II",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/fc-cajamarca-vs-juan-pablo-ii-luc-0100-ngay-18-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Peru",
+          "homeTeam": "FC Cajamarca",
+          "awayTeam": "Juan Pablo II"
+        }
+      }
+    },
+    {
+      "matchId": "crvena_zvezda_macva_sabac_20260718",
+      "league": "VĐQG Serbia",
+      "leagueAllowed": false,
+      "homeTeam": "Crvena Zvezda",
+      "awayTeam": "Macva Sabac",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/crvena-zvezda-vs-macva-sabac-luc-0100-ngay-18-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Serbia",
+          "homeTeam": "Crvena Zvezda",
+          "awayTeam": "Macva Sabac"
+        }
+      }
+    },
+    {
+      "matchId": "fk_zeleznicar_radnicki_nis_20260718",
+      "league": "VĐQG Serbia",
+      "leagueAllowed": false,
+      "homeTeam": "FK Zeleznicar",
+      "awayTeam": "Radnicki Nis",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/fk-zeleznicar-vs-radnicki-nis-luc-0100-ngay-18-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Serbia",
+          "homeTeam": "FK Zeleznicar",
+          "awayTeam": "Radnicki Nis"
+        }
+      }
+    },
+    {
+      "matchId": "umraniyespor_galatasaray_20260718",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Umraniyespor",
+      "awayTeam": "Galatasaray",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/umraniyespor-vs-galatasaray-luc-0100-ngay-18-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Umraniyespor",
+          "awayTeam": "Galatasaray"
+        }
+      }
+    },
+    {
+      "matchId": "st_gallen_norwich_city_20260718",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "St. Gallen",
+      "awayTeam": "Norwich City",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/st-gallen-vs-norwich-city-luc-0100-ngay-18-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "St. Gallen",
+          "awayTeam": "Norwich City"
+        }
+      }
+    },
+    {
+      "matchId": "almirante_brown_ca_estudiantes_20260718",
+      "league": "Hạng 2 Argentina",
+      "leagueAllowed": false,
+      "homeTeam": "Almirante Brown",
+      "awayTeam": "CA Estudiantes",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/almirante-brown-vs-ca-estudiantes-luc-0100-ngay-18-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Hạng 2 Argentina",
+          "homeTeam": "Almirante Brown",
+          "awayTeam": "CA Estudiantes"
+        }
+      }
+    },
+    {
+      "matchId": "deportivo_maipu_san_martin_tucuman_20260718",
+      "league": "Hạng 2 Argentina",
+      "leagueAllowed": false,
+      "homeTeam": "Deportivo Maipu",
+      "awayTeam": "San Martin Tucuman",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/deportivo-maipu-vs-san-martin-tucuman-luc-0100-ngay-18-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Hạng 2 Argentina",
+          "homeTeam": "Deportivo Maipu",
+          "awayTeam": "San Martin Tucuman"
+        }
+      }
+    },
+    {
+      "matchId": "nu_belgrano_nu_river_plate_20260718",
+      "league": "VĐQG Nữ Argentine",
+      "leagueAllowed": false,
+      "homeTeam": "Nữ Belgrano",
+      "awayTeam": "Nữ River Plate",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/nu-belgrano-vs-nu-river-plate-luc-0100-ngay-20-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Nữ Argentine",
+          "homeTeam": "Nữ Belgrano",
+          "awayTeam": "Nữ River Plate"
+        }
+      }
+    },
+    {
+      "matchId": "nu_ca_independiente_nu_gimnasia_lp_20260718",
+      "league": "VĐQG Nữ Argentine",
+      "leagueAllowed": false,
+      "homeTeam": "Nữ CA Independiente",
+      "awayTeam": "Nữ Gimnasia LP",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/nu-ca-independiente-vs-nu-gimnasia-lp-luc-0100-ngay-20-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Nữ Argentine",
+          "homeTeam": "Nữ CA Independiente",
+          "awayTeam": "Nữ Gimnasia LP"
+        }
+      }
+    },
+    {
+      "matchId": "austria_vienna_paksi_fc_20260718",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Austria Vienna",
+      "awayTeam": "Paksi FC",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/austria-vienna-vs-paksi-fc-luc-0100-ngay-18-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Austria Vienna",
+          "awayTeam": "Paksi FC"
+        }
+      }
+    },
+    {
+      "matchId": "west_brom_bromley_20260718",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "West Brom",
+      "awayTeam": "Bromley",
+      "date": "2026-07-18",
+      "time": "00:30",
+      "kickoff": "2026-07-18T00:30:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/west-brom-vs-bromley-luc-0100-ngay-18-07-2026/",
+      "kickoffUnix": 1784311200,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "West Brom",
+          "awayTeam": "Bromley"
+        }
+      }
+    },
+    {
+      "matchId": "levski_sofia_fc_dunav_ruse_20260718",
+      "league": "VĐQG Bulgaria",
+      "leagueAllowed": false,
+      "homeTeam": "Levski Sofia",
+      "awayTeam": "FC Dunav Ruse",
+      "date": "2026-07-18",
+      "time": "00:45",
+      "kickoff": "2026-07-18T00:45:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/levski-sofia-vs-fc-dunav-ruse-luc-0115-ngay-18-07-2026/",
+      "kickoffUnix": 1784312100,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Bulgaria",
+          "homeTeam": "Levski Sofia",
+          "awayTeam": "FC Dunav Ruse"
+        }
+      }
+    },
+    {
+      "matchId": "nk_publikum_celje_ns_mura_20260718",
+      "league": "VĐQG Slovenia",
+      "leagueAllowed": false,
+      "homeTeam": "NK Publikum Celje",
+      "awayTeam": "NS Mura",
+      "date": "2026-07-18",
+      "time": "00:45",
+      "kickoff": "2026-07-18T00:45:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/nk-publikum-celje-vs-ns-mura-luc-0115-ngay-18-07-2026/",
+      "kickoffUnix": 1784312100,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Slovenia",
+          "homeTeam": "NK Publikum Celje",
+          "awayTeam": "NS Mura"
+        }
+      }
+    },
+    {
+      "matchId": "lugano_vaduz_20260718",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Lugano",
+      "awayTeam": "Vaduz",
+      "date": "2026-07-18",
+      "time": "00:45",
+      "kickoff": "2026-07-18T00:45:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/lugano-vs-vaduz-luc-0115-ngay-18-07-2026/",
+      "kickoffUnix": 1784312100,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Lugano",
+          "awayTeam": "Vaduz"
+        }
+      }
+    },
+    {
+      "matchId": "fcsb_arges_20260718",
+      "league": "VĐQG Romania",
+      "leagueAllowed": false,
+      "homeTeam": "FCSB",
+      "awayTeam": "Arges",
+      "date": "2026-07-18",
+      "time": "01:00",
+      "kickoff": "2026-07-18T01:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/fcsb-vs-arges-luc-0130-ngay-18-07-2026/",
+      "kickoffUnix": 1784313000,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "VĐQG Romania",
+          "homeTeam": "FCSB",
+          "awayTeam": "Arges"
+        }
+      }
+    },
+    {
+      "matchId": "accrington_stanley_bradford_city_20260718",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Accrington Stanley",
+      "awayTeam": "Bradford City",
+      "date": "2026-07-18",
+      "time": "01:00",
+      "kickoff": "2026-07-18T01:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/accrington-stanley-vs-bradford-city-luc-0130-ngay-18-07-2026/",
+      "kickoffUnix": 1784313000,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Accrington Stanley",
+          "awayTeam": "Bradford City"
+        }
+      }
+    },
+    {
+      "matchId": "longridge_town_fc_clitheroe_20260718",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Longridge Town FC",
+      "awayTeam": "Clitheroe",
+      "date": "2026-07-18",
+      "time": "01:00",
+      "kickoff": "2026-07-18T01:00:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/longridge-town-fc-vs-clitheroe-luc-0130-ngay-18-07-2026/",
+      "kickoffUnix": 1784313000,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Longridge Town FC",
+          "awayTeam": "Clitheroe"
+        }
+      }
+    },
+    {
+      "matchId": "benfica_villarreal_20260718",
+      "league": "Giao Hữu CLB",
+      "leagueAllowed": false,
+      "homeTeam": "Benfica",
+      "awayTeam": "Villarreal",
+      "date": "2026-07-18",
+      "time": "01:15",
+      "kickoff": "2026-07-18T01:15:00.000+06:30",
+      "status": "LIVE",
+      "live": true,
+      "matchUrl": "https://socolivemm.io/truc-tiep/benfica-vs-villarreal-luc-0145-ngay-18-07-2026/",
+      "kickoffUnix": 1784313900,
+      "sectionKey": "tomorrow",
+      "source": "soco",
+      "originalNames": {
+        "soco": {
+          "league": "Giao Hữu CLB",
+          "homeTeam": "Benfica",
+          "awayTeam": "Villarreal"
+        }
+      }
+    }
+  ]
+}

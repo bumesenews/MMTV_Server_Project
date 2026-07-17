@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-16T12:00:00.000+06:30",
+  "timezone": "Asia/Yangon",
+  "matchCount": 1,
+  "matches": [
+    {
+      "matchId": "manchester_united_liverpool_20260716",
+      "league": "English Premier League (EPL)",
+      "homeTeam": "Manchester United",
+      "awayTeam": "Liverpool",
+      "date": "2026-07-16",
+      "time": "20:00",
+      "kickoff": "2026-07-16T20:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "hasStreams": true,
+      "streamCount": 2,
+      "originalNames": {
+        "fotmob": {
+          "league": "Premier League",
+          "homeTeam": "Manchester United",
+          "awayTeam": "Liverpool"
+        },
+        "luongson": {
+          "league": "EPL",
+          "homeTeam": "Man Utd",
+          "awayTeam": "Liverpool FC"
+        },
+        "sourceB": "曼彻斯特联"
+      },
+      "sourcePages": {
+        "luongson": "https://luongsontvv.org/example",
+        "socolive": "https://socoliveku.cc/example"
+      },
+      "streams": [
+        {
+          "source": "luongson",
+          "type": "m3u8",
+          "quality": "HD",
+          "url": "https://example.com/live/master.m3u8",
+          "headers": {
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://luongsontvv.org/"
+          },
+          "active": true,
+          "checkedAt": "2026-07-16T12:00:00.000Z"
+        },
+        {
+          "source": "socolive",
+          "type": "m3u8",
+          "quality": "Full HD",
+          "url": "https://example.com/live/fullhd.m3u8",
+          "headers": {
+            "User-Agent": "Mozilla/5.0",
+            "Referer": "https://socoliveku.cc/"
+          },
+          "active": true,
+          "checkedAt": "2026-07-16T12:00:00.000Z"
+        }
+      ],
+      "updatedAt": "2026-07-16T12:00:00.000Z"
+    }
+  ],
+  "meta": {
+    "liveCount": 0,
+    "scheduledCount": 1,
+    "endedCount": 0
+  }
+}

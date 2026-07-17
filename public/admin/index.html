@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Football Live Admin</title>
+  <link rel="stylesheet" href="/admin/styles.css" />
+</head>
+<body>
+  <div id="login-view" class="login-wrap">
+    <form id="login-form" class="login-card">
+      <h1>Football Live</h1>
+      <p class="muted">Admin Panel</p>
+      <label>Username<input name="username" autocomplete="username" required /></label>
+      <label>Password<input name="password" type="password" autocomplete="current-password" required /></label>
+      <button type="submit">Sign in</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </div>
+
+  <div id="app-view" class="app hidden">
+    <aside class="sidebar">
+      <div class="brand">
+        <strong>Football Live</strong>
+        <span>Admin</span>
+      </div>
+      <nav id="nav">
+        <button data-page="dashboard" class="active">Dashboard</button>
+        <button data-page="matches">Matches</button>
+        <button data-page="streams">Manual Streams</button>
+        <button data-page="leagues">Leagues</button>
+        <button data-page="sources">Sources</button>
+        <button data-page="config">Remote Config</button>
+        <button data-page="notifications">Notifications</button>
+        <button data-page="logs">Logs</button>
+        <button data-page="users">Users</button>
+      </nav>
+      <div class="sidebar-foot">
+        <div id="whoami" class="muted"></div>
+        <button id="btn-logout" class="ghost">Logout</button>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button id="btn-menu" class="ghost menu-btn" aria-label="Menu">☰</button>
+        <h2 id="page-title">Dashboard</h2>
+        <div class="top-actions">
+          <button id="btn-run-pipeline" class="secondary">Run Scraper</button>
+          <button id="btn-refresh" class="ghost">Refresh</button>
+        </div>
+      </header>
+      <div id="toast" class="toast hidden"></div>
+      <section id="page" class="page"></section>
+    </main>
+  </div>
+
+  <script src="/admin/app.js"></script>
+</body>
+</html>

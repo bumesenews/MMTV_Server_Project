@@ -1,0 +1,133 @@
+{
+  "allowedLeagues": [
+    {
+      "standardName": "UEFA Champions League",
+      "aliases": [
+        "UEFA Champions League",
+        "Champions League",
+        "UCL",
+        "欧冠",
+        "UEFA CL",
+        "Champions League UEFA",
+        "C1",
+        "欧洲冠军联赛"
+      ]
+    },
+    {
+      "standardName": "UEFA Europa League",
+      "aliases": [
+        "UEFA Europa League",
+        "Europa League",
+        "UEL",
+        "欧联",
+        "UEFA EL",
+        "Europa League UEFA",
+        "欧洲联赛"
+      ]
+    },
+    {
+      "standardName": "English Premier League (EPL)",
+      "aliases": [
+        "English Premier League (EPL)",
+        "English Premier League",
+        "Premier League",
+        "EPL",
+        "英超",
+        "England Premier League",
+        "Premier League England",
+        "PL"
+      ]
+    },
+    {
+      "standardName": "La Liga",
+      "aliases": [
+        "La Liga",
+        "LaLiga",
+        "Spanish La Liga",
+        "Spain La Liga",
+        "La Liga EA Sports",
+        "西甲",
+        "Liga BBVA",
+        "Liga Santander"
+      ]
+    },
+    {
+      "standardName": "Serie A",
+      "aliases": [
+        "Serie A",
+        "Serie A TIM",
+        "Italian Serie A",
+        "Italy Serie A",
+        "意甲",
+        "Serie A Italy"
+      ]
+    },
+    {
+      "standardName": "Bundesliga",
+      "aliases": [
+        "Bundesliga",
+        "German Bundesliga",
+        "Germany Bundesliga",
+        "德甲",
+        "Bundesliga 1",
+        "1. Bundesliga"
+      ]
+    },
+    {
+      "standardName": "Ligue 1",
+      "aliases": [
+        "Ligue 1",
+        "Ligue1",
+        "French Ligue 1",
+        "France Ligue 1",
+        "法甲",
+        "Ligue 1 Uber Eats"
+      ]
+    },
+    {
+      "standardName": "FIFA World Cup",
+      "aliases": [
+        "FIFA World Cup",
+        "World Cup",
+        "World Cup FIFA",
+        "世界杯",
+        "FIFA WC"
+      ]
+    },
+    {
+      "standardName": "UEFA Euro",
+      "aliases": [
+        "UEFA Euro",
+        "Euro",
+        "European Championship",
+        "EURO",
+        "欧洲杯",
+        "UEFA European Championship"
+      ]
+    },
+    {
+      "standardName": "Copa América",
+      "aliases": [
+        "Copa América",
+        "Copa America",
+        "CONMEBOL Copa América",
+        "美洲杯",
+        "Copa America CONMEBOL"
+      ]
+    },
+    {
+      "standardName": "V.League 1 (Vietnam)",
+      "aliases": [
+        "V.League 1 (Vietnam)",
+        "V.League 1",
+        "V.League",
+        "Vietnam League",
+        "V League 1",
+        "V-League",
+        "V.League Vietnam",
+        "越南联赛",
+        "V.League 1 Vietnam"
+      ]
+    }
+  ]
+}

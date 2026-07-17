@@ -1,0 +1,92 @@
+{
+  "teams": [
+    {
+      "standardName": "Manchester United",
+      "aliases": ["Manchester United", "Man Utd", "Man United", "Man_U", "曼彻斯特联", "MU", "ManUtd"]
+    },
+    {
+      "standardName": "Manchester City",
+      "aliases": ["Manchester City", "Man City", "Man_City", "曼城", "MCFC", "ManCity"]
+    },
+    {
+      "standardName": "Liverpool",
+      "aliases": ["Liverpool", "Liverpool FC", "LFC", "利物浦", "Liverpool F.C."]
+    },
+    {
+      "standardName": "Arsenal",
+      "aliases": ["Arsenal", "Arsenal FC", "AFC", "阿森纳", "The Gunners"]
+    },
+    {
+      "standardName": "Chelsea",
+      "aliases": ["Chelsea", "Chelsea FC", "CFC", "切尔西"]
+    },
+    {
+      "standardName": "Tottenham Hotspur",
+      "aliases": ["Tottenham Hotspur", "Tottenham", "Spurs", "THFC", "热刺"]
+    },
+    {
+      "standardName": "Newcastle United",
+      "aliases": ["Newcastle United", "Newcastle", "NUFC", "纽卡斯尔"]
+    },
+    {
+      "standardName": "Aston Villa",
+      "aliases": ["Aston Villa", "Villa", "AVFC", "阿斯顿维拉"]
+    },
+    {
+      "standardName": "West Ham United",
+      "aliases": ["West Ham United", "West Ham", "WHU", "西汉姆"]
+    },
+    {
+      "standardName": "Brighton & Hove Albion",
+      "aliases": ["Brighton & Hove Albion", "Brighton", "BHA", "布莱顿"]
+    },
+    {
+      "standardName": "Real Madrid",
+      "aliases": ["Real Madrid", "Real Madrid CF", "RMA", "皇马", "Madrid"]
+    },
+    {
+      "standardName": "Barcelona",
+      "aliases": ["Barcelona", "FC Barcelona", "Barca", "Barça", "巴萨", "FCB"]
+    },
+    {
+      "standardName": "Atletico Madrid",
+      "aliases": ["Atletico Madrid", "Atlético Madrid", "Atleti", "ATM", "马竞"]
+    },
+    {
+      "standardName": "Bayern Munich",
+      "aliases": ["Bayern Munich", "FC Bayern", "Bayern", "拜仁", "Bayern München", "FCBAYERN"]
+    },
+    {
+      "standardName": "Borussia Dortmund",
+      "aliases": ["Borussia Dortmund", "Dortmund", "BVB", "多特蒙德"]
+    },
+    {
+      "standardName": "Inter Milan",
+      "aliases": ["Inter Milan", "Inter", "FC Internazionale", "Internazionale", "国际米兰", "Inter Milano"]
+    },
+    {
+      "standardName": "AC Milan",
+      "aliases": ["AC Milan", "Milan", "ACM", "AC米兰", "Milan AC"]
+    },
+    {
+      "standardName": "Juventus",
+      "aliases": ["Juventus", "Juve", "JUVE", "尤文图斯"]
+    },
+    {
+      "standardName": "Napoli",
+      "aliases": ["Napoli", "SSC Napoli", "那不勒斯"]
+    },
+    {
+      "standardName": "Paris Saint-Germain",
+      "aliases": ["Paris Saint-Germain", "PSG", "Paris SG", "巴黎圣日耳曼", "Paris Saint Germain"]
+    },
+    {
+      "standardName": "Ha Noi FC",
+      "aliases": ["Ha Noi FC", "Hanoi FC", "Hà Nội FC", "Ha Noi", "河内FC"]
+    },
+    {
+      "standardName": "Ho Chi Minh City FC",
+      "aliases": ["Ho Chi Minh City FC", "HCMC FC", "TP.HCM", "胡志明市FC", "Ho Chi Minh City"]
+    }
+  ]
+}
