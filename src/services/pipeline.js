@@ -9,12 +9,10 @@ const { GitHubService } = require('./githubService');
 const { generateFlutterJson } = require('./jsonGenerator');
 const { buildDeliveryBundle } = require('./deliveryFormats');
 const { MatchMerger } = require('./matchMerger');
-const { LuongSonSource } = require('../sources/luongson');
-const { SocoliveSource } = require('../sources/socolive');
-const { XoilacSource } = require('../sources/xoilac');
 const { SocoSource } = require('../sources/soco');
 const { HighlightSource } = require('../sources/highlight');
 const { MyanmarTvSource } = require('../sources/myanmartv');
+const { buildEngineStreamingSources } = require('../sources/registry');
 
 /**
  * Main AWS processing pipeline:
@@ -40,27 +38,19 @@ class Pipeline {
   }
 
   buildStreamingSources(sourcesDoc) {
-    const loader = this.configLoader;
-    const common = { browserManager: this.browser, normalizer: this.normalizer };
     let doc = sourcesDoc;
     if (this.admin?.sources) {
       doc = this.admin.sources.applyToSourcesDoc(sourcesDoc);
     }
 
-    const defs = [
-      { name: 'luongson', Cls: LuongSonSource },
-      { name: 'socolive', Cls: SocoliveSource },
-      { name: 'xoilac', Cls: XoilacSource },
-    ];
-
-    return defs
-      .map(({ name, Cls }) => {
-        const config = loader.getSourceConfig(doc, name);
-        if (!config || config.enabled === false) return null;
-        if (this.admin?.sources && !this.admin.sources.isEnabled(name)) return null;
-        return new Cls({ ...common, config });
-      })
-      .filter(Boolean);
+    // Config-driven: every enabled type=streaming source (except soco/http)
+    // is collected in parallel across matches — never stop after first hit.
+    return buildEngineStreamingSources(doc, {
+      browserManager: this.browser,
+      normalizer: this.normalizer,
+      isEnabled: (name) =>
+        this.admin?.sources ? this.admin.sources.isEnabled(name) : true,
+    });
   }
 
   async run({ forceStreamCheck = false } = {}) {
@@ -152,6 +142,7 @@ class Pipeline {
           {
             configOrigin: config.origin,
             sources: sourceNames,
+            sourcesDoc: config.sources,
           },
           { actor: 'scraper', extras }
         );
@@ -273,11 +264,12 @@ class Pipeline {
 
   _recordSourceStats(matches) {
     if (!this.admin?.sources) return;
-    const counts = { luongson: 0, socolive: 0, xoilac: 0, soco: 0 };
+    const counts = {};
     for (const m of matches || []) {
       for (const s of m.streams || []) {
         const name = String(s.source || '').toLowerCase();
-        if (counts[name] != null && s.active !== false) counts[name] += 1;
+        if (!name || s.active === false) continue;
+        counts[name] = (counts[name] || 0) + 1;
       }
     }
     for (const [name, count] of Object.entries(counts)) {
@@ -288,14 +280,11 @@ class Pipeline {
   _isSourceEnabled(sourcesDoc, name) {
     const cfg = this.configLoader.getSourceConfig(sourcesDoc, name);
     if (cfg && cfg.enabled === false) return false;
-    if (this.admin?.sources && ['luongson', 'socolive', 'xoilac', 'soco', 'highlight', 'myanmartv'].includes(name)) {
-      // admin toggle only applies when source exists in admin store; default true
-      if (typeof this.admin.sources.isEnabled === 'function') {
-        try {
-          return this.admin.sources.isEnabled(name);
-        } catch {
-          return true;
-        }
+    if (this.admin?.sources && typeof this.admin.sources.isEnabled === 'function') {
+      try {
+        return this.admin.sources.isEnabled(name);
+      } catch {
+        return true;
       }
     }
     return true;
@@ -336,6 +325,7 @@ class Pipeline {
               Referer: l.reffer || sm.matchUrl || '',
             },
             active: true,
+            priority: Number(cfg.priority || 0),
             checkedAt: new Date().toISOString(),
           }));
         if (!streams.length) continue;

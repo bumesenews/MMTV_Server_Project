@@ -1,0 +1,92 @@
+[
+  {
+    "title": "5 Plus",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/5plus-80x80-92d.jpg",
+    "streamUrl": "https://streammain.myanmartvchannels.com:999/website-5plus-stream/website-5plus-stream/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzYgQU0maGFzaF92YWx1ZT14MDRnU29RNjE2a1pkdVV2cDEvYVpRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "Channel 7",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/channel7-80x80-83b.jpg",
+    "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/channel7/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1wSk5mZTh0c2lDeHNFYzc4RGE1MFZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "Channel 9",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/channel9-80x80-7b1.jpg",
+    "streamUrl": "https://streammain.myanmartvchannels.com:999/website-channel9-stream/website-channel9-stream/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1wSk5mZTh0c2lDeHNFYzc4RGE1MFZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "Channel K",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/channelk-80x80-d7c.jpg",
+    "streamUrl": "https://l1-xl1.myanmarnet.com/relay/channelk/ch1/stream.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1wSk5mZTh0c2lDeHNFYzc4RGE1MFZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "Channel ME",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channelicon/mrtvent-80x80-26a.jpg",
+    "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mrtv-entertainment/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1wSk5mZTh0c2lDeHNFYzc4RGE1MFZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "DVB",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/dvb-80x80-064.jpg",
+    "streamUrl": "https://live-stream.dvb.no/hls/stream.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1wSk5mZTh0c2lDeHNFYzc4RGE1MFZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "Farmer",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/farmer-80x80-bfa.jpg",
+    "streamUrl": "https://mrtvott.com/cache/MRTV-FARMER/master.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1Ja1FPL0JUZEZVWmM1enVoaHZhME13PT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "Fortune",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/fortune-80x80-0b5.jpg",
+    "streamUrl": "https://streammain.myanmartvchannels.com:999/website-fortune-stream/website-fortune-stream/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1wSk5mZTh0c2lDeHNFYzc4RGE1MFZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "Hluttaw",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/hluttaw-80x80-b92.jpg",
+    "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/hluttaw/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1wSk5mZTh0c2lDeHNFYzc4RGE1MFZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "M Channel",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mchannel-80x80-1da.jpg",
+    "streamUrl": "https://streammain.myanmartvchannels.com:999/website-ytv-stream/website-ytv-stream/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1wSk5mZTh0c2lDeHNFYzc4RGE1MFZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "Mahar",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mahar-80x80-1ee.jpg",
+    "streamUrl": "https://tv.mahar.live/mahar/website.stream/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1wSk5mZTh0c2lDeHNFYzc4RGE1MFZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "Mahar BawDi",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/maharbawdi-80x80-ed0.jpg",
+    "streamUrl": "https://pplive.comquas.com:5443/LiveApp/streams/rHEBIW7pjQLU1677679374164.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzggQU0maGFzaF92YWx1ZT1WRkJQVHp6eDFmZGZyeVRxdWZvZ0ZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "MITV",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mitv-80x80-c76.jpg",
+    "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mitv/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzcgQU0maGFzaF92YWx1ZT1wSk5mZTh0c2lDeHNFYzc4RGE1MFZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "MRTV",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mrtv-80x80-d7c.jpg",
+    "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mrtv/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzggQU0maGFzaF92YWx1ZT1WRkJQVHp6eDFmZGZyeVRxdWZvZ0ZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "MRTV News",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mrtvnews-80x80-d3f.png",
+    "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mrtv/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzggQU0maGFzaF92YWx1ZT1WRkJQVHp6eDFmZGZyeVRxdWZvZ0ZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "MRTV Sport",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mrtvsport-80x80-a10.png",
+    "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mrtv/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzggQU0maGFzaF92YWx1ZT1WRkJQVHp6eDFmZGZyeVRxdWZvZ0ZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "MRTV4",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/mrtv42-80x80-83b.jpg",
+    "streamUrl": "https://5a13fe32ef748.streamlock.net/mmplay/mrtv-4/playlist.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzggQU0maGFzaF92YWx1ZT1WRkJQVHp6eDFmZGZyeVRxdWZvZ0ZRPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  },
+  {
+    "title": "NRC",
+    "img": "https://www.myanmartvchannels.com/assets/cache/images/channeliconb/nrc-80x80-294.jpg",
+    "streamUrl": "https://mrtvott.com/cache/MRTV-NRC-HD/master.m3u8?wmsAuthSign=c2VydmVyX3RpbWU9Ny8xOS8yMDI2IDc6MjA6MzggQU0maGFzaF92YWx1ZT1vVkRQNGx3ZzRjaGFvaEpjajJ1V3VnPT0mdmFsaWRtaW51dGVzPTEwJmlkPTE2ODE0NDE0MDI0OA=="
+  }
+]

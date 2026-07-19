@@ -1,12 +1,14 @@
 const path = require('path');
 const { JsonStore } = require('../store/jsonStore');
+const { listManageableSourceNames } = require('../../sources/registry');
 
-const SOURCE_NAMES = ['luongson', 'socolive', 'xoilac', 'soco', 'highlight', 'myanmartv'];
+/** Fallback names when sources.json is unavailable. */
+const DEFAULT_SOURCE_NAMES = listManageableSourceNames(null);
 
 class SourceAdminService {
   constructor(dataDir = path.resolve(process.cwd(), 'data/admin')) {
     const sources = {};
-    for (const name of SOURCE_NAMES) {
+    for (const name of DEFAULT_SOURCE_NAMES) {
       sources[name] = {
         name,
         enabled: true,
@@ -20,9 +22,14 @@ class SourceAdminService {
     this.store = new JsonStore(path.join(dataDir, 'source-settings.json'), { sources });
   }
 
-  list() {
+  knownNames(sourcesDoc = null) {
+    const fromStore = Object.keys(this.store.read().sources || {});
+    return [...new Set([...listManageableSourceNames(sourcesDoc), ...fromStore])];
+  }
+
+  list(sourcesDoc = null) {
     const doc = this.store.read();
-    return SOURCE_NAMES.map((name) => {
+    return this.knownNames(sourcesDoc).map((name) => {
       const row = doc.sources?.[name] || { name, enabled: true };
       return {
         name,
@@ -43,7 +50,7 @@ class SourceAdminService {
   }
 
   setEnabled(name, enabled) {
-    if (!SOURCE_NAMES.includes(name)) throw new Error('Unknown source');
+    // Allow any source name (config-driven expansion); unknown names get created.
     this.store.update((doc) => {
       doc.sources = doc.sources || {};
       doc.sources[name] = {
@@ -58,12 +65,12 @@ class SourceAdminService {
   }
 
   recordSuccess(name, streamCount = 0) {
-    if (!SOURCE_NAMES.includes(name)) return;
     this.store.update((doc) => {
       const cur = doc.sources?.[name] || { name, enabled: true, totalStreamsCollected: 0 };
       doc.sources = doc.sources || {};
       doc.sources[name] = {
         ...cur,
+        name,
         lastSuccessAt: new Date().toISOString(),
         lastStreamCount: streamCount,
         totalStreamsCollected: (cur.totalStreamsCollected || 0) + streamCount,
@@ -74,12 +81,12 @@ class SourceAdminService {
   }
 
   recordError(name, error) {
-    if (!SOURCE_NAMES.includes(name)) return;
     this.store.update((doc) => {
       const cur = doc.sources?.[name] || { name, enabled: true };
       doc.sources = doc.sources || {};
       doc.sources[name] = {
         ...cur,
+        name,
         lastErrorAt: new Date().toISOString(),
         lastError: String(error || 'unknown'),
       };
@@ -94,12 +101,15 @@ class SourceAdminService {
     const list = sourcesDoc?.sources || [];
     return {
       ...sourcesDoc,
-      sources: list.map((s) => {
-        if (!SOURCE_NAMES.includes(s.name)) return s;
-        return { ...s, enabled: this.isEnabled(s.name) && s.enabled !== false };
-      }),
+      sources: list.map((s) => ({
+        ...s,
+        enabled: this.isEnabled(s.name) && s.enabled !== false,
+      })),
     };
   }
 }
 
-module.exports = { SourceAdminService, SOURCE_NAMES };
+module.exports = {
+  SourceAdminService,
+  SOURCE_NAMES: DEFAULT_SOURCE_NAMES,
+};

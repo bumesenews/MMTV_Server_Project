@@ -1,5 +1,6 @@
 const { generateFlutterJson } = require('../../services/jsonGenerator');
 const { buildDeliveryBundle } = require('../../services/deliveryFormats');
+const { priorityMapFromSourcesDoc } = require('../../sources/registry');
 
 /**
  * Applies admin overrides + league filters, writes local cache, uploads GitHub if changed.
@@ -28,7 +29,8 @@ class PublishService {
    */
   async publish(matches, meta = {}, { actor = 'system', extras = {} } = {}) {
     const filteredLeagues = this.leagues.filterMatches(matches || []);
-    const withOverrides = this.overrides.applyToMatches(filteredLeagues);
+    const priorityMap = priorityMapFromSourcesDoc(meta.sourcesDoc || null);
+    const withOverrides = this.overrides.applyToMatches(filteredLeagues, priorityMap);
 
     const previous = this.cache.getCurrent();
     const previousDelivery = this.cache.getDeliveryBundle();

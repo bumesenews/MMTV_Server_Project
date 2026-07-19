@@ -10,6 +10,8 @@
         "UEFA CL",
         "Champions League UEFA",
         "C1",
+        "Cúp C1",
+        "Cup C1",
         "欧洲冠军联赛"
       ]
     },
@@ -91,7 +93,64 @@
         "World Cup",
         "World Cup FIFA",
         "世界杯",
-        "FIFA WC"
+        "FIFA WC",
+        "FIF",
+        "FIFA",
+        "FIFA WCQ",
+        "World Cup Qualifiers"
+      ]
+    },
+    {
+      "standardName": "FIFA Club World Cup",
+      "aliases": [
+        "FIFA Club World Cup",
+        "Club World Cup",
+        "FIFA CWC",
+        "Cúp thế giới các CLB",
+        "Intercontinental Cup FIFA",
+        "FIF Club"
+      ]
+    },
+    {
+      "standardName": "AFF Cup",
+      "aliases": [
+        "AFF Cup",
+        "AFF CUP",
+        "AFF Championship",
+        "ASEAN Championship",
+        "Suzuki Cup",
+        "Cúp AFF",
+        "AFF Suzuki Cup",
+        "AFF Mitsubishi Electric Cup"
+      ]
+    },
+    {
+      "standardName": "K League 1 (KOR D1)",
+      "aliases": [
+        "K League 1 (KOR D1)",
+        "K League 1",
+        "K-League 1",
+        "KOR D1",
+        "K League",
+        "VĐQG Hàn Quốc",
+        "Korea K League 1",
+        "South Korea K League 1",
+        "K리그1"
+      ]
+    },
+    {
+      "standardName": "Brazil Serie A (BRA D1)",
+      "aliases": [
+        "Brazil Serie A (BRA D1)",
+        "Brazil Serie A",
+        "Brasileirão",
+        "Brasileirao",
+        "BRA D1",
+        "Serie A Brazil",
+        "Brazilian Serie A",
+        "VĐQG Brazil",
+        "Campeonato Brasileiro Série A",
+        "Brazil A"
       ]
     },
     {

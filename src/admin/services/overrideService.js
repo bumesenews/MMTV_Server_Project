@@ -97,14 +97,18 @@ class OverrideService {
   /**
    * Merge scraper matches with admin overrides. Manual streams highest priority.
    */
-  applyToMatches(matches = []) {
+  applyToMatches(matches = [], priorityMap = null) {
     const overrides = this.all();
     const SOURCE_PRIORITY = {
       manual: 1000,
-      luongson: 300,
-      soco: 250,
-      socolive: 200,
-      xoilac: 100,
+      luongson: 500,
+      cakhia: 450,
+      xoilac: 400,
+      '90phut': 350,
+      yyzb: 300,
+      socolive: 250,
+      soco: 200,
+      ...(priorityMap || {}),
     };
 
     return (matches || [])
@@ -136,6 +140,7 @@ class OverrideService {
               ...(s.headers?.Cookie ? { Cookie: s.headers.Cookie } : {}),
             },
             active: s.active !== false,
+            priority: 1000,
             checkedAt: s.updatedAt || s.createdAt || new Date().toISOString(),
             manualId: s.id,
           }));
@@ -206,8 +211,14 @@ function normalizeManualStream(input = {}) {
 
 function sortStreams(streams, priorityMap) {
   return [...streams].sort((a, b) => {
-    const pa = priorityMap[String(a.source || '').toLowerCase()] || 0;
-    const pb = priorityMap[String(b.source || '').toLowerCase()] || 0;
+    const pa =
+      a.priority != null
+        ? Number(a.priority)
+        : priorityMap[String(a.source || '').toLowerCase()] || 0;
+    const pb =
+      b.priority != null
+        ? Number(b.priority)
+        : priorityMap[String(b.source || '').toLowerCase()] || 0;
     if (pa !== pb) return pb - pa;
     return 0;
   });

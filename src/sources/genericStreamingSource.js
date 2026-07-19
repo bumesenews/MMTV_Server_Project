@@ -4,12 +4,22 @@ const { logger, logEvent, events } = require('../utils/logger');
 const { formatDate, nowYangon } = require('../utils/time');
 
 /**
- * Source C — https://xoilacxyw.io/ (mirror: https://xoilacxyy.io/)
- * Independent scraper module.
+ * Config-driven Puppeteer streaming source.
+ * Uses sources.json domains/paths/selectors/attrs/streamDetection/playerRules.
+ * Site-specific parsers can extend this when discovery quirks differ.
  */
-class XoilacSource extends BaseStreamingSource {
-  constructor(deps) {
-    super({ name: 'xoilac', ...deps });
+class GenericStreamingSource extends BaseStreamingSource {
+  constructor(deps = {}) {
+    const name = deps.name || deps.config?.name || 'streaming';
+    super({ ...deps, name });
+  }
+
+  get attrs() {
+    return this.config.attrs || {};
+  }
+
+  get discoverOptions() {
+    return this.config.discover || {};
   }
 
   scheduleUrls() {
@@ -17,39 +27,46 @@ class XoilacSource extends BaseStreamingSource {
     const urls = [];
     for (const domain of this.domains) {
       urls.push(new URL(paths.home || '/', domain).toString());
-      if (paths.schedule) urls.push(new URL(paths.schedule, domain).toString());
+      if (paths.schedule) {
+        urls.push(new URL(paths.schedule, domain).toString());
+      }
     }
     return [...new Set(urls)];
   }
 
   async discoverMatches() {
     return this.withRetries(async () => {
-      logEvent(events.SCRAPER_START, 'Xoilac discover start', { source: this.name });
+      logEvent(events.SCRAPER_START, `${this.name} discover start`, { source: this.name });
       const page = await this.browser.newPage();
       const discovered = [];
+      const opts = this.discoverOptions;
+      const waitUntil = opts.waitUntil || 'domcontentloaded';
+      const waitMs = Number(opts.waitMs || 2500);
 
       try {
         for (const url of this.scheduleUrls()) {
           try {
             await page.goto(url, {
-              waitUntil: 'domcontentloaded',
+              waitUntil,
               timeout: this.browser.timeout,
             });
-            await sleep(2800);
+            await sleep(waitMs);
 
-            // Xoilac may lazy-load schedule — scroll once
-            await page.evaluate(() => window.scrollBy(0, 1200));
-            await sleep(1000);
+            if (opts.scroll) {
+              const scrollY = Number(opts.scrollY || 1200);
+              await page.evaluate((y) => window.scrollBy(0, y), scrollY);
+              await sleep(Number(opts.scrollWaitMs || 1000));
+            }
 
             const cards = await this.extractCardsFromPage(page, url);
             discovered.push(...cards);
           } catch (err) {
-            logger.warn('Xoilac page failed', { url, error: err.message });
+            logger.warn(`${this.name} page failed`, { url, error: err.message });
           }
         }
 
         const unique = dedupeByMatchId(discovered);
-        logEvent(events.SCRAPER_SUCCESS, 'Xoilac discover success', {
+        logEvent(events.SCRAPER_SUCCESS, `${this.name} discover success`, {
           source: this.name,
           count: unique.length,
         });
@@ -65,6 +82,7 @@ class XoilacSource extends BaseStreamingSource {
     const out = [];
     const today = formatDate(nowYangon());
     const tomorrow = formatDate(nowYangon().plus({ days: 1 }));
+    const hrefAttrs = asList(this.attrs.href || ['href', 'data-href', 'data-url']);
 
     for (const node of nodes) {
       try {
@@ -72,11 +90,11 @@ class XoilacSource extends BaseStreamingSource {
         let homeTeam = await this.textOf(node, this.selectors.homeTeam);
         let awayTeam = await this.textOf(node, this.selectors.awayTeam);
         const time = await this.textOf(node, this.selectors.time);
-        const href = await this.hrefOf(node, this.selectors.matchLink);
+        let href = await this.hrefOf(node, this.selectors.matchLink);
+        if (!href) href = await this.attrOf(node, hrefAttrs);
         const matchUrl = this.absoluteUrl(href, pageUrl);
 
         if (!homeTeam || !awayTeam) {
-          // Xoilac sometimes puts both teams in one node with logos/alt text
           const alts = await node.evaluate((el) =>
             [...el.querySelectorAll('img[alt]')]
               .map((img) => (img.getAttribute('alt') || '').trim())
@@ -97,7 +115,7 @@ class XoilacSource extends BaseStreamingSource {
 
         const cardText = await node.evaluate((el) => (el.innerText || '').trim());
         let date = today;
-        if (/tomorrow|ng[aà]y mai|ngày mai/i.test(cardText)) date = tomorrow;
+        if (/tomorrow|ng[aà]y mai|ngày mai|翌日/i.test(cardText)) date = tomorrow;
 
         const match = this.buildMatchFromCard({
           league,
@@ -110,16 +128,35 @@ class XoilacSource extends BaseStreamingSource {
         });
         if (match) out.push(match);
       } catch (err) {
-        logger.debug('Xoilac card parse failed', { error: err.message });
+        logger.debug(`${this.name} card parse failed`, { error: err.message });
       }
     }
 
     return out;
   }
 
+  async attrOf(elementHandle, attrList) {
+    const list = asList(attrList);
+    for (const attr of list) {
+      try {
+        const value = await elementHandle.evaluate(
+          (node, name) =>
+            node.getAttribute(name) ||
+            node.closest?.('a')?.getAttribute(name) ||
+            '',
+          attr
+        );
+        if (value) return value;
+      } catch {
+        // try next
+      }
+    }
+    return '';
+  }
+
   async extractStreams(matchPageUrl) {
     return this.withRetries(async () => {
-      logEvent(events.SCRAPER_START, 'Xoilac stream extract start', {
+      logEvent(events.SCRAPER_START, `${this.name} stream extract start`, {
         source: this.name,
         url: matchPageUrl,
       });
@@ -127,7 +164,7 @@ class XoilacSource extends BaseStreamingSource {
       const page = await this.browser.newInterceptPage(this.getM3u8Patterns());
       try {
         await page.goto(matchPageUrl, {
-          waitUntil: 'domcontentloaded',
+          waitUntil: this.discoverOptions.waitUntil || 'domcontentloaded',
           timeout: this.browser.timeout,
         });
 
@@ -139,7 +176,7 @@ class XoilacSource extends BaseStreamingSource {
           browserManager: this.browser,
         });
 
-        logEvent(events.SCRAPER_SUCCESS, 'Xoilac stream extract success', {
+        logEvent(events.SCRAPER_SUCCESS, `${this.name} stream extract success`, {
           source: this.name,
           count: streams.length,
         });
@@ -149,6 +186,11 @@ class XoilacSource extends BaseStreamingSource {
       }
     }, 'extractStreams');
   }
+}
+
+function asList(value) {
+  if (value == null) return [];
+  return Array.isArray(value) ? value : [value];
 }
 
 function guessTeamsFromText(text) {
@@ -170,4 +212,4 @@ function dedupeByMatchId(items) {
   return [...map.values()];
 }
 
-module.exports = { XoilacSource };
+module.exports = { GenericStreamingSource };

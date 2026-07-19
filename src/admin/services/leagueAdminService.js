@@ -10,8 +10,12 @@ const DEFAULT_LEAGUES = [
   'Bundesliga',
   'Ligue 1',
   'FIFA World Cup',
+  'FIFA Club World Cup',
   'UEFA Euro',
   'Copa América',
+  'AFF Cup',
+  'K League 1 (KOR D1)',
+  'Brazil Serie A (BRA D1)',
   'V.League 1 (Vietnam)',
 ];
 

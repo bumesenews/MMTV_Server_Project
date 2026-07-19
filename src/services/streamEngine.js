@@ -4,12 +4,22 @@ const { StreamValidator } = require('./streamValidator');
 const { MatchMerger } = require('./matchMerger');
 
 /**
- * Production streaming extraction engine.
- * Discovers match pages ONCE per source, then extracts streams only when needed.
+ * Production multi-source streaming extraction engine.
+ *
+ * For every fixture:
+ *  - walk ALL enabled streaming sources (never stop after the first hit)
+ *  - collect every valid stream group
+ *  - merge onto the same match object
+ *
+ * Per-source failures are logged and skipped; other sources continue.
  */
 class StreamEngine {
   constructor({ sources = [], validator, merger } = {}) {
-    this.sources = sources.filter((s) => s && s.config?.enabled !== false);
+    this.sources = sources
+      .filter((s) => s && s.config?.enabled !== false)
+      .sort(
+        (a, b) => Number(b.config?.priority || 0) - Number(a.config?.priority || 0)
+      );
     this.validator = validator || new StreamValidator();
     this.merger = merger || new MatchMerger(this.validator);
     this.lastCheckByMatch = new Map();
@@ -69,6 +79,7 @@ class StreamEngine {
           continue;
         }
 
+        // Collect from every source — do not break after first success.
         const groups = [];
         const extract = this.shouldExtractStreams(fixture, { force });
 
@@ -99,6 +110,14 @@ class StreamEngine {
               matchId: fixture.matchId,
               error: err.message,
             });
+            if (typeof source?.browser?.restart === 'function') {
+              // Keep remaining sources healthy after a hard browser failure.
+              try {
+                await source.browser.restart();
+              } catch {
+                // ignore restart errors
+              }
+            }
           }
         }
 

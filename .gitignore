@@ -11,7 +11,9 @@ data/admin/admin-logs.json
 data/admin/notifications.json
 data/admin/league-settings.json
 data/admin/source-settings.json
-secrets/
+secrets/*
+!secrets/.gitkeep
+!secrets/README.md
 .DS_Store
 *.pid
 .chrome/

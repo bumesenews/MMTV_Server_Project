@@ -1,9 +1,24 @@
+const fs = require('fs');
 const path = require('path');
 const { JsonStore } = require('../store/jsonStore');
+const { logger } = require('../../utils/logger');
+
+/** Project root: src/admin/services → ../../../ */
+const PROJECT_ROOT = path.join(__dirname, '..', '..', '..');
+const DEFAULT_SERVICE_ACCOUNT_PATH = path.join(
+  PROJECT_ROOT,
+  'secrets',
+  'firebase-service-account.json'
+);
+
+/** Module-level singleton — Firebase Admin must initialize only once (PM2 / multiple imports). */
+let sharedMessaging = null;
+let sharedInitError = null;
+let initAttempted = false;
 
 /**
  * Firebase Cloud Messaging integration.
- * Works without credentials in dry-run/log mode for local setups.
+ * Safe when credentials are missing: app stays up; send() reports a clear error.
  */
 class NotificationService {
   constructor({
@@ -21,43 +36,10 @@ class NotificationService {
         matchPrefix: 'match_',
       },
     });
-    this.messaging = null;
-    this.initError = null;
-    this._initFirebase();
-  }
 
-  _initFirebase() {
-    try {
-      // Lazy require so missing firebase-admin doesn't crash if unused
-      // eslint-disable-next-line global-require
-      const admin = require('firebase-admin');
-      if (admin.apps.length) {
-        this.messaging = admin.messaging();
-        return;
-      }
-
-      const jsonPath = this.env.FIREBASE_SERVICE_ACCOUNT_PATH;
-      const jsonInline = this.env.FIREBASE_SERVICE_ACCOUNT_JSON;
-
-      if (jsonInline) {
-        const cred = JSON.parse(jsonInline);
-        admin.initializeApp({ credential: admin.credential.cert(cred) });
-        this.messaging = admin.messaging();
-        return;
-      }
-
-      if (jsonPath) {
-        // eslint-disable-next-line import/no-dynamic-require, global-require
-        const cred = require(path.resolve(process.cwd(), jsonPath));
-        admin.initializeApp({ credential: admin.credential.cert(cred) });
-        this.messaging = admin.messaging();
-        return;
-      }
-
-      this.initError = 'Firebase credentials not configured';
-    } catch (err) {
-      this.initError = err.message;
-    }
+    const { messaging, error } = initFirebaseAdmin(this.env);
+    this.messaging = messaging;
+    this.initError = error;
   }
 
   templates() {
@@ -103,8 +85,15 @@ class NotificationService {
     };
   }
 
+  /**
+   * Send an FCM topic notification (used by admin routes).
+   */
   async send(payload, actor = 'admin') {
-    const message = this.buildMessage(payload);
+    return this.sendNotification(payload, actor);
+  }
+
+  async sendNotification(payload, actor = 'admin') {
+    const message = this.buildMessage(payload || {});
     let result = {
       ok: false,
       dryRun: false,
@@ -116,16 +105,33 @@ class NotificationService {
     if (!this.messaging) {
       result = {
         ...result,
-        ok: true,
+        ok: false,
         dryRun: true,
-        error: this.initError || 'FCM not configured — logged only',
+        error:
+          this.initError ||
+          'FCM not configured — place secrets/firebase-service-account.json or set FIREBASE_SERVICE_ACCOUNT_JSON',
       };
+      logger.warn('FCM send skipped — not initialized', {
+        error: result.error,
+        topic: message.topic,
+        actor,
+      });
     } else {
       try {
         const messageId = await this.messaging.send(message);
         result = { ...result, ok: true, messageId };
+        logger.info('FCM notification sent', {
+          messageId,
+          topic: message.topic,
+          actor,
+        });
       } catch (err) {
         result = { ...result, ok: false, error: err.message };
+        logger.error('FCM send failed', {
+          error: err.message,
+          topic: message.topic,
+          actor,
+        });
       }
     }
 
@@ -133,32 +139,144 @@ class NotificationService {
       id: `${Date.now()}`,
       at: new Date().toISOString(),
       actor,
-      type: payload.type || 'custom',
+      type: payload?.type || 'custom',
       title: message.notification.title,
       body: message.notification.body,
-      target: payload.target || 'all',
-      league: payload.league || null,
-      matchId: payload.matchId || null,
+      target: payload?.target || 'all',
+      league: payload?.league || null,
+      matchId: payload?.matchId || null,
       topic: message.topic,
       result,
     };
 
-    this.store.update((doc) => {
-      doc.history = [entry, ...(doc.history || [])].slice(0, 500);
-      return doc;
-    });
+    try {
+      this.store.update((doc) => {
+        doc.history = [entry, ...(doc.history || [])].slice(0, 500);
+        return doc;
+      });
+    } catch (err) {
+      logger.error('Failed to persist notification history', { error: err.message });
+    }
 
     if (this.logService) {
-      this.logService.add({
-        category: 'notification',
-        action: 'send',
-        message: `${entry.title} → ${entry.topic}`,
-        actor,
-        meta: result,
-      });
+      try {
+        this.logService.add({
+          category: 'notification',
+          action: 'send',
+          message: `${entry.title} → ${entry.topic}`,
+          actor,
+          meta: result,
+        });
+      } catch (err) {
+        logger.error('Failed to write admin notification log', { error: err.message });
+      }
     }
 
     return entry;
+  }
+}
+
+function resolveServiceAccountPath(envPath) {
+  if (!envPath || !String(envPath).trim()) {
+    return DEFAULT_SERVICE_ACCOUNT_PATH;
+  }
+  const trimmed = String(envPath).trim();
+  if (path.isAbsolute(trimmed)) {
+    return trimmed;
+  }
+  // Relative paths resolve from project root (__dirname-based), not process.cwd()
+  // so PM2 / different working directories still find secrets/.
+  return path.join(PROJECT_ROOT, trimmed);
+}
+
+/**
+ * Initialize firebase-admin exactly once for the process.
+ */
+function initFirebaseAdmin(env = process.env) {
+  if (initAttempted) {
+    return { messaging: sharedMessaging, error: sharedInitError };
+  }
+  initAttempted = true;
+
+  try {
+    // eslint-disable-next-line global-require
+    const admin = require('firebase-admin');
+
+    if (admin.apps.length) {
+      sharedMessaging = admin.messaging();
+      sharedInitError = null;
+      logger.info('Firebase Admin already initialized — reusing existing app');
+      return { messaging: sharedMessaging, error: null };
+    }
+
+    const inline = env.FIREBASE_SERVICE_ACCOUNT_JSON;
+    if (inline && String(inline).trim()) {
+      let cred;
+      try {
+        cred = JSON.parse(inline);
+      } catch (parseErr) {
+        sharedInitError =
+          'FIREBASE_SERVICE_ACCOUNT_JSON is set but is not valid JSON. Paste the full service account JSON as a single line.';
+        logger.error(sharedInitError, { error: parseErr.message });
+        return { messaging: null, error: sharedInitError };
+      }
+
+      admin.initializeApp({ credential: admin.credential.cert(cred) });
+      sharedMessaging = admin.messaging();
+      sharedInitError = null;
+      logger.info('Firebase Admin initialized from FIREBASE_SERVICE_ACCOUNT_JSON', {
+        projectId: cred.project_id || null,
+      });
+      return { messaging: sharedMessaging, error: null };
+    }
+
+    const saPath = resolveServiceAccountPath(env.FIREBASE_SERVICE_ACCOUNT_PATH);
+
+    if (!fs.existsSync(saPath)) {
+      sharedInitError =
+        `Firebase service account file not found at: ${saPath}. ` +
+        'Create secrets/firebase-service-account.json under the project root ' +
+        '(download from Firebase Console → Project settings → Service accounts → Generate new private key), ' +
+        'or set FIREBASE_SERVICE_ACCOUNT_PATH / FIREBASE_SERVICE_ACCOUNT_JSON.';
+      logger.warn('Firebase Admin not initialized — missing credentials file', {
+        expectedPath: saPath,
+        defaultPath: DEFAULT_SERVICE_ACCOUNT_PATH,
+        envPath: env.FIREBASE_SERVICE_ACCOUNT_PATH || null,
+      });
+      return { messaging: null, error: sharedInitError };
+    }
+
+    let cred;
+    try {
+      const raw = fs.readFileSync(saPath, 'utf8');
+      cred = JSON.parse(raw);
+    } catch (readErr) {
+      sharedInitError = `Failed to read/parse Firebase service account at ${saPath}: ${readErr.message}`;
+      logger.error(sharedInitError);
+      return { messaging: null, error: sharedInitError };
+    }
+
+    if (!cred.project_id || !cred.private_key || !cred.client_email) {
+      sharedInitError =
+        `Firebase service account JSON at ${saPath} is incomplete ` +
+        '(need project_id, private_key, client_email). Re-download the key from Firebase Console.';
+      logger.error(sharedInitError);
+      return { messaging: null, error: sharedInitError };
+    }
+
+    admin.initializeApp({ credential: admin.credential.cert(cred) });
+    sharedMessaging = admin.messaging();
+    sharedInitError = null;
+    logger.info('Firebase Admin initialized successfully', {
+      path: saPath,
+      projectId: cred.project_id,
+    });
+    return { messaging: sharedMessaging, error: null };
+  } catch (err) {
+    sharedInitError = `Firebase Admin initialization failed: ${err.message}`;
+    sharedMessaging = null;
+    logger.error(sharedInitError, { stack: err.stack });
+    return { messaging: null, error: sharedInitError };
   }
 }
 
@@ -169,4 +287,9 @@ function slug(value) {
     .replace(/^_|_$/g, '');
 }
 
-module.exports = { NotificationService };
+module.exports = {
+  NotificationService,
+  initFirebaseAdmin,
+  DEFAULT_SERVICE_ACCOUNT_PATH,
+  PROJECT_ROOT,
+};

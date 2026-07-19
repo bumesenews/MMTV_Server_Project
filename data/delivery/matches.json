@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "generatedAt": "2026-07-19T13:50:37.637+06:30",
+  "timezone": "Asia/Yangon",
+  "matchCount": 3,
+  "matches": [
+    {
+      "matchId": "spain_argentina_20260720",
+      "league": "FIFA World Cup",
+      "homeTeam": "Spain",
+      "awayTeam": "Argentina",
+      "homeTeamId": 6720,
+      "awayTeamId": 6706,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/6720.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/6706.png",
+      "date": "2026-07-20",
+      "time": "01:30",
+      "kickoff": "2026-07-20T01:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "World Cup",
+          "homeTeam": "Spain",
+          "awayTeam": "Argentina"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "updatedAt": "2026-07-19T07:19:11.031Z"
+    },
+    {
+      "matchId": "guayaquil_city_manta_20260720",
+      "league": "Serie A",
+      "homeTeam": "Guayaquil City",
+      "awayTeam": "Manta",
+      "homeTeamId": 194754,
+      "awayTeamId": 162922,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/194754.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/162922.png",
+      "date": "2026-07-20",
+      "time": "04:15",
+      "kickoff": "2026-07-20T04:15:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "Serie A",
+          "homeTeam": "Guayaquil City",
+          "awayTeam": "Manta"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "updatedAt": "2026-07-19T07:19:11.036Z"
+    },
+    {
+      "matchId": "independiente_del_valle_emelec_20260720",
+      "league": "Serie A",
+      "homeTeam": "Independiente del Valle",
+      "awayTeam": "Emelec",
+      "homeTeamId": 192875,
+      "awayTeamId": 1850,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/192875.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1850.png",
+      "date": "2026-07-20",
+      "time": "06:45",
+      "kickoff": "2026-07-20T06:45:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "Serie A",
+          "homeTeam": "Independiente del Valle",
+          "awayTeam": "Emelec"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "updatedAt": "2026-07-19T07:19:11.040Z"
+    }
+  ],
+  "meta": {
+    "configOrigin": "github",
+    "sources": [
+      "luongson",
+      "socolive",
+      "xoilac",
+      "soco",
+      "highlight",
+      "myanmartv"
+    ],
+    "liveCount": 0,
+    "scheduledCount": 3,
+    "endedCount": 0,
+    "manualStreamCount": 0,
+    "highlightCount": 2,
+    "channelCount": 18,
+    "checksum": "97089e485ea3b6f571b70e1309bc12d316fb199020218a01842f37a869ade26d",
+    "cachedAt": "2026-07-19T07:20:37.648Z",
+    "feed": "matches"
+  }
+}

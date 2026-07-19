@@ -214,13 +214,13 @@ function createAdminRouter(ctx) {
   // ---------- Sources ----------
   router.get('/sources', auth, async (_req, res) => {
     try {
-      const local = ctx.sources.list();
       let remote = null;
       try {
         remote = await ctx.config.getSourcesConfig();
       } catch {
         remote = null;
       }
+      const local = ctx.sources.list(remote?.content || null);
       res.json({
         ok: true,
         sources: local,

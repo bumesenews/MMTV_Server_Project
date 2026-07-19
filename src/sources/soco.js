@@ -3,6 +3,7 @@ const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
 const { generateMatchId } = require('../utils/matchId');
 const { toYangon, formatDate, formatTime, isTodayOrTomorrow } = require('../utils/time');
+const { foldKey } = require('../utils/normalize');
 const { DEFAULT_UA } = require('../browser/puppeteerManager');
 
 try {
@@ -11,33 +12,130 @@ try {
   // ignore
 }
 
-const BASE_URL = 'https://socolivemm.io';
-const SPORT = 'football';
+const DEFAULT_BASE_URL = 'https://socoliveku.cc';
+const DEFAULT_SPORT = 'football';
 const STREAM_CONCURRENCY = 6;
 const STREAM_LEAD_MS = 5 * 60 * 1000;
 const MATCH_DURATION_MS = (105 + 30) * 60 * 1000;
 const FETCH_RETRIES = 3;
 const FETCH_DELAY_MS = 1200;
-const SECTIONS = ['today', 'tomorrow'];
+
+const DEFAULT_PATHS = {
+  today: '/sport/football/filter/today',
+  tomorrow: '/sport/football/filter/tomorrow',
+};
+
+const DEFAULT_SELECTORS = {
+  matchCard: ['.match-football-item'],
+  league: [
+    '.grid-match__league-name',
+    '.grid-match__league span',
+    '.grid-match__league',
+  ],
+  homeTeam: ['.grid-match__team--home-name'],
+  awayTeam: ['.grid-match__team--away-name'],
+  homeLogo: [
+    '.grid-match__team-home img.team-logo-0',
+    '.team-logo-group-home-logo img',
+    '.grid-match__team-home img',
+    '.team--home img',
+    '.grid-match__team--home img',
+  ],
+  awayLogo: [
+    '.grid-match__team-away img.team-logo-0',
+    '.team-logo-group-away-logo img',
+    '.grid-match__team-away img',
+    '.team--away img',
+    '.grid-match__team--away img',
+  ],
+  leagueIcon: ['.grid-match__league img', '.grid-match__competition img'],
+  matchLink: ['a.redirectPopup', 'a[href*="/truc-tiep"]', 'a'],
+  status: ['.grid-match__status', '.grid-match__time', '.grid-match__state', '.match-status'],
+  streamButtons: ['#tv_links a.player-link', '#tv_links .player-link'],
+};
+
+const DEFAULT_ATTRS = {
+  kickoff: 'data-runtime',
+  sport: 'data-sport',
+  status: ['data-status', 'data-match-status'],
+  streamIndex: 'data-link',
+  href: 'href',
+  src: ['src', 'data-src', 'data-lazy-src'],
+  homeTeamId: 'data-home-team-id',
+  awayTeamId: 'data-away-team-id',
+};
+
+const DEFAULT_TEAM_LOGO_TEMPLATE =
+  'https://imgts.sportpulseapiz.com/football/team/{id}/image/small';
 
 /**
  * Source: socolivemm.io (from MM_TV.Pro soco.js)
- * HTTP/Cheerio based — no Puppeteer required.
+ * HTTP/Cheerio based — domain, paths, selectors, attrs are config-driven.
  */
 class SocoSource {
   constructor({ config, normalizer }) {
     this.name = 'soco';
     this.config = config || {};
     this.normalizer = normalizer;
-    this.baseUrl = (this.config.domains && this.config.domains[0]) || BASE_URL;
+    this.baseUrl = this.resolveBaseUrl();
+    this.sport = this.config.sport || DEFAULT_SPORT;
+    this.paths = { ...DEFAULT_PATHS, ...(this.config.paths || {}) };
+    this.selectors = mergeSelectorMap(DEFAULT_SELECTORS, this.config.selectors);
+    this.attrs = {
+      ...DEFAULT_ATTRS,
+      ...(this.config.attrs || {}),
+      status: asList((this.config.attrs && this.config.attrs.status) || DEFAULT_ATTRS.status),
+    };
+    this.sections = Array.isArray(this.config.sections) && this.config.sections.length
+      ? this.config.sections
+      : ['today', 'tomorrow'];
+    this.onlyAllowedLeagues = this.config.onlyAllowedLeagues === true;
+    this.leagueFilter = uniqueList(this.config.leagueFilter);
+    this.teamLogoTemplate =
+      this.config.teamLogoTemplate || DEFAULT_TEAM_LOGO_TEMPLATE;
+  }
+
+  /**
+   * Keep only configured leagues (UEFA CL, FIF, AFF Cup, KOR D1, BRA D1, …).
+   * Resolves filter aliases via Normalizer, then compares to the card league.
+   */
+  passesLeagueFilter(leagueRaw, standardLeague) {
+    if (!this.leagueFilter.length) {
+      return this.onlyAllowedLeagues ? Boolean(standardLeague) : true;
+    }
+    if (!this._filterStandards) {
+      this._filterStandards = new Set();
+      for (const name of this.leagueFilter) {
+        const mapped = this.normalizer ? this.normalizer.normalizeLeague(name) : name;
+        if (mapped) this._filterStandards.add(foldKey(mapped));
+        this._filterStandards.add(foldKey(name));
+      }
+    }
+    const std = standardLeague || (this.normalizer
+      ? this.normalizer.normalizeLeague(leagueRaw)
+      : leagueRaw);
+    return (
+      this._filterStandards.has(foldKey(std)) ||
+      this._filterStandards.has(foldKey(leagueRaw))
+    );
+  }
+
+  resolveBaseUrl() {
+    const domains = [
+      ...(this.config.domains || []),
+      ...(this.config.mirrorDomains || []),
+    ].filter(Boolean);
+    return domains[0] || DEFAULT_BASE_URL;
   }
 
   headers(referer = this.baseUrl) {
+    const custom = this.config.headers || {};
     return {
       'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
       Accept: 'text/html,application/json,*/*',
       'Accept-Language': 'en-US,en;q=0.9',
       Referer: referer.endsWith('/') ? referer : `${referer}/`,
+      ...custom,
     };
   }
 
@@ -45,6 +143,11 @@ class SocoSource {
     if (!url) return '';
     if (url.startsWith('http')) return url;
     return `${this.baseUrl}${url.startsWith('/') ? url : `/${url}`}`;
+  }
+
+  sectionUrl(section) {
+    const path = this.paths[section] || `/sport/${this.sport}/filter/${section}`;
+    return this.absUrl(path);
   }
 
   async fetchText(url, timeoutMs = 30000, referer = this.baseUrl) {
@@ -63,7 +166,7 @@ class SocoSource {
   }
 
   async fetchSectionHtml(section) {
-    const url = `${this.baseUrl}/sport/${SPORT}/filter/${section}`;
+    const url = this.sectionUrl(section);
     for (let attempt = 1; attempt <= FETCH_RETRIES; attempt += 1) {
       try {
         const text = await this.fetchText(url);
@@ -81,9 +184,43 @@ class SocoSource {
           await sleep(FETCH_DELAY_MS);
           continue;
         }
-        logger.warn('Soco section failed', { section, error: err.message });
+        logger.warn('Soco section failed', { section, url, error: err.message });
         return '';
       }
+    }
+    return '';
+  }
+
+  firstText($root, selectorList) {
+    for (const selector of asList(selectorList)) {
+      const text = $root.find(selector).first().text().replace(/\s+/g, ' ').trim();
+      if (text) return text;
+    }
+    return '';
+  }
+
+  firstAttr($root, selectorList, attrNames) {
+    const attrs = asList(attrNames || this.attrs.href);
+    for (const selector of asList(selectorList)) {
+      const el = $root.find(selector).first();
+      if (!el.length) continue;
+      for (const attr of attrs) {
+        const value = el.attr(attr);
+        if (value) return value;
+      }
+    }
+    return '';
+  }
+
+  teamLogoFromId(teamId) {
+    if (!teamId || !this.teamLogoTemplate) return '';
+    return this.teamLogoTemplate.replace('{id}', String(teamId).trim());
+  }
+
+  cardAttr(card, attrNames) {
+    for (const name of asList(attrNames)) {
+      const value = card.attr(name);
+      if (value != null && value !== '') return value;
     }
     return '';
   }
@@ -92,50 +229,54 @@ class SocoSource {
     const $ = load(html);
     const matches = [];
     const seen = new Set();
+    const cardSelector = asList(this.selectors.matchCard).join(', ') || '.match-football-item';
 
-    $('.match-football-item').each((_, el) => {
+    $(cardSelector).each((_, el) => {
       const card = $(el);
-      if (card.attr('data-sport') && card.attr('data-sport') !== SPORT) return;
+      const sportAttr = this.cardAttr(card, this.attrs.sport);
+      if (sportAttr && sportAttr !== this.sport) return;
 
-      const kickoffUnix = card.attr('data-runtime');
+      const kickoffUnix = this.cardAttr(card, this.attrs.kickoff);
       if (!kickoffUnix) return;
 
       const kickoff = toYangon(Number(kickoffUnix) * 1000);
       if (!kickoff || !isTodayOrTomorrow(kickoff)) return;
 
-      const homeRaw = card.find('.grid-match__team--home-name').first().text().trim();
-      const awayRaw = card.find('.grid-match__team--away-name').first().text().trim();
-      const matchPath = card.find('a.redirectPopup').first().attr('href');
+      const homeRaw = this.firstText(card, this.selectors.homeTeam);
+      const awayRaw = this.firstText(card, this.selectors.awayTeam);
+      const matchPath = this.firstAttr(card, this.selectors.matchLink, this.attrs.href);
       const matchUrl = this.absUrl(matchPath);
-      const leagueRaw =
-        card.find('.grid-match__league-name').first().text().trim() ||
-        card.find('.grid-match__league span').first().text().trim() ||
-        card.find('.grid-match__league').first().text().trim() ||
-        '';
+      const leagueRaw = this.firstText(card, this.selectors.league);
       const homeLogo = this.absUrl(
-        card.find('.grid-match__team--home img, .grid-match__home img').first().attr('src') || ''
+        this.firstAttr(card, this.selectors.homeLogo, this.attrs.src) ||
+          this.teamLogoFromId(this.cardAttr(card, this.attrs.homeTeamId))
       );
       const awayLogo = this.absUrl(
-        card.find('.grid-match__team--away img, .grid-match__away img').first().attr('src') || ''
+        this.firstAttr(card, this.selectors.awayLogo, this.attrs.src) ||
+          this.teamLogoFromId(this.cardAttr(card, this.attrs.awayTeamId))
       );
       const leagueIcon = this.absUrl(
-        card.find('.grid-match__league img, .grid-match__competition img').first().attr('src') ||
-          ''
+        this.firstAttr(card, this.selectors.leagueIcon, this.attrs.src)
       );
 
       if (!homeRaw || !awayRaw || !matchUrl) return;
 
+      const normalizedLeague = this.normalizer
+        ? this.normalizer.normalizeLeague(leagueRaw)
+        : leagueRaw;
       const standardLeague = this.normalizer
         ? this.normalizer.filterAllowedLeague(leagueRaw)
         : leagueRaw;
-      // Keep all for discovery; league filter applied when merging to FotMob fixtures
+
+      if (!this.passesLeagueFilter(leagueRaw, standardLeague || normalizedLeague)) return;
+
       const homeTeam = this.normalizer ? this.normalizer.normalizeTeam(homeRaw) : homeRaw;
       const awayTeam = this.normalizer ? this.normalizer.normalizeTeam(awayRaw) : awayRaw;
       const matchId = generateMatchId(homeTeam, awayTeam, kickoff);
       if (seen.has(matchId)) return;
       seen.add(matchId);
 
-      const { status, live } = parseMatchStatus(card, kickoffUnix);
+      const { status, live } = parseMatchStatus(card, kickoffUnix, this);
 
       matches.push({
         matchId,
@@ -165,9 +306,13 @@ class SocoSource {
   }
 
   async discoverMatches() {
-    logEvent(events.SCRAPER_START, 'Soco discover start', { source: this.name });
+    logEvent(events.SCRAPER_START, 'Soco discover start', {
+      source: this.name,
+      baseUrl: this.baseUrl,
+      sections: this.sections,
+    });
     const all = [];
-    for (const section of SECTIONS) {
+    for (const section of this.sections) {
       const html = await this.fetchSectionHtml(section);
       if (html) all.push(...this.parseMatchesFromHtml(html, section));
       await sleep(FETCH_DELAY_MS);
@@ -249,11 +394,14 @@ class SocoSource {
   }
 
   /**
-   * Full scrape for Flutter soco.json (all today/tomorrow cards + stream links).
+   * Full scrape for Flutter soco.json (today/tomorrow cards + stream links).
    * Unlike collectForFixtures, this is not limited to FotMob matchIds.
    */
   async scrapeFull({ fetchStreams = true } = {}) {
-    logEvent(events.SCRAPER_START, 'Soco full scrape start', { source: this.name });
+    logEvent(events.SCRAPER_START, 'Soco full scrape start', {
+      source: this.name,
+      baseUrl: this.baseUrl,
+    });
     const discovered = await this.discoverMatches();
     const targets = fetchStreams
       ? discovered.filter((m) => shouldAttemptStreamFetch(m))
@@ -312,9 +460,13 @@ class SocoSource {
     const $ = load(html);
     const buttons = [];
     const seen = new Set();
-    $('#tv_links a.player-link, #tv_links .player-link').each((_, el) => {
+    const buttonSelector =
+      asList(this.selectors.streamButtons).join(', ') || '#tv_links a.player-link';
+    const indexAttr = this.attrs.streamIndex || 'data-link';
+
+    $(buttonSelector).each((_, el) => {
       const anchor = $(el);
-      const rawIndex = anchor.attr('data-link');
+      const rawIndex = anchor.attr(indexAttr);
       if (rawIndex == null || rawIndex === '') return;
       const index = Number(rawIndex);
       if (!Number.isFinite(index)) return;
@@ -389,15 +541,11 @@ class SocoSource {
   }
 }
 
-function parseMatchStatus(card, kickoffUnixSeconds) {
+function parseMatchStatus(card, kickoffUnixSeconds, source) {
   const className = (card.attr('class') || '').toLowerCase();
-  const dataStatus = String(card.attr('data-status') || card.attr('data-match-status') || '').trim();
-  const statusText = card
-    .find('.grid-match__status, .grid-match__time, .grid-match__state, .match-status')
-    .first()
-    .text()
-    .replace(/\s+/g, ' ')
-    .trim()
+  const dataStatus = String(source.cardAttr(card, source.attrs.status) || '').trim();
+  const statusText = source
+    .firstText(card, source.selectors.status)
     .toLowerCase();
 
   if (
@@ -495,6 +643,32 @@ async function mapWithConcurrency(items, limit, worker) {
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runWorker));
   return results;
+}
+
+function asList(value) {
+  if (Array.isArray(value)) return value.filter(Boolean);
+  if (value == null || value === '') return [];
+  return [value];
+}
+
+function uniqueList(value) {
+  const seen = new Set();
+  const out = [];
+  for (const item of asList(value)) {
+    const key = foldKey(item);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(String(item).trim());
+  }
+  return out;
+}
+
+function mergeSelectorMap(defaults, overrides = {}) {
+  const out = { ...defaults };
+  for (const [key, value] of Object.entries(overrides || {})) {
+    out[key] = asList(value).length ? asList(value) : defaults[key];
+  }
+  return out;
 }
 
 function sleep(ms) {

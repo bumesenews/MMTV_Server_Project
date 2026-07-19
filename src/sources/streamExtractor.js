@@ -24,6 +24,8 @@ async function extractStreamsFromPage({
   const waitAfterClick = Number(detection.waitAfterClickMs || 4000);
   const streams = [];
 
+  const sourcePriority = Number(config.priority || 0);
+
   const pushStream = (url, quality = 'HD', extra = {}) => {
     if (!url || !/\.m3u8/i.test(url)) return;
     streams.push({
@@ -37,6 +39,7 @@ async function extractStreamsFromPage({
         ...(extra.headers || {}),
       },
       active: true,
+      priority: sourcePriority,
       checkedAt: new Date().toISOString(),
       ...extra.meta,
     });
