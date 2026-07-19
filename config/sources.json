@@ -339,8 +339,10 @@
       "enabled": true,
       "type": "highlights",
       "domains": ["https://hoofoot.com/"],
-      "recentDays": 4,
-      "maxItems": 20
+      "recentDays": 7,
+      "retentionDays": 7,
+      "maxItems": 50,
+      "notes": "Scraped every 3 hours (HIGHLIGHT_CRON). Merge + 7-day retention via HighlightManager."
     },
     {
       "name": "myanmartv",

@@ -10,8 +10,17 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
       service: 'football-live-streaming-backend',
       timezone: 'Asia/Yangon',
       lastRun: pipeline.lastRun,
+      lastHighlightRun: pipeline.lastHighlightRun,
       running: pipeline.running,
+      highlightRunning: pipeline.highlightRunning,
     });
+  });
+
+  router.post('/pipeline/highlights', async (req, res) => {
+    if (!requireApiKey(req, res)) return;
+    const force = Boolean(req.body?.force || req.query.force);
+    const result = await pipeline.runHighlights({ force });
+    return res.status(result.ok ? 200 : 500).json(result);
   });
 
   router.get('/matches', (req, res) => {

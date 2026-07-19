@@ -33,6 +33,13 @@ async function main() {
     });
   }, 3000);
 
+  // Initial highlight sync shortly after boot (then every 3 hours via HIGHLIGHT_CRON)
+  setTimeout(() => {
+    pipeline.runHighlights({ force: false }).catch((err) => {
+      logger.error('Initial highlight job failed', { error: err.message });
+    });
+  }, 12000);
+
   const shutdown = async (signal) => {
     logger.info(`Received ${signal}, shutting down`);
     scheduler.stop();

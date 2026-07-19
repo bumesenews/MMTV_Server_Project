@@ -8,22 +8,60 @@ const DEFAULT_UA =
   process.env.USER_AGENT ||
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
+function isWindowsPath(p) {
+  const s = String(p || '');
+  return /^[a-zA-Z]:[\\/]/.test(s) || s.includes('\\');
+}
+
+/**
+ * Resolve a Chrome/Chromium binary when explicitly configured or on Windows.
+ * On Linux: return undefined so Puppeteer uses its bundled Chromium
+ * (unless PUPPETEER_EXECUTABLE_PATH / CHROME_PATH / GOOGLE_CHROME_BIN points to a real file).
+ */
 function resolveChromePath() {
-  const candidates = [
+  const envCandidates = [
     process.env.PUPPETEER_EXECUTABLE_PATH,
     process.env.CHROME_PATH,
-    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-    path.join(os.homedir(), 'AppData', 'Local', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-  ].filter(Boolean);
+    process.env.GOOGLE_CHROME_BIN,
+  ].filter((p) => p && String(p).trim());
 
-  for (const p of candidates) {
+  for (const candidate of envCandidates) {
+    const p = String(candidate).trim();
+
+    // Common mistake: copying a Windows .env onto Ubuntu
+    if (process.platform !== 'win32' && isWindowsPath(p)) {
+      logger.warn('Ignoring Windows Chrome path on non-Windows host', {
+        path: p,
+        platform: process.platform,
+      });
+      continue;
+    }
+
     try {
       if (fs.existsSync(p)) return p;
+      logger.warn('Configured Chrome path not found — ignoring', { path: p });
     } catch {
       // continue
     }
   }
+
+  // Windows fallback: system Chrome installs only
+  if (process.platform === 'win32') {
+    const winCandidates = [
+      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+      path.join(os.homedir(), 'AppData', 'Local', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+    ];
+    for (const p of winCandidates) {
+      try {
+        if (fs.existsSync(p)) return p;
+      } catch {
+        // continue
+      }
+    }
+  }
+
+  // Linux / macOS / no valid env path → let Puppeteer use bundled Chromium
   return undefined;
 }
 
@@ -35,7 +73,10 @@ class PuppeteerManager {
     this.restartEvery = Number(
       options.restartEvery || process.env.BROWSER_RESTART_EVERY_N_PAGES || 25
     );
-    this.executablePath = options.executablePath || resolveChromePath();
+    this.executablePath =
+      options.executablePath !== undefined
+        ? options.executablePath
+        : resolveChromePath();
     this.browser = null;
     this.pagesOpened = 0;
     this.launching = null;
@@ -47,13 +88,14 @@ class PuppeteerManager {
 
     this.launching = (async () => {
       logger.info('Launching Puppeteer browser', {
-        headless: this.headless,
+        headless: Boolean(this.headless),
         timeout: this.timeout,
+        platform: process.platform,
         executablePath: this.executablePath || 'puppeteer-bundled',
       });
 
       const launchOpts = {
-        headless: this.headless ? 'new' : false,
+        headless: this.headless ? true : false,
         args: [
           '--no-sandbox',
           '--disable-setuid-sandbox',
@@ -64,6 +106,8 @@ class PuppeteerManager {
         ],
         defaultViewport: { width: 1366, height: 768 },
       };
+
+      // Only set executablePath when we resolved a real binary
       if (this.executablePath) {
         launchOpts.executablePath = this.executablePath;
       }
@@ -226,4 +270,4 @@ class PuppeteerManager {
   }
 }
 
-module.exports = { PuppeteerManager, DEFAULT_UA };
+module.exports = { PuppeteerManager, DEFAULT_UA, resolveChromePath };

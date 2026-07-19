@@ -1,14 +1,16 @@
 const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
 const { DEFAULT_UA } = require('../browser/puppeteerManager');
+const { HighlightManager } = require('../services/highlightManager');
 
 const BASE_URL = 'https://hoofoot.com/';
 const MATCH_DATE_RE = /_(\d{4})_(\d{2})_(\d{2})(?:[/?]|$)/;
-const RECENT_DAYS = 4;
+const RECENT_DAYS = 7;
 const TIMEZONE = 'Asia/Yangon';
 
 /**
  * Hoofoot match highlights (from MM_TV.Pro highlight.js)
+ * Parsing / enrich logic kept intact — retention & merge live in HighlightManager.
  */
 class HighlightSource {
   constructor({ config, browserManager } = {}) {
@@ -17,7 +19,8 @@ class HighlightSource {
     this.browser = browserManager;
     this.baseUrl = (this.config.domains && this.config.domains[0]) || BASE_URL;
     this.recentDays = Number(this.config.recentDays ?? RECENT_DAYS);
-    this.maxItems = Number(this.config.maxItems || process.env.HIGHLIGHT_LIMIT || 20);
+    this.maxItems = Number(this.config.maxItems || process.env.HIGHLIGHT_LIMIT || 50);
+    this.dateHelper = new HighlightManager({ retentionDays: this.recentDays });
   }
 
   absUrl(url, base = this.baseUrl) {
@@ -37,7 +40,8 @@ class HighlightSource {
     const { DateTime } = require('luxon');
     const today = DateTime.now().setZone(TIMEZONE).startOf('day');
     const dates = [];
-    for (let i = 0; i <= this.recentDays; i += 1) {
+    // Keep N calendar days including today (aligned with HighlightManager retention)
+    for (let i = 0; i < this.recentDays; i += 1) {
       dates.push(today.minus({ days: i }).toFormat('yyyy-MM-dd'));
     }
     return new Set(dates);
@@ -72,24 +76,31 @@ class HighlightSource {
         anchor.find('img').attr('alt')?.trim() ||
         '';
 
+      const cardText = $(element).text().replace(/\s+/g, ' ').trim();
+      const matchDate =
+        this.extractMatchDateKey(url) ||
+        this.dateHelper.normalizeDate(cardText) ||
+        this.dateHelper.normalizeDate(title);
+
       items.push({
         id: id || url,
         title,
         img,
         url,
-        matchDate: this.extractMatchDateKey(url),
+        matchDate,
       });
     });
 
     return items;
   }
 
-  async collect({ extractM3u8 = true } = {}) {
+  async collect({ extractM3u8 = true, knownIds = null } = {}) {
     if (!this.browser) throw new Error('HighlightSource requires browserManager');
 
     logEvent(events.SCRAPER_START, 'Highlight scrape start', { source: this.name });
     const page = await this.browser.newPage();
     const allowed = this.getAllowedDates();
+    const skipIds = knownIds instanceof Set ? knownIds : new Set(knownIds || []);
 
     try {
       await page.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
@@ -99,14 +110,26 @@ class HighlightSource {
       });
       await sleep(2500);
       const html = await page.content();
-      let highlights = this.parseHighlights(html).filter(
-        (h) => h.matchDate && allowed.has(h.matchDate)
-      );
+      let highlights = this.parseHighlights(html)
+        .map((h) => ({
+          ...h,
+          matchDate: this.dateHelper.normalizeDate(h.matchDate || h.url),
+        }))
+        .filter((h) => h.matchDate && allowed.has(h.matchDate));
 
       if (this.maxItems > 0) highlights = highlights.slice(0, this.maxItems);
 
       if (extractM3u8) {
         for (let i = 0; i < highlights.length; i += 1) {
+          const key = String(highlights[i].id || '');
+          // Skip expensive embed/m3u8 work for highlights already in the store
+          if (key && skipIds.has(key)) {
+            logger.debug('Highlight enrich skipped — already known', {
+              id: key,
+              title: highlights[i].title,
+            });
+            continue;
+          }
           try {
             highlights[i] = await this.enrichHighlight(page, highlights[i]);
           } catch (err) {

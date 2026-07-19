@@ -13,12 +13,15 @@ const { SocoSource } = require('../sources/soco');
 const { HighlightSource } = require('../sources/highlight');
 const { MyanmarTvSource } = require('../sources/myanmartv');
 const { buildEngineStreamingSources } = require('../sources/registry');
+const { HighlightManager } = require('./highlightManager');
 
 /**
  * Main AWS processing pipeline:
  * Load config → FotMob fixtures → filter/normalize → discover streams →
  * validate → merge → status → apply admin overrides → Flutter JSON →
  * compare → GitHub if changed
+ *
+ * Highlights run on a separate 3-hour schedule via runHighlights().
  */
 class Pipeline {
   constructor(env = process.env, admin = null) {
@@ -30,7 +33,9 @@ class Pipeline {
     this.normalizer = new Normalizer();
     this.admin = admin;
     this.running = false;
+    this.highlightRunning = false;
     this.lastRun = null;
+    this.lastHighlightRun = null;
   }
 
   attachAdmin(admin) {
@@ -357,36 +362,34 @@ class Pipeline {
     }
   }
 
+  /**
+   * Highlights are scraped on a dedicated 3-hour schedule (runHighlights).
+   * Main pipeline only reuses/prunes the last successful store — no Hoofoot HTTP each tick.
+   */
   async _collectExtraContent(sourcesDoc, previous) {
+    const deliveryHighlight = this.cache.getDelivery('highlight');
+    const manager = new HighlightManager({
+      retentionDays: Number(
+        this.configLoader.getSourceConfig(sourcesDoc, 'highlight')?.retentionDays ||
+          this.configLoader.getSourceConfig(sourcesDoc, 'highlight')?.recentDays ||
+          7
+      ),
+    });
+
+    const existing = manager.extractList(deliveryHighlight).length
+      ? manager.extractList(deliveryHighlight)
+      : previous?.highlights || [];
+
+    const pruned = manager.merge({
+      existing,
+      scraped: [],
+      retentionDays: manager.retentionDays,
+    });
+
     const extras = {
-      highlights: previous?.highlights || [],
+      highlights: pruned.highlights,
       channels: previous?.channels || [],
     };
-
-    if (this._isSourceEnabled(sourcesDoc, 'highlight')) {
-      try {
-        const cfg = this.configLoader.getSourceConfig(sourcesDoc, 'highlight') || {
-          name: 'highlight',
-          domains: ['https://hoofoot.com/'],
-        };
-        const highlight = new HighlightSource({
-          config: cfg,
-          browserManager: this.browser,
-        });
-        extras.highlights = await highlight.collect({ extractM3u8: true });
-        if (this.admin?.sources) {
-          this.admin.sources.recordSuccess(
-            'highlight',
-            extras.highlights.filter((h) => h.m3u8).length
-          );
-        }
-      } catch (err) {
-        logEvent(events.SCRAPER_ERROR, 'Highlight scrape failed — keep previous', {
-          error: err.message,
-        });
-        if (this.admin?.sources) this.admin.sources.recordError('highlight', err.message);
-      }
-    }
 
     if (this._isSourceEnabled(sourcesDoc, 'myanmartv')) {
       try {
@@ -411,6 +414,239 @@ class Pipeline {
     }
 
     return extras;
+  }
+
+  /**
+   * Dedicated Hoofoot highlight job (every 3 hours):
+   * scrape → merge → dedupe → 7-day retention → compare → GitHub only if changed.
+   */
+  async runHighlights({ force = false } = {}) {
+    if (this.highlightRunning) {
+      logger.warn('Highlight job already running — skip overlapping run');
+      return { ok: false, reason: 'already_running' };
+    }
+
+    this.highlightRunning = true;
+    const startedAt = Date.now();
+    const manager = new HighlightManager({ retentionDays: 7 });
+
+    logEvent(events.SCRAPER_START, 'Highlight scraper started', {
+      force,
+      timezone: 'Asia/Yangon',
+    });
+
+    try {
+      const config = await this.configLoader.load(true);
+      if (!this._isSourceEnabled(config.sources, 'highlight')) {
+        logger.info('Highlight source disabled — skip');
+        return { ok: true, reason: 'disabled' };
+      }
+
+      const cfg = this.configLoader.getSourceConfig(config.sources, 'highlight') || {
+        name: 'highlight',
+        domains: ['https://hoofoot.com/'],
+        recentDays: 7,
+        retentionDays: 7,
+      };
+      manager.retentionDays = Number(cfg.retentionDays ?? cfg.recentDays ?? 7);
+
+      const previousDelivery = this.cache.getDelivery('highlight');
+      let existing = [...manager.extractList(previousDelivery)];
+      if (!existing.length) {
+        existing = [...manager.extractList(this.cache.getCurrent())];
+      }
+
+      let scraped = [];
+      try {
+        const knownIds = new Set(
+          existing.map((h) => String(h.id || '')).filter(Boolean)
+        );
+        const source = new HighlightSource({
+          config: { ...cfg, recentDays: manager.retentionDays },
+          browserManager: this.browser,
+        });
+        scraped = await source.collect({
+          extractM3u8: true,
+          knownIds,
+        });
+        logEvent(events.SCRAPER_SUCCESS, 'Highlight scrape completed', {
+          totalHighlightsFound: scraped.length,
+          withM3u8: scraped.filter((h) => h.m3u8).length,
+        });
+      } catch (err) {
+        logEvent(events.SCRAPER_ERROR, 'Highlight scrape failed — keep previous data', {
+          error: err.message,
+        });
+        if (this.admin?.sources) this.admin.sources.recordError('highlight', err.message);
+        this.lastHighlightRun = {
+          ok: false,
+          reason: 'scrape_failed',
+          error: err.message,
+          at: new Date().toISOString(),
+        };
+        // Never overwrite with empty on failure
+        return {
+          ok: false,
+          reason: 'scrape_failed',
+          kept: previousDelivery,
+          error: err.message,
+        };
+      }
+
+      if (!scraped.length && !existing.length) {
+        logger.warn('Highlight scrape returned empty and no previous data — skip upload');
+        return { ok: false, reason: 'empty', uploaded: false };
+      }
+
+      // Scrape returned nothing but we have history — keep previous (site glitch)
+      if (!scraped.length && existing.length) {
+        logger.warn('Highlight scrape returned empty — keep previous highlights.json');
+        logEvent(events.GITHUB_SKIPPED, 'No highlight changes detected. GitHub upload skipped.', {
+          reason: 'empty_scrape_keep_previous',
+        });
+        this.lastHighlightRun = {
+          ok: true,
+          reason: 'empty_scrape_keep_previous',
+          at: new Date().toISOString(),
+        };
+        return { ok: true, reason: 'empty_scrape_keep_previous', uploaded: false };
+      }
+
+      const { highlights, stats } = manager.merge({
+        existing,
+        scraped,
+        retentionDays: manager.retentionDays,
+      });
+
+      logger.info('Highlight merge stats', {
+        totalHighlightsFound: stats.scrapedCount,
+        newHighlightsAdded: stats.newAdded,
+        duplicateHighlightsRemoved: stats.duplicatesRemoved,
+        oldHighlightsRemoved: stats.oldRemoved,
+        totalAfterMerge: stats.totalAfterMerge,
+      });
+
+      if (!highlights.length && existing.length) {
+        logger.warn('Merge produced empty highlights — refuse overwrite');
+        logEvent(events.GITHUB_SKIPPED, 'No highlight changes detected. GitHub upload skipped.', {
+          reason: 'refuse_empty',
+        });
+        return { ok: false, reason: 'refuse_empty', uploaded: false };
+      }
+
+      const nextDelivery = manager.buildDelivery(highlights, {
+        source: (cfg.domains && cfg.domains[0]) || 'https://hoofoot.com/',
+        scraped_at: new Date().toISOString(),
+      });
+
+      logger.info('JSON comparison', {
+        feed: 'highlight',
+        previousCount: previousDelivery?.count ?? existing.length,
+        nextCount: nextDelivery.count,
+      });
+
+      const changed = force || manager.hasChanged(previousDelivery, nextDelivery);
+      if (!changed) {
+        logEvent(
+          events.GITHUB_SKIPPED,
+          'No highlight changes detected. GitHub upload skipped.'
+        );
+        this.lastHighlightRun = {
+          ok: true,
+          reason: 'unchanged',
+          uploaded: false,
+          stats,
+          at: new Date().toISOString(),
+          durationMs: Date.now() - startedAt,
+        };
+        return { ok: true, reason: 'unchanged', uploaded: false, stats, delivery: nextDelivery };
+      }
+
+      // Persist local delivery + sync highlights into current.json
+      const bundle = this.cache.getDeliveryBundle();
+      bundle.highlight = nextDelivery;
+      this.cache.saveDeliveryBundle(bundle);
+
+      const current = this.cache.getCurrent();
+      if (current) {
+        this.cache.saveGenerated({
+          ...current,
+          highlights,
+          highlightCount: highlights.length,
+        });
+      }
+
+      let github = { uploaded: false, reason: 'not_configured' };
+      try {
+        github = await this.github.uploadJsonIfChanged(
+          this.github.paths.highlight,
+          nextDelivery,
+          { previousLocal: previousDelivery, feedKey: 'highlight' }
+        );
+        if (github.uploaded) {
+          logEvent(events.GITHUB_UPLOAD, 'Highlights updated successfully.', {
+            commit: github.commit,
+            count: nextDelivery.count,
+          });
+        } else if (github.reason === 'unchanged') {
+          logEvent(
+            events.GITHUB_SKIPPED,
+            'No highlight changes detected. GitHub upload skipped.'
+          );
+        } else if (github.reason === 'refuse_empty') {
+          logger.warn('Highlight GitHub upload refused empty overwrite');
+        }
+      } catch (err) {
+        logEvent(events.SCRAPER_ERROR, 'Highlight GitHub upload failed', {
+          error: err.message,
+        });
+        github = { uploaded: false, reason: 'github_error', error: err.message };
+      }
+
+      if (this.admin?.sources) {
+        this.admin.sources.recordSuccess(
+          'highlight',
+          highlights.filter((h) => h.m3u8).length
+        );
+      }
+
+      this.lastHighlightRun = {
+        ok: true,
+        reason: github.uploaded ? 'updated' : github.reason,
+        uploaded: Boolean(github.uploaded),
+        stats,
+        github,
+        at: new Date().toISOString(),
+        durationMs: Date.now() - startedAt,
+      };
+
+      logEvent(events.SCRAPER_SUCCESS, 'Highlight job completed', this.lastHighlightRun);
+      return {
+        ok: true,
+        uploaded: Boolean(github.uploaded),
+        stats,
+        delivery: nextDelivery,
+        github,
+      };
+    } catch (err) {
+      logEvent(events.SCRAPER_ERROR, 'Highlight job fatal error', { error: err.message });
+      this.lastHighlightRun = {
+        ok: false,
+        reason: err.message,
+        at: new Date().toISOString(),
+      };
+      return { ok: false, reason: err.message };
+    } finally {
+      this.highlightRunning = false;
+      // Keep browser alive if main pipeline may still need it; close only when idle
+      if (!this.running) {
+        try {
+          await this.browser.close();
+        } catch {
+          // ignore
+        }
+      }
+    }
   }
 }
 
