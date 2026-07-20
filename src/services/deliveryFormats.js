@@ -68,7 +68,8 @@ function formatMatchesDelivery(matchesPayload) {
 
 /**
  * Soco live — leagues-grouped shape used by Flutter:
- * { leagues: [{ league_name, league_icon, matches: [{ home_team, away_team, month, time, links }] }] }
+ * { leagues: [{ league_name, league_icon, matches: [{ home_team, away_team, month, time, status, links }] }] }
+ * status: LIVE | Scheduled | END (from socolivegg.io data-status / live signals)
  */
 function formatSocoLeagues(socoMatches = [], { leagueIcons = {} } = {}) {
   const byLeague = new Map();
@@ -85,6 +86,7 @@ function formatSocoLeagues(socoMatches = [], { leagueIcons = {} } = {}) {
 
     const links = normalizeSocoLinks(m);
     const kickoff = m.kickoff || m.kickoffUnix || null;
+    const status = normalizeSocoStatus(m.status, links);
 
     byLeague.get(leagueName).matches.push({
       home_team: {
@@ -97,11 +99,26 @@ function formatSocoLeagues(socoMatches = [], { leagueIcons = {} } = {}) {
       },
       month: m.month || formatMonth(kickoff),
       time: m.clock || formatClock(kickoff),
-      links,
+      status,
+      // Streams only for LIVE; keep empty array for Scheduled / END
+      links: status === 'LIVE' ? links : [],
     });
   }
 
   return { leagues: [...byLeague.values()] };
+}
+
+function normalizeSocoStatus(raw, links = []) {
+  const s = String(raw || '').trim().toLowerCase();
+  if (s === 'live' || s === 'ht' || s === '1h' || s === '2h') return 'LIVE';
+  if (s === 'end' || s === 'ended' || s === 'finished' || s === 'ft') return 'END';
+  if (s === 'scheduled' || s === 'schedule' || s === 'vs' || s === 'upcoming') {
+    return 'Scheduled';
+  }
+  if (raw === 'LIVE' || raw === 'END' || raw === 'Scheduled') return raw;
+  // Legacy soco.json rows had no status — non-empty links meant live
+  if (Array.isArray(links) && links.some((l) => l && l.url)) return 'LIVE';
+  return 'Scheduled';
 }
 
 function normalizeSocoLinks(match) {

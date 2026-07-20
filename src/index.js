@@ -16,11 +16,13 @@ async function main() {
 
   const app = createApp({ pipeline, cache, admin, env: process.env });
   const port = Number(process.env.PORT || 3000);
+  // Bind all interfaces so EC2 public IP / security-group:3000 can reach the admin panel
+  const host = process.env.HOST || '0.0.0.0';
 
-  const server = app.listen(port, () => {
-    logger.info(`API listening on :${port}`, {
+  const server = app.listen(port, host, () => {
+    logger.info(`API listening on http://${host}:${port}`, {
       timezone: 'Asia/Yangon',
-      adminPanel: `http://localhost:${port}/admin`,
+      adminPanel: `http://${host}:${port}/admin`,
     });
   });
 

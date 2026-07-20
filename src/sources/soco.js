@@ -12,13 +12,22 @@ try {
   // ignore
 }
 
-const DEFAULT_BASE_URL = 'https://socoliveku.cc';
+const DEFAULT_BASE_URL = 'https://socolivegg.io';
 const DEFAULT_SPORT = 'football';
 const STREAM_CONCURRENCY = 6;
 const STREAM_LEAD_MS = 5 * 60 * 1000;
 const MATCH_DURATION_MS = (105 + 30) * 60 * 1000;
 const FETCH_RETRIES = 3;
 const FETCH_DELAY_MS = 1200;
+
+/**
+ * Football status codes from socolivegg.io `sport_data.football`
+ * (score[1] / data-status after live hydrate):
+ * 0 abnormal, 1 not started, 2 1H, 3 HT, 4 2H, 5–6 ET, 7 Pen,
+ * 8 FT, 9 postponed, 10 interrupted, 11 cut, 12 cancelled, 13 unknown
+ */
+const SOCO_STATUS_PLAYING = new Set([2, 3, 4, 5, 6, 7]);
+const SOCO_STATUS_ENDED = new Set([8, 10, 11, 12]);
 
 const DEFAULT_PATHS = {
   today: '/sport/football/filter/today',
@@ -278,6 +287,16 @@ class SocoSource {
 
       const { status, live } = parseMatchStatus(card, kickoffUnix, this);
 
+      logger.debug('Soco card status → match object', {
+        source: 'soco',
+        homeTeam: homeRaw,
+        awayTeam: awayRaw,
+        sectionKey,
+        kickoffUnix,
+        finalJsonStatus: status,
+        live,
+      });
+
       matches.push({
         matchId,
         league: standardLeague || leagueRaw,
@@ -403,9 +422,30 @@ class SocoSource {
       baseUrl: this.baseUrl,
     });
     const discovered = await this.discoverMatches();
+    // soco.json: only scrape m3u8 links when the site marks the match LIVE (not VS/Scheduled)
     const targets = fetchStreams
-      ? discovered.filter((m) => shouldAttemptStreamFetch(m))
+      ? discovered.filter((m) => m.status === 'LIVE')
       : [];
+
+    logger.info('Soco scrapeFull status summary', {
+      source: this.name,
+      total: discovered.length,
+      liveCount: discovered.filter((m) => m.status === 'LIVE').length,
+      scheduledCount: discovered.filter((m) => m.status === 'Scheduled').length,
+      endCount: discovered.filter((m) => m.status === 'END').length,
+      streamFetchTargets: targets.length,
+      liveSamples: discovered
+        .filter((m) => m.status === 'LIVE')
+        .slice(0, 10)
+        .map((m) => ({
+          matchId: m.matchId,
+          homeTeam: m.homeTeam,
+          awayTeam: m.awayTeam,
+          kickoff: m.kickoff,
+          kickoffUnix: m.kickoffUnix,
+          status: m.status,
+        })),
+    });
 
     const linksById = new Map();
     const enriched = await mapWithConcurrency(targets, STREAM_CONCURRENCY, async (match) => {
@@ -428,7 +468,8 @@ class SocoSource {
 
     const matches = discovered.map((m) => ({
       ...m,
-      links: linksById.get(m.matchId) || [],
+      // Never publish stream URLs for non-LIVE (VS / Scheduled / END)
+      links: m.status === 'LIVE' ? linksById.get(m.matchId) || [] : [],
     }));
 
     logEvent(events.SCRAPER_SUCCESS, 'Soco full scrape success', {
@@ -541,40 +582,119 @@ class SocoSource {
   }
 }
 
+function firstTextWithSelector($root, selectorList) {
+  for (const selector of asList(selectorList)) {
+    const text = $root.find(selector).first().text().replace(/\s+/g, ' ').trim();
+    if (text) return { text, selector };
+  }
+  return { text: '', selector: null };
+}
+
 function parseMatchStatus(card, kickoffUnixSeconds, source) {
   const className = (card.attr('class') || '').toLowerCase();
   const dataStatus = String(source.cardAttr(card, source.attrs.status) || '').trim();
-  const statusText = source
-    .firstText(card, source.selectors.status)
-    .toLowerCase();
+  const statusCode = Number.parseInt(dataStatus, 10);
+  const statusHit = firstTextWithSelector(card, source.selectors.status);
+  const statusText = String(statusHit.text || '').toLowerCase().trim();
+  const statusSelector = statusHit.selector;
+  const hasScore =
+    card.find('.grid-match__vs .home-score, .grid-match__vs .away-score, .t_vs_num').length > 0;
+  const hasVsOnly =
+    card.find('.grid-match__vs').length > 0 && !hasScore;
 
-  if (
-    /^(ft|full|end|ended|finished|aet|pen|cancel|postpon|abandon)/i.test(statusText) ||
+  // Extra raw HTML snapshot of status-related nodes (debug only)
+  const rawStatusHtml = asList(source.selectors.status)
+    .map((sel) => {
+      const el = card.find(sel).first();
+      if (!el.length) return null;
+      return { selector: sel, text: el.text().replace(/\s+/g, ' ').trim(), html: el.html() };
+    })
+    .filter(Boolean);
+
+  let branch = null;
+  let result = { status: 'Scheduled', live: false };
+
+  // Prefer explicit site status codes (socolivegg.io / apiscoreflow football map)
+  if (Number.isFinite(statusCode) && SOCO_STATUS_ENDED.has(statusCode)) {
+    branch = `end_data_status_${statusCode}`;
+    result = { status: 'END', live: false };
+  } else if (Number.isFinite(statusCode) && SOCO_STATUS_PLAYING.has(statusCode)) {
+    branch = `live_data_status_${statusCode}`;
+    result = { status: 'LIVE', live: true };
+  } else if (
+    /^(ft|full.?time|end|ended|finished|aet|ket thuc|kết thúc)/i.test(statusText) ||
     className.includes('finished') ||
-    dataStatus === '2' ||
     dataStatus === '-1'
   ) {
-    return { status: 'END', live: false };
-  }
-
-  if (
+    branch = className.includes('finished') ? 'end_class_finished' : 'end_status_text';
+    result = { status: 'END', live: false };
+  } else if (
     className.includes('live') ||
-    dataStatus === '1' ||
     /\blive\b/i.test(statusText) ||
-    /^ht$/i.test(statusText)
+    /^(ht|1h|2h|h1|h2|pen|et)\b/i.test(statusText) ||
+    hasScore
   ) {
-    return { status: 'LIVE', live: true };
+    if (className.includes('live')) branch = 'live_class_includes_live';
+    else if (hasScore) branch = 'live_score_present';
+    else if (/\blive\b/i.test(statusText)) branch = 'live_status_text_live';
+    else branch = 'live_status_text_period';
+    result = { status: 'LIVE', live: true };
+  } else {
+    const kickoffMs = Number(kickoffUnixSeconds) * 1000;
+    const now = Date.now();
+    // VS / not-started (code 1/9/13): never force LIVE from kickoff alone
+    if (Number.isFinite(kickoffMs) && now >= kickoffMs + MATCH_DURATION_MS) {
+      branch = 'end_after_match_duration';
+      result = { status: 'END', live: false };
+    } else {
+      branch =
+        Number.isFinite(statusCode) && statusCode === 1
+          ? 'scheduled_data_status_1'
+          : hasVsOnly
+            ? 'scheduled_vs_badge'
+            : Number.isFinite(kickoffMs) && now >= kickoffMs
+              ? 'scheduled_vs_no_live_signal_after_kickoff'
+              : 'scheduled_before_kickoff';
+      result = { status: 'Scheduled', live: false };
+    }
   }
 
-  const kickoffMs = Number(kickoffUnixSeconds) * 1000;
-  const now = Date.now();
-  if (!Number.isFinite(kickoffMs) || now < kickoffMs) {
-    return { status: 'Scheduled', live: false };
+  logger.debug('Soco parseMatchStatus debug', {
+    source: 'soco',
+    className,
+    dataStatus,
+    statusCode: Number.isFinite(statusCode) ? statusCode : null,
+    statusSelector,
+    extractedStatusText: statusHit.text || '',
+    extractedStatusTextLower: statusText,
+    hasScore,
+    hasVsOnly,
+    rawStatusHtml,
+    kickoffUnix: kickoffUnixSeconds,
+    kickoffIso: Number.isFinite(Number(kickoffUnixSeconds))
+      ? new Date(Number(kickoffUnixSeconds) * 1000).toISOString()
+      : null,
+    nowIso: new Date().toISOString(),
+    decisionBranch: branch,
+    finalStatus: result.status,
+    finalLive: result.live,
+  });
+
+  if (result.status === 'LIVE') {
+    logger.info('Soco status resolved to LIVE', {
+      source: 'soco',
+      decisionBranch: branch,
+      dataStatus,
+      statusCode: Number.isFinite(statusCode) ? statusCode : null,
+      statusSelector,
+      extractedStatusText: statusHit.text || '',
+      className,
+      kickoffUnix: kickoffUnixSeconds,
+      finalStatus: result.status,
+    });
   }
-  if (now < kickoffMs + MATCH_DURATION_MS) {
-    return { status: 'LIVE', live: true };
-  }
-  return { status: 'END', live: false };
+
+  return result;
 }
 
 function shouldAttemptStreamFetch(match) {

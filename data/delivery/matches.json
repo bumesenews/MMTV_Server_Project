@@ -1,8 +1,8 @@
 {
   "version": 1,
-  "generatedAt": "2026-07-19T13:50:37.637+06:30",
+  "generatedAt": "2026-07-20T21:43:34.342+06:30",
   "timezone": "Asia/Yangon",
-  "matchCount": 3,
+  "matchCount": 4,
   "matches": [
     {
       "matchId": "spain_argentina_20260720",
@@ -17,7 +17,7 @@
       "time": "01:30",
       "kickoff": "2026-07-20T01:30:00.000+06:30",
       "timezone": "Asia/Yangon",
-      "status": "Scheduled",
+      "status": "END",
       "pinned": false,
       "featured": false,
       "hasStreams": false,
@@ -31,7 +31,7 @@
       },
       "sourcePages": {},
       "streams": [],
-      "updatedAt": "2026-07-19T07:19:11.031Z"
+      "updatedAt": "2026-07-20T15:13:34.340Z"
     },
     {
       "matchId": "guayaquil_city_manta_20260720",
@@ -46,7 +46,7 @@
       "time": "04:15",
       "kickoff": "2026-07-20T04:15:00.000+06:30",
       "timezone": "Asia/Yangon",
-      "status": "Scheduled",
+      "status": "END",
       "pinned": false,
       "featured": false,
       "hasStreams": false,
@@ -60,7 +60,7 @@
       },
       "sourcePages": {},
       "streams": [],
-      "updatedAt": "2026-07-19T07:19:11.036Z"
+      "updatedAt": "2026-07-20T15:13:34.340Z"
     },
     {
       "matchId": "independiente_del_valle_emelec_20260720",
@@ -75,7 +75,7 @@
       "time": "06:45",
       "kickoff": "2026-07-20T06:45:00.000+06:30",
       "timezone": "Asia/Yangon",
-      "status": "Scheduled",
+      "status": "END",
       "pinned": false,
       "featured": false,
       "hasStreams": false,
@@ -89,27 +89,59 @@
       },
       "sourcePages": {},
       "streams": [],
-      "updatedAt": "2026-07-19T07:19:11.040Z"
+      "updatedAt": "2026-07-20T15:13:34.341Z"
+    },
+    {
+      "matchId": "mushuc_runa_orense_20260721",
+      "league": "Serie A",
+      "homeTeam": "Mushuc Runa",
+      "awayTeam": "Orense",
+      "homeTeamId": 304929,
+      "awayTeamId": 1014174,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/304929.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1014174.png",
+      "date": "2026-07-21",
+      "time": "01:30",
+      "kickoff": "2026-07-21T01:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "Serie A",
+          "homeTeam": "Mushuc Runa",
+          "awayTeam": "Orense"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "updatedAt": "2026-07-20T15:13:34.341Z"
     }
   ],
   "meta": {
     "configOrigin": "github",
     "sources": [
       "luongson",
-      "socolive",
+      "cakhia",
       "xoilac",
+      "90phut",
+      "yyzb",
+      "socolive",
       "soco",
       "highlight",
       "myanmartv"
     ],
     "liveCount": 0,
-    "scheduledCount": 3,
-    "endedCount": 0,
+    "scheduledCount": 1,
+    "endedCount": 3,
     "manualStreamCount": 0,
-    "highlightCount": 2,
+    "highlightCount": 3,
     "channelCount": 18,
-    "checksum": "97089e485ea3b6f571b70e1309bc12d316fb199020218a01842f37a869ade26d",
-    "cachedAt": "2026-07-19T07:20:37.648Z",
+    "checksum": "9e0215ee44a14f4d1cc58ca8042bb4435409c614bdaeb37ccbd3b9ea39fd823d",
+    "cachedAt": "2026-07-20T15:13:34.391Z",
     "feed": "matches"
   }
 }
