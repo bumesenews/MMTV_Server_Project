@@ -231,8 +231,8 @@
       "priority": 250,
       "extractionMethod": "puppeteer",
       "parser": "socolive",
-      "domains": ["https://socoliveku.cc"],
-      "mirrorDomains": [],
+      "domains": ["https://socolivegg.io"],
+      "mirrorDomains": ["https://socoliveku.cc"],
       "paths": {
         "home": "/",
         "schedule": "/lich-thi-dau"
@@ -268,8 +268,8 @@
       "type": "streaming",
       "priority": 200,
       "extractionMethod": "http",
-      "domains": ["https://socoliveku.cc"],
-      "mirrorDomains": [],
+      "domains": ["https://socolivegg.io"],
+      "mirrorDomains": ["https://socoliveku.cc"],
       "sport": "football",
       "sections": ["today", "tomorrow"],
       "onlyAllowedLeagues": true,
@@ -330,9 +330,9 @@
       },
       "headers": {
         "Accept": "text/html,application/json,*/*",
-        "Referer": "https://socolivemm.io/"
+        "Referer": "https://socolivegg.io/"
       },
-      "notes": "HTTP API scraper from MM_TV.Pro — change domains/paths/selectors/attrs when site moves"
+      "notes": "HTTP API scraper — change domains/paths/selectors/attrs when site moves"
     },
     {
       "name": "highlight",
