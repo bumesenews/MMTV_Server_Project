@@ -94,13 +94,18 @@ class HighlightSource {
     return items;
   }
 
-  async collect({ extractM3u8 = true, knownIds = null } = {}) {
+  async collect({ extractM3u8 = true, skipEnrichIds = null, knownIds = null } = {}) {
     if (!this.browser) throw new Error('HighlightSource requires browserManager');
 
     logEvent(events.SCRAPER_START, 'Highlight scrape start', { source: this.name });
     const page = await this.browser.newPage();
     const allowed = this.getAllowedDates();
-    const skipIds = knownIds instanceof Set ? knownIds : new Set(knownIds || []);
+    // Only skip enrich when caller says this id already has playable media
+    const skipIds = new Set(
+      [...(skipEnrichIds instanceof Set ? skipEnrichIds : skipEnrichIds || [])].map(String)
+    );
+    // Backward compat: old knownIds meant "already stored" — do NOT skip enrich unless also in skipEnrichIds
+    void knownIds;
 
     try {
       await page.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
@@ -120,11 +125,14 @@ class HighlightSource {
       if (this.maxItems > 0) highlights = highlights.slice(0, this.maxItems);
 
       if (extractM3u8) {
+        let enriched = 0;
+        let skipped = 0;
         for (let i = 0; i < highlights.length; i += 1) {
           const key = String(highlights[i].id || '');
-          // Skip expensive embed/m3u8 work for highlights already in the store
+          // Skip only when we already have m3u8 for this id (performance)
           if (key && skipIds.has(key)) {
-            logger.debug('Highlight enrich skipped — already known', {
+            skipped += 1;
+            logger.debug('Highlight enrich skipped — m3u8 already cached', {
               id: key,
               title: highlights[i].title,
             });
@@ -132,6 +140,7 @@ class HighlightSource {
           }
           try {
             highlights[i] = await this.enrichHighlight(page, highlights[i]);
+            enriched += 1;
           } catch (err) {
             logger.warn('Highlight enrich failed', {
               title: highlights[i].title,
@@ -145,6 +154,11 @@ class HighlightSource {
             };
           }
         }
+        logger.info('Highlight enrich pass', {
+          total: highlights.length,
+          enriched,
+          skippedCached: skipped,
+        });
       }
 
       const result = highlights.map((h) => ({

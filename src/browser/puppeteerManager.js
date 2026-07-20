@@ -1,12 +1,15 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const puppeteer = require('puppeteer');
+const puppeteer = require('puppeteer-core');
 const { logger } = require('../utils/logger');
 
 const DEFAULT_UA =
   process.env.USER_AGENT ||
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
+
+/** Production Ubuntu / snap Chromium (AWS EC2). */
+const LINUX_CHROMIUM_DEFAULT = '/snap/bin/chromium';
 
 function isWindowsPath(p) {
   const s = String(p || '');
@@ -14,9 +17,8 @@ function isWindowsPath(p) {
 }
 
 /**
- * Resolve a Chrome/Chromium binary when explicitly configured or on Windows.
- * On Linux: return undefined so Puppeteer uses its bundled Chromium
- * (unless PUPPETEER_EXECUTABLE_PATH / CHROME_PATH / GOOGLE_CHROME_BIN points to a real file).
+ * Resolve a system Chrome/Chromium binary for puppeteer-core.
+ * puppeteer-core does NOT download a browser — executablePath is required.
  */
 function resolveChromePath() {
   const envCandidates = [
@@ -28,7 +30,6 @@ function resolveChromePath() {
   for (const candidate of envCandidates) {
     const p = String(candidate).trim();
 
-    // Common mistake: copying a Windows .env onto Ubuntu
     if (process.platform !== 'win32' && isWindowsPath(p)) {
       logger.warn('Ignoring Windows Chrome path on non-Windows host', {
         path: p,
@@ -45,7 +46,6 @@ function resolveChromePath() {
     }
   }
 
-  // Windows fallback: system Chrome installs only
   if (process.platform === 'win32') {
     const winCandidates = [
       'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
@@ -59,9 +59,23 @@ function resolveChromePath() {
         // continue
       }
     }
+  } else {
+    const linuxCandidates = [
+      LINUX_CHROMIUM_DEFAULT,
+      '/usr/bin/chromium-browser',
+      '/usr/bin/chromium',
+      '/usr/bin/google-chrome-stable',
+      '/usr/bin/google-chrome',
+    ];
+    for (const p of linuxCandidates) {
+      try {
+        if (fs.existsSync(p)) return p;
+      } catch {
+        // continue
+      }
+    }
   }
 
-  // Linux / macOS / no valid env path → let Puppeteer use bundled Chromium
   return undefined;
 }
 
@@ -87,14 +101,25 @@ class PuppeteerManager {
     if (this.launching) return this.launching;
 
     this.launching = (async () => {
-      logger.info('Launching Puppeteer browser', {
+      if (!this.executablePath) {
+        const hint =
+          process.platform === 'win32'
+            ? 'Install Google Chrome or set PUPPETEER_EXECUTABLE_PATH'
+            : `Install Chromium (e.g. snap install chromium) or set PUPPETEER_EXECUTABLE_PATH=${LINUX_CHROMIUM_DEFAULT}`;
+        throw new Error(
+          `puppeteer-core requires a system browser executablePath. None found. ${hint}`
+        );
+      }
+
+      logger.info('Launching Puppeteer browser (puppeteer-core)', {
         headless: Boolean(this.headless),
         timeout: this.timeout,
         platform: process.platform,
-        executablePath: this.executablePath || 'puppeteer-bundled',
+        executablePath: this.executablePath,
       });
 
       const launchOpts = {
+        executablePath: this.executablePath,
         headless: this.headless ? true : false,
         args: [
           '--no-sandbox',
@@ -106,11 +131,6 @@ class PuppeteerManager {
         ],
         defaultViewport: { width: 1366, height: 768 },
       };
-
-      // Only set executablePath when we resolved a real binary
-      if (this.executablePath) {
-        launchOpts.executablePath = this.executablePath;
-      }
 
       this.browser = await puppeteer.launch(launchOpts);
 
@@ -270,4 +290,9 @@ class PuppeteerManager {
   }
 }
 
-module.exports = { PuppeteerManager, DEFAULT_UA, resolveChromePath };
+module.exports = {
+  PuppeteerManager,
+  DEFAULT_UA,
+  resolveChromePath,
+  LINUX_CHROMIUM_DEFAULT,
+};

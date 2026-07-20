@@ -2,6 +2,7 @@ const { logger, logEvent, events } = require('../utils/logger');
 const { getCheckIntervalMinutes, minutesUntilKickoff } = require('../utils/time');
 const { StreamValidator } = require('./streamValidator');
 const { MatchMerger } = require('./matchMerger');
+const { enrichMatchState } = require('./statusService');
 
 /**
  * Production multi-source streaming extraction engine.
@@ -75,7 +76,8 @@ class StreamEngine {
     for (const fixture of list) {
       try {
         if (!force && !this.shouldCheck(fixture)) {
-          results.push(fixture);
+          // Re-resolve status so FotMob/kickoff LIVE without streams never reaches Flutter
+          results.push(enrichMatchState(fixture));
           continue;
         }
 

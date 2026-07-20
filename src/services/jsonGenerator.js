@@ -1,12 +1,16 @@
 const { nowYangon } = require('../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../utils/compare');
+const { enrichMatchState } = require('./statusService');
 
 /**
  * Generate Flutter-facing JSON payload.
  * Includes live matches + highlights + Myanmar TV channels.
  */
 function generateFlutterJson(matches, meta = {}, extras = {}) {
-  const cleanedMatches = (matches || []).map((m) => ({
+  const cleanedMatches = (matches || []).map((raw) => {
+    // Ensure LIVE is never emitted without a stream URL
+    const m = enrichMatchState(raw);
+    return {
     matchId: m.matchId,
     league: m.league,
     homeTeam: m.homeTeam,
@@ -43,7 +47,8 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
         ...(s.manualId ? { manualId: s.manualId } : {}),
       })),
     updatedAt: m.updatedAt || new Date().toISOString(),
-  }));
+  };
+  });
 
   const highlights = (extras.highlights || meta.highlights || []).map((h) => ({
     id: h.id,

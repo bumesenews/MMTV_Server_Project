@@ -458,20 +458,46 @@ class Pipeline {
 
       let scraped = [];
       try {
-        const knownIds = new Set(
-          existing.map((h) => String(h.id || '')).filter(Boolean)
+        const existingById = new Map(
+          existing
+            .filter((h) => h && h.id != null)
+            .map((h) => [String(h.id), h])
         );
+        // Only skip embed/m3u8 work when we already have a playable URL cached
+        const skipEnrichIds = force
+          ? new Set()
+          : new Set(
+              existing
+                .filter((h) => h && h.id != null && String(h.m3u8 || h.embed_url || h.embedUrl || '').trim())
+                .map((h) => String(h.id))
+            );
+
         const source = new HighlightSource({
           config: { ...cfg, recentDays: manager.retentionDays },
           browserManager: this.browser,
         });
         scraped = await source.collect({
           extractM3u8: true,
-          knownIds,
+          skipEnrichIds,
         });
+
+        // Re-attach cached media onto items we skipped enriching
+        scraped = scraped.map((h) => {
+          const prev = existingById.get(String(h.id || ''));
+          if (!prev) return h;
+          return {
+            ...h,
+            m3u8: h.m3u8 || prev.m3u8 || null,
+            embedUrl: h.embedUrl || prev.embedUrl || prev.embed_url || null,
+            headers: h.headers || prev.headers || null,
+          };
+        });
+
         logEvent(events.SCRAPER_SUCCESS, 'Highlight scrape completed', {
           totalHighlightsFound: scraped.length,
           withM3u8: scraped.filter((h) => h.m3u8).length,
+          skippedEnrich: skipEnrichIds.size,
+          force,
         });
       } catch (err) {
         logEvent(events.SCRAPER_ERROR, 'Highlight scrape failed — keep previous data', {
