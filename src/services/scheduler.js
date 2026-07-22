@@ -3,16 +3,16 @@ const { logger } = require('../utils/logger');
 const { getCheckIntervalMinutes, nowYangon } = require('../utils/time');
 
 /**
- * Dynamic checking:
- * >30m before kickoff → every 30m
- * 30m before → every 5m
- * 10m before → every 1–2m
- * LIVE → every 5m
- * END → stop
+ * Job schedule (Asia/Yangon):
  *
- * Implemented via a frequent tick that consults per-match intervals inside StreamEngine.
+ * Main pipeline (PIPELINE_CRON)
+ * └── matches.json + soco.json
  *
- * Highlights: separate cron every 3 hours (00:00, 03:00, …, 21:00 Asia/Yangon).
+ * Highlight Job (HIGHLIGHT_CRON, default every 3 hr)
+ * └── Highlights → highlight.json
+ *
+ * MyanmarTV Job (MYANMARTV_CRON, default every 12 hr)
+ * └── Channels → myanmartv.json
  */
 class Scheduler {
   constructor(pipeline, env = process.env) {
@@ -20,13 +20,14 @@ class Scheduler {
     this.env = env;
     this.task = null;
     this.highlightTask = null;
+    this.channelsTask = null;
     this.tickMinutes = 1;
   }
 
   start() {
     const expression = this.env.PIPELINE_CRON || `*/${this.tickMinutes} * * * *`;
-    // Every 3 hours on the hour — 00,03,06,09,12,15,18,21 Asia/Yangon
     const highlightExpression = this.env.HIGHLIGHT_CRON || '0 */3 * * *';
+    const channelsExpression = this.env.MYANMARTV_CRON || '0 */12 * * *';
 
     if (!cron.validate(expression)) {
       logger.error('Invalid PIPELINE_CRON expression', { expression });
@@ -66,9 +67,30 @@ class Scheduler {
       );
     }
 
+    if (!cron.validate(channelsExpression)) {
+      logger.error('Invalid MYANMARTV_CRON expression', { expression: channelsExpression });
+    } else {
+      this.channelsTask = cron.schedule(
+        channelsExpression,
+        async () => {
+          logger.info('MyanmarTV scheduler tick', {
+            at: nowYangon().toISO(),
+            expression: channelsExpression,
+          });
+          try {
+            await this.pipeline.runMyanmarTv({ force: false });
+          } catch (err) {
+            logger.error('Scheduled MyanmarTV job failed', { error: err.message });
+          }
+        },
+        { timezone: 'Asia/Yangon' }
+      );
+    }
+
     logger.info('Scheduler started', {
       expression,
       highlightExpression,
+      channelsExpression,
       timezone: 'Asia/Yangon',
     });
   }
@@ -82,12 +104,13 @@ class Scheduler {
       this.highlightTask.stop();
       this.highlightTask = null;
     }
+    if (this.channelsTask) {
+      this.channelsTask.stop();
+      this.channelsTask = null;
+    }
     logger.info('Scheduler stopped');
   }
 
-  /**
-   * Helper for ops/debug: describe next recommended interval for a match list.
-   */
   describeCadence(matches) {
     return (matches || []).map((m) => ({
       matchId: m.matchId,

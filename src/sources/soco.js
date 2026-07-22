@@ -15,7 +15,6 @@ try {
 const DEFAULT_BASE_URL = 'https://socolivegg.io';
 const DEFAULT_SPORT = 'football';
 const STREAM_CONCURRENCY = Number(process.env.SOCO_CONCURRENCY || 2);
-const STREAM_LEAD_MS = 5 * 60 * 1000;
 const MATCH_DURATION_MS = (105 + 30) * 60 * 1000;
 const FETCH_RETRIES = 3;
 const FETCH_DELAY_MS = 1200;
@@ -414,7 +413,8 @@ class SocoSource {
 
   /**
    * Full scrape for Flutter soco.json (today/tomorrow cards + stream links).
-   * Unlike collectForFixtures, this is not limited to FotMob matchIds.
+   * Status comes from the Soco website card (data-status / class / text).
+   * Streaming URLs are fetched only when that site status is LIVE.
    */
   async scrapeFull({ fetchStreams = true } = {}) {
     logEvent(events.SCRAPER_START, 'Soco full scrape start', {
@@ -422,9 +422,9 @@ class SocoSource {
       baseUrl: this.baseUrl,
     });
     const discovered = await this.discoverMatches();
-    // soco.json: only scrape m3u8 links when the site marks the match LIVE (not VS/Scheduled)
+    // Only look for m3u8 when the website marks the match LIVE
     const targets = fetchStreams
-      ? discovered.filter((m) => m.status === 'LIVE')
+      ? discovered.filter((m) => shouldAttemptStreamFetch(m))
       : [];
 
     logger.info('Soco scrapeFull status summary', {
@@ -697,11 +697,12 @@ function parseMatchStatus(card, kickoffUnixSeconds, source) {
   return result;
 }
 
+/**
+ * Stream URLs only when the Soco website status is LIVE.
+ * Never use kickoff clock alone (site domain/status is the source of truth).
+ */
 function shouldAttemptStreamFetch(match) {
-  if (match.status === 'END') return false;
-  if (match.status === 'LIVE') return true;
-  const kickoffMs = Number(match.kickoffUnix) * 1000;
-  return Number.isFinite(kickoffMs) && Date.now() >= kickoffMs - STREAM_LEAD_MS;
+  return match?.status === 'LIVE' || match?.live === true;
 }
 
 function findPatterns(text, baseUrl) {

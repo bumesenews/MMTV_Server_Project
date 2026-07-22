@@ -1,18 +1,23 @@
 const { logger, logEvent, events } = require('../utils/logger');
-const { getCheckIntervalMinutes, minutesUntilKickoff } = require('../utils/time');
+const {
+  getCheckIntervalMinutes,
+  minutesUntilKickoff,
+  STREAM_FIND_LEAD_MIN,
+  STREAM_RETRY_LEAD_MIN,
+  MATCH_LIVE_DURATION_MIN,
+} = require('../utils/time');
 const { StreamValidator } = require('./streamValidator');
 const { MatchMerger } = require('./matchMerger');
-const { enrichMatchState } = require('./statusService');
+const { enrichMatchState, hasPlayableStream } = require('./statusService');
 
 /**
- * Production multi-source streaming extraction engine.
+ * Production multi-source streaming extraction engine (matches.json).
  *
- * For every fixture:
- *  - walk ALL enabled streaming sources (never stop after the first hit)
- *  - collect every valid stream group
- *  - merge onto the same match object
- *
- * Per-source failures are logged and skipped; other sources continue.
+ * Stream URL discovery is gated by fixture kickoff time:
+ *  - first find at T−30m (e.g. 05:00 for 05:30 kickoff)
+ *  - retry at T−15m if still missing
+ *  - keep / refresh during LIVE until T+120m
+ *  - stop after T+120m (status END clears streams in statusService)
  */
 class StreamEngine {
   constructor({ sources = [], validator, merger } = {}) {
@@ -42,14 +47,53 @@ class StreamEngine {
     this.lastCheckByMatch.set(matchId, Date.now());
   }
 
+  /**
+   * Deep-extract streaming URLs only in the fixture-time windows.
+   */
   shouldExtractStreams(fixture, { force = false } = {}) {
-    if (fixture.status === 'LIVE') return true;
     const mins = minutesUntilKickoff(fixture.kickoff);
-    // Even on force, only deep-extract near kickoff / live (Puppeteer is slow).
-    // Soco / fixtures / highlights / channels still refresh every run.
-  const windowMin = force ? (process.env.LOW_MEMORY_MODE === 'false' ? 180 : 60) : 30;
-    if (mins != null && mins <= windowMin) return true;
-    return false;
+    if (mins == null) return false;
+
+    // After live window → never extract (END)
+    if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+
+    // Too early → wait until T−30
+    if (mins > STREAM_FIND_LEAD_MIN) return false;
+
+    const hasStreams = hasPlayableStream(fixture);
+    const attempts = fixture.streamAttempts || {};
+
+    // T−30 .. T−15: first find window
+    if (mins > STREAM_RETRY_LEAD_MIN) {
+      if (force) return true;
+      return !hasStreams || !attempts.t30;
+    }
+
+    // T−15 .. kickoff: retry window
+    if (mins > 0) {
+      if (force) return true;
+      return !hasStreams || !attempts.t15;
+    }
+
+    // LIVE (kickoff .. +120m): extract if still missing, or force refresh
+    if (force) return true;
+    return !hasStreams;
+  }
+
+  markStreamAttempt(fixture, mins) {
+    const attempts = { ...(fixture.streamAttempts || {}) };
+    if (mins != null && mins <= STREAM_FIND_LEAD_MIN && mins > STREAM_RETRY_LEAD_MIN) {
+      attempts.t30 = true;
+    }
+    if (mins != null && mins <= STREAM_RETRY_LEAD_MIN && mins > 0) {
+      attempts.t15 = true;
+      attempts.t30 = true;
+    }
+    if (mins != null && mins <= 0) {
+      attempts.t15 = true;
+      attempts.t30 = true;
+    }
+    return attempts;
   }
 
   /**
@@ -59,7 +103,6 @@ class StreamEngine {
     const list = fixtures || [];
     if (!list.length) return [];
 
-    // 1) Discover once per source
     const discovery = await this.discoverAll();
     const urlBySourceMatch = {};
     for (const [sourceName, matches] of Object.entries(discovery)) {
@@ -75,19 +118,27 @@ class StreamEngine {
 
     for (const fixture of list) {
       try {
-        if (!force && !this.shouldCheck(fixture)) {
-          // Re-resolve status so FotMob/kickoff LIVE without streams never reaches Flutter
-          results.push(enrichMatchState(fixture));
+        // Always re-resolve fixture-time status (Scheduled/LIVE/END)
+        const base = enrichMatchState(fixture);
+
+        if (base.status === 'END') {
+          this.markChecked(base.matchId);
+          results.push(base);
           continue;
         }
 
-        // Collect from every source — do not break after first success.
+        if (!force && !this.shouldCheck(base)) {
+          results.push(base);
+          continue;
+        }
+
         const groups = [];
-        const extract = this.shouldExtractStreams(fixture, { force });
+        const extract = this.shouldExtractStreams(base, { force });
+        const mins = minutesUntilKickoff(base.kickoff);
 
         for (const source of this.sources) {
           try {
-            const found = urlBySourceMatch[source.name]?.get(fixture.matchId);
+            const found = urlBySourceMatch[source.name]?.get(base.matchId);
             if (!found?.matchUrl) continue;
 
             let streams = [];
@@ -95,6 +146,9 @@ class StreamEngine {
               streams = await source.extractStreams(found.matchUrl);
               streams = await this.validator.validateMany(streams);
               streams = this.validator.dedupeAndRank(streams);
+            } else if (Array.isArray(base.streams) && base.streams.length) {
+              // Keep existing streams when not in an extract window
+              continue;
             }
 
             groups.push({
@@ -102,17 +156,16 @@ class StreamEngine {
               matchUrl: found.matchUrl,
               streams,
               originalNames: found.originalNames || {
-                [source.name]: fixture.originalNames?.[source.name],
+                [source.name]: base.originalNames?.[source.name],
               },
-              sourceLive: found.status === 'LIVE' || streams.some((s) => s.active),
+              sourceLive: base.status === 'LIVE',
             });
           } catch (err) {
             logEvent(events.SCRAPER_ERROR, 'Streaming source failed — continuing', {
               source: source.name,
-              matchId: fixture.matchId,
+              matchId: base.matchId,
               error: err.message,
             });
-            // Only relaunch Chromium if it actually died (avoid thrash on 1GB)
             const mgr = source?.browser;
             if (
               mgr &&
@@ -129,15 +182,25 @@ class StreamEngine {
           }
         }
 
-        const merged = this.merger.mergeMatch(fixture, groups);
-        this.markChecked(fixture.matchId);
+        const withAttempts = {
+          ...base,
+          streamAttempts: extract
+            ? this.markStreamAttempt(base, mins)
+            : base.streamAttempts || {},
+        };
+
+        const merged = groups.length
+          ? this.merger.mergeMatch(withAttempts, groups)
+          : enrichMatchState(withAttempts);
+
+        this.markChecked(merged.matchId);
         results.push(merged);
       } catch (err) {
         logEvent(events.SCRAPER_ERROR, 'Match stream collection failed', {
           matchId: fixture.matchId,
           error: err.message,
         });
-        results.push(fixture);
+        results.push(enrichMatchState(fixture));
       }
     }
 

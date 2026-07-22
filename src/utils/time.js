@@ -90,8 +90,20 @@ function isKickoffStarted(kickoff) {
   return mins !== null && mins <= 0;
 }
 
+/** Minutes before kickoff to first look for streaming URLs (e.g. 05:00 for 05:30). */
+const STREAM_FIND_LEAD_MIN = 30;
+/** Second attempt if first find failed. */
+const STREAM_RETRY_LEAD_MIN = 15;
+/** Match stays LIVE until this many minutes after kickoff; then END + drop streams. */
+const MATCH_LIVE_DURATION_MIN = 120;
+
 /**
- * Dynamic stream-check interval in minutes based on proximity to kickoff / status.
+ * Dynamic stream-check interval for matches.json (fixture kickoff based).
+ * - Far out: every 30m
+ * - At −30m window: every 5m
+ * - At −15m / near kickoff: every 2m
+ * - LIVE: every 5m
+ * - END: stop
  */
 function getCheckIntervalMinutes(kickoff, status) {
   if (status === 'END') return null;
@@ -99,9 +111,23 @@ function getCheckIntervalMinutes(kickoff, status) {
 
   const mins = minutesUntilKickoff(kickoff);
   if (mins === null) return 30;
-  if (mins <= 10) return 2;
-  if (mins <= 30) return 5;
+  if (mins <= STREAM_RETRY_LEAD_MIN) return 2;
+  if (mins <= STREAM_FIND_LEAD_MIN) return 5;
   return 30;
+}
+
+/**
+ * Fixture-time status for matches.json (not streaming-site status).
+ * Scheduled → before kickoff
+ * LIVE → kickoff .. kickoff+120m
+ * END → after +120m
+ */
+function resolveFixtureStatus(kickoff) {
+  const mins = minutesUntilKickoff(kickoff);
+  if (mins == null) return 'Scheduled';
+  if (mins > 0) return 'Scheduled';
+  if (mins > -MATCH_LIVE_DURATION_MIN) return 'LIVE';
+  return 'END';
 }
 
 module.exports = {
@@ -118,4 +144,8 @@ module.exports = {
   minutesUntilKickoff,
   isKickoffStarted,
   getCheckIntervalMinutes,
+  resolveFixtureStatus,
+  STREAM_FIND_LEAD_MIN,
+  STREAM_RETRY_LEAD_MIN,
+  MATCH_LIVE_DURATION_MIN,
 };

@@ -6,6 +6,8 @@ const { Pipeline } = require('../services/pipeline');
 async function main() {
   const force = process.argv.includes('--force');
   const highlightsOnly = process.argv.includes('--highlights');
+  const channelsOnly =
+    process.argv.includes('--channels') || process.argv.includes('--myanmartv');
   const pipeline = new Pipeline(process.env);
 
   if (highlightsOnly) {
@@ -21,6 +23,26 @@ async function main() {
           stats: result.stats,
           github: result.github,
           count: result.delivery?.count,
+        },
+        null,
+        2
+      )
+    );
+    process.exit(result.ok ? 0 : 1);
+  }
+
+  if (channelsOnly) {
+    logger.info('CLI MyanmarTV job', { force });
+    const result = await pipeline.runMyanmarTv({ force });
+    // eslint-disable-next-line no-console
+    console.log(
+      JSON.stringify(
+        {
+          ok: result.ok,
+          reason: result.reason,
+          uploaded: result.uploaded,
+          github: result.github,
+          count: Array.isArray(result.delivery) ? result.delivery.length : 0,
         },
         null,
         2

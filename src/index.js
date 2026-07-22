@@ -29,7 +29,7 @@ async function main() {
   const scheduler = new Scheduler(pipeline, process.env);
   scheduler.start();
 
-  // Boot: one job at a time (1GB EC2). Light first pipeline, then highlights.
+  // Boot: one job at a time (1GB EC2). Pipeline → highlights → MyanmarTV.
   // Avoid forceStreamCheck:true — it deep-scrapes ~3h of fixtures and OOMs t3.micro.
   setTimeout(() => {
     pipeline
@@ -39,9 +39,18 @@ async function main() {
       })
       .finally(() => {
         setTimeout(() => {
-          pipeline.runHighlights({ force: false }).catch((err) => {
-            logger.error('Initial highlight job failed', { error: err.message });
-          });
+          pipeline
+            .runHighlights({ force: false })
+            .catch((err) => {
+              logger.error('Initial highlight job failed', { error: err.message });
+            })
+            .finally(() => {
+              setTimeout(() => {
+                pipeline.runMyanmarTv({ force: false }).catch((err) => {
+                  logger.error('Initial MyanmarTV job failed', { error: err.message });
+                });
+              }, 5000);
+            });
         }, 5000);
       });
   }, 5000);

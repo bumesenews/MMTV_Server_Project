@@ -8,7 +8,7 @@ const { enrichMatchState } = require('./statusService');
  */
 function generateFlutterJson(matches, meta = {}, extras = {}) {
   const cleanedMatches = (matches || []).map((raw) => {
-    // Ensure LIVE is never emitted without a stream URL
+    // Status from fixture kickoff time (Scheduled / LIVE / END@+120m)
     const m = enrichMatchState(raw);
     return {
     matchId: m.matchId,
@@ -46,6 +46,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
         checkedAt: s.checkedAt || null,
         ...(s.manualId ? { manualId: s.manualId } : {}),
       })),
+    streamAttempts: m.streamAttempts || {},
     updatedAt: m.updatedAt || new Date().toISOString(),
   };
   });

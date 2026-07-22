@@ -11,8 +11,10 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
       timezone: 'Asia/Yangon',
       lastRun: pipeline.lastRun,
       lastHighlightRun: pipeline.lastHighlightRun,
+      lastChannelsRun: pipeline.lastChannelsRun,
       running: pipeline.running,
       highlightRunning: pipeline.highlightRunning,
+      channelsRunning: pipeline.channelsRunning,
     });
   });
 
@@ -20,6 +22,20 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
     if (!requireApiKey(req, res)) return;
     const force = Boolean(req.body?.force || req.query.force);
     const result = await pipeline.runHighlights({ force });
+    return res.status(result.ok ? 200 : 500).json(result);
+  });
+
+  router.post('/pipeline/channels', async (req, res) => {
+    if (!requireApiKey(req, res)) return;
+    const force = Boolean(req.body?.force || req.query.force);
+    const result = await pipeline.runMyanmarTv({ force });
+    return res.status(result.ok ? 200 : 500).json(result);
+  });
+
+  router.post('/pipeline/myanmartv', async (req, res) => {
+    if (!requireApiKey(req, res)) return;
+    const force = Boolean(req.body?.force || req.query.force);
+    const result = await pipeline.runMyanmarTv({ force });
     return res.status(result.ok ? 200 : 500).json(result);
   });
 

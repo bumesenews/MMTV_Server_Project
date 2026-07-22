@@ -1,5 +1,6 @@
 const { logger, logEvent, events } = require('../utils/logger');
 const { Normalizer } = require('../utils/normalize');
+const { todayYangon, isTodayOrTomorrow } = require('../utils/time');
 const { PuppeteerManager } = require('../browser/puppeteerManager');
 const { ConfigLoader } = require('./configLoader');
 const { FixtureService } = require('./fixtureService');
@@ -7,8 +8,10 @@ const { StreamEngine } = require('./streamEngine');
 const { CacheService } = require('./cacheService');
 const { GitHubService } = require('./githubService');
 const { generateFlutterJson } = require('./jsonGenerator');
-const { buildDeliveryBundle } = require('./deliveryFormats');
+const { buildDeliveryBundle, formatChannelsDelivery } = require('./deliveryFormats');
 const { MatchMerger } = require('./matchMerger');
+const { enrichMatchState } = require('./statusService');
+const { hasDataChanged } = require('../utils/compare');
 const { SocoSource } = require('../sources/soco');
 const { HighlightSource } = require('../sources/highlight');
 const { MyanmarTvSource } = require('../sources/myanmartv');
@@ -16,12 +19,14 @@ const { buildEngineStreamingSources } = require('../sources/registry');
 const { HighlightManager } = require('./highlightManager');
 
 /**
- * Main AWS processing pipeline:
- * Load config → FotMob fixtures → filter/normalize → discover streams →
- * validate → merge → status → apply admin overrides → Flutter JSON →
- * compare → GitHub if changed
+ * Main AWS processing pipeline (matches.json):
+ * Load config → FotMob fixtures once/day (today+tomorrow) →
+ * stream find at T−30m / retry T−15m → status from fixture kickoff
+ * (LIVE until +120m, then END + drop streams) → Flutter JSON → GitHub
  *
- * Highlights run on a separate 3-hour schedule via runHighlights().
+ * Separate jobs:
+ * - Highlights every 3 hours (runHighlights)
+ * - Myanmar TV channels every 12 hours (runMyanmarTv)
  */
 class Pipeline {
   constructor(env = process.env, admin = null) {
@@ -36,6 +41,10 @@ class Pipeline {
     this.highlightRunning = false;
     this.lastRun = null;
     this.lastHighlightRun = null;
+    this.lastChannelsRun = null;
+    this.channelsRunning = false;
+    /** FotMob fixtures cached once per Yangon calendar day (today + tomorrow). */
+    this.fixtureCache = { dayKey: null, fixtures: [] };
   }
 
   attachAdmin(admin) {
@@ -63,10 +72,14 @@ class Pipeline {
       logger.warn('Pipeline already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };
     }
-    // Never share Chromium with highlight job on 1GB hosts
+    // Never share Chromium / heavy work with highlight or MyanmarTV jobs on 1GB hosts
     if (this.highlightRunning) {
       logger.warn('Highlight job active — skip pipeline to avoid OOM');
       return { ok: false, reason: 'highlight_running' };
+    }
+    if (this.channelsRunning) {
+      logger.warn('MyanmarTV job active — skip pipeline');
+      return { ok: false, reason: 'channels_running' };
     }
 
     this.running = true;
@@ -88,17 +101,16 @@ class Pipeline {
         api: { matches: 'https://www.fotmob.com/api/data/matches' },
       };
 
-      const fixtureService = new FixtureService({
-        config: fotmobConfig,
-        normalizer: this.normalizer,
-      });
-
       let fixtures;
       try {
-        fixtures = await fixtureService.collect();
+        fixtures = await this._collectFixturesOncePerDay(fotmobConfig, {
+          force: forceStreamCheck,
+        });
         if (this.admin?.leagues) {
           fixtures = this.admin.leagues.filterMatches(fixtures);
         }
+        // Carry forward streams/sourcePages from previous matches.json
+        fixtures = this._mergePreviousMatchState(fixtures);
       } catch (err) {
         logEvent(events.SCRAPER_ERROR, 'Fixture collection failed — keep previous data', {
           error: err.message,
@@ -265,7 +277,7 @@ class Pipeline {
     } finally {
       this.running = false;
       // Only tear down Chromium when no other scrape owns it
-      if (!this.highlightRunning) {
+      if (!this.highlightRunning && !this.channelsRunning) {
         try {
           await this.browser.close();
         } catch {
@@ -273,6 +285,77 @@ class Pipeline {
         }
       }
     }
+  }
+
+  /**
+   * FotMob fixtures: today + tomorrow only, scraped once per Yangon calendar day.
+   * force=true (CLI --force) refreshes fixtures immediately.
+   */
+  async _collectFixturesOncePerDay(fotmobConfig, { force = false } = {}) {
+    const dayKey = todayYangon().toFormat('yyyy-MM-dd');
+    if (
+      !force &&
+      this.fixtureCache.dayKey === dayKey &&
+      Array.isArray(this.fixtureCache.fixtures) &&
+      this.fixtureCache.fixtures.length
+    ) {
+      logger.info('Using cached FotMob fixtures (once per day)', {
+        dayKey,
+        count: this.fixtureCache.fixtures.length,
+      });
+      return this.fixtureCache.fixtures.map((f) => ({
+        ...f,
+        streams: [],
+        streamAttempts: f.streamAttempts || {},
+      }));
+    }
+
+    const fixtureService = new FixtureService({
+      config: fotmobConfig,
+      normalizer: this.normalizer,
+    });
+    const fixtures = await fixtureService.collect();
+    const todayTomorrow = (fixtures || []).filter((f) => isTodayOrTomorrow(f.kickoff));
+
+    this.fixtureCache = {
+      dayKey,
+      fixtures: todayTomorrow.map((f) => ({
+        ...f,
+        streams: [],
+        streamAttempts: {},
+      })),
+    };
+
+    logger.info('FotMob fixtures scraped (once per day)', {
+      dayKey,
+      count: this.fixtureCache.fixtures.length,
+    });
+
+    return this.fixtureCache.fixtures.map((f) => ({ ...f }));
+  }
+
+  /**
+   * Re-attach streams / sourcePages / streamAttempts from previous matches.json
+   * so fixture-only refreshes do not wipe discovered URLs.
+   */
+  _mergePreviousMatchState(fixtures) {
+    const previous = this.cache.getCurrent()?.matches || [];
+    const byId = new Map(previous.map((m) => [m.matchId, m]));
+
+    return (fixtures || []).map((f) => {
+      const prev = byId.get(f.matchId);
+      if (!prev) return enrichMatchState(f);
+
+      return enrichMatchState({
+        ...f,
+        streams: Array.isArray(prev.streams) ? prev.streams : [],
+        sourcePages: { ...(prev.sourcePages || {}), ...(f.sourcePages || {}) },
+        originalNames: { ...(prev.originalNames || {}), ...(f.originalNames || {}) },
+        streamAttempts: { ...(prev.streamAttempts || {}), ...(f.streamAttempts || {}) },
+        pinned: prev.pinned || f.pinned,
+        featured: prev.featured || f.featured,
+      });
+    });
   }
 
   _recordSourceStats(matches) {
@@ -371,8 +454,9 @@ class Pipeline {
   }
 
   /**
-   * Highlights are scraped on a dedicated 3-hour schedule (runHighlights).
-   * Main pipeline only reuses/prunes the last successful store — no Hoofoot HTTP each tick.
+   * Highlights: dedicated 3-hour job (runHighlights).
+   * Myanmar TV: dedicated 12-hour job (runMyanmarTv).
+   * Main pipeline only reuses last successful stores — no live scrape each tick.
    */
   async _collectExtraContent(sourcesDoc, previous) {
     const deliveryHighlight = this.cache.getDelivery('highlight');
@@ -394,34 +478,15 @@ class Pipeline {
       retentionDays: manager.retentionDays,
     });
 
-    const extras = {
+    const deliveryChannels = this.cache.getDelivery('myanmartv');
+    const channels = Array.isArray(deliveryChannels) && deliveryChannels.length
+      ? deliveryChannels
+      : previous?.channels || [];
+
+    return {
       highlights: pruned.highlights,
-      channels: previous?.channels || [],
+      channels,
     };
-
-    if (this._isSourceEnabled(sourcesDoc, 'myanmartv')) {
-      try {
-        const cfg = this.configLoader.getSourceConfig(sourcesDoc, 'myanmartv') || {
-          name: 'myanmartv',
-          domains: ['https://www.myanmartvchannels.com/'],
-        };
-        const tv = new MyanmarTvSource({ config: cfg });
-        extras.channels = await tv.collect();
-        if (this.admin?.sources) {
-          this.admin.sources.recordSuccess(
-            'myanmartv',
-            extras.channels.filter((c) => c.streamUrl).length
-          );
-        }
-      } catch (err) {
-        logEvent(events.SCRAPER_ERROR, 'MyanmarTV scrape failed — keep previous', {
-          error: err.message,
-        });
-        if (this.admin?.sources) this.admin.sources.recordError('myanmartv', err.message);
-      }
-    }
-
-    return extras;
   }
 
   /**
@@ -436,6 +501,10 @@ class Pipeline {
     if (this.running) {
       logger.warn('Pipeline active — skip highlight job to avoid OOM');
       return { ok: false, reason: 'pipeline_running' };
+    }
+    if (this.channelsRunning) {
+      logger.warn('MyanmarTV job active — skip highlight job');
+      return { ok: false, reason: 'channels_running' };
     }
 
     this.highlightRunning = true;
@@ -475,7 +544,6 @@ class Pipeline {
             .filter((h) => h && h.id != null)
             .map((h) => [String(h.id), h])
         );
-        // Only skip embed/m3u8 work when we already have a playable URL cached
         const skipEnrichIds = force
           ? new Set()
           : new Set(
@@ -493,7 +561,6 @@ class Pipeline {
           skipEnrichIds,
         });
 
-        // Re-attach cached media onto items we skipped enriching
         scraped = scraped.map((h) => {
           const prev = existingById.get(String(h.id || ''));
           if (!prev) return h;
@@ -522,7 +589,6 @@ class Pipeline {
           error: err.message,
           at: new Date().toISOString(),
         };
-        // Never overwrite with empty on failure
         return {
           ok: false,
           reason: 'scrape_failed',
@@ -536,7 +602,6 @@ class Pipeline {
         return { ok: false, reason: 'empty', uploaded: false };
       }
 
-      // Scrape returned nothing but we have history — keep previous (site glitch)
       if (!scraped.length && existing.length) {
         logger.warn('Highlight scrape returned empty — keep previous highlights.json');
         logEvent(events.GITHUB_SKIPPED, 'No highlight changes detected. GitHub upload skipped.', {
@@ -600,7 +665,6 @@ class Pipeline {
         return { ok: true, reason: 'unchanged', uploaded: false, stats, delivery: nextDelivery };
       }
 
-      // Persist local delivery + sync highlights into current.json
       const bundle = this.cache.getDeliveryBundle();
       bundle.highlight = nextDelivery;
       this.cache.saveDeliveryBundle(bundle);
@@ -676,8 +740,7 @@ class Pipeline {
       return { ok: false, reason: err.message };
     } finally {
       this.highlightRunning = false;
-      // Keep browser alive if main pipeline may still need it; close only when idle
-      if (!this.running) {
+      if (!this.running && !this.channelsRunning) {
         try {
           await this.browser.close();
         } catch {
@@ -686,6 +749,193 @@ class Pipeline {
       }
     }
   }
+
+  /**
+   * Dedicated Myanmar TV channels job (every 12 hours):
+   * scrape → compare → GitHub only if changed. Never overwrite with empty on failure.
+   */
+  async runMyanmarTv({ force = false } = {}) {
+    if (this.channelsRunning) {
+      logger.warn('MyanmarTV job already running — skip overlapping run');
+      return { ok: false, reason: 'already_running' };
+    }
+    if (this.running) {
+      logger.warn('Pipeline active — skip MyanmarTV job');
+      return { ok: false, reason: 'pipeline_running' };
+    }
+    if (this.highlightRunning) {
+      logger.warn('Highlight job active — skip MyanmarTV job');
+      return { ok: false, reason: 'highlight_running' };
+    }
+
+    this.channelsRunning = true;
+    const startedAt = Date.now();
+    logEvent(events.SCRAPER_START, 'MyanmarTV scraper started', {
+      force,
+      timezone: 'Asia/Yangon',
+    });
+
+    try {
+      const config = await this.configLoader.load(true);
+      if (!this._isSourceEnabled(config.sources, 'myanmartv')) {
+        logger.info('MyanmarTV source disabled — skip');
+        return { ok: true, reason: 'disabled' };
+      }
+
+      const cfg = this.configLoader.getSourceConfig(config.sources, 'myanmartv') || {
+        name: 'myanmartv',
+        domains: ['https://www.myanmartvchannels.com/'],
+      };
+
+      const previousDelivery = this.cache.getDelivery('myanmartv');
+      const previousList = Array.isArray(previousDelivery)
+        ? previousDelivery
+        : this.cache.getCurrent()?.channels || [];
+
+      let scraped = [];
+      try {
+        const tv = new MyanmarTvSource({ config: cfg });
+        scraped = await tv.collect();
+        logEvent(events.SCRAPER_SUCCESS, 'MyanmarTV scrape completed', {
+          count: scraped.length,
+          withStream: scraped.filter((c) => c.streamUrl).length,
+        });
+      } catch (err) {
+        logEvent(events.SCRAPER_ERROR, 'MyanmarTV scrape failed — keep previous data', {
+          error: err.message,
+        });
+        if (this.admin?.sources) this.admin.sources.recordError('myanmartv', err.message);
+        this.lastChannelsRun = {
+          ok: false,
+          reason: 'scrape_failed',
+          error: err.message,
+          at: new Date().toISOString(),
+        };
+        return {
+          ok: false,
+          reason: 'scrape_failed',
+          kept: previousDelivery,
+          error: err.message,
+        };
+      }
+
+      if (!scraped.length && !previousList.length) {
+        logger.warn('MyanmarTV scrape returned empty and no previous data — skip upload');
+        return { ok: false, reason: 'empty', uploaded: false };
+      }
+
+      if (!scraped.length && previousList.length) {
+        logger.warn('MyanmarTV scrape returned empty — keep previous myanmartv.json');
+        logEvent(events.GITHUB_SKIPPED, 'No MyanmarTV changes detected. GitHub upload skipped.', {
+          reason: 'empty_scrape_keep_previous',
+        });
+        this.lastChannelsRun = {
+          ok: true,
+          reason: 'empty_scrape_keep_previous',
+          at: new Date().toISOString(),
+        };
+        return { ok: true, reason: 'empty_scrape_keep_previous', uploaded: false };
+      }
+
+      const nextDelivery = formatChannelsDelivery(scraped);
+
+      const changed = force || hasDataChanged(previousDelivery, nextDelivery);
+      if (!changed) {
+        logEvent(
+          events.GITHUB_SKIPPED,
+          'No MyanmarTV changes detected. GitHub upload skipped.'
+        );
+        this.lastChannelsRun = {
+          ok: true,
+          reason: 'unchanged',
+          uploaded: false,
+          count: nextDelivery.length,
+          at: new Date().toISOString(),
+          durationMs: Date.now() - startedAt,
+        };
+        return {
+          ok: true,
+          reason: 'unchanged',
+          uploaded: false,
+          delivery: nextDelivery,
+        };
+      }
+
+      const bundle = this.cache.getDeliveryBundle();
+      bundle.myanmartv = nextDelivery;
+      this.cache.saveDeliveryBundle(bundle);
+
+      const current = this.cache.getCurrent();
+      if (current) {
+        this.cache.saveGenerated({
+          ...current,
+          channels: scraped,
+          channelCount: scraped.length,
+        });
+      }
+
+      let github = { uploaded: false, reason: 'not_configured' };
+      try {
+        github = await this.github.uploadJsonIfChanged(
+          this.github.paths.myanmartv,
+          nextDelivery,
+          { previousLocal: previousDelivery, feedKey: 'myanmartv' }
+        );
+        if (github.uploaded) {
+          logEvent(events.GITHUB_UPLOAD, 'MyanmarTV channels updated successfully.', {
+            commit: github.commit,
+            count: nextDelivery.length,
+          });
+        } else if (github.reason === 'unchanged') {
+          logEvent(
+            events.GITHUB_SKIPPED,
+            'No MyanmarTV changes detected. GitHub upload skipped.'
+          );
+        }
+      } catch (err) {
+        logEvent(events.SCRAPER_ERROR, 'MyanmarTV GitHub upload failed', {
+          error: err.message,
+        });
+        github = { uploaded: false, reason: 'github_error', error: err.message };
+      }
+
+      if (this.admin?.sources) {
+        this.admin.sources.recordSuccess(
+          'myanmartv',
+          scraped.filter((c) => c.streamUrl).length
+        );
+      }
+
+      this.lastChannelsRun = {
+        ok: true,
+        reason: github.uploaded ? 'updated' : github.reason,
+        uploaded: Boolean(github.uploaded),
+        count: nextDelivery.length,
+        github,
+        at: new Date().toISOString(),
+        durationMs: Date.now() - startedAt,
+      };
+
+      logEvent(events.SCRAPER_SUCCESS, 'MyanmarTV job completed', this.lastChannelsRun);
+      return {
+        ok: true,
+        uploaded: Boolean(github.uploaded),
+        delivery: nextDelivery,
+        github,
+      };
+    } catch (err) {
+      logEvent(events.SCRAPER_ERROR, 'MyanmarTV job fatal error', { error: err.message });
+      this.lastChannelsRun = {
+        ok: false,
+        reason: err.message,
+        at: new Date().toISOString(),
+      };
+      return { ok: false, reason: err.message };
+    } finally {
+      this.channelsRunning = false;
+    }
+  }
 }
 
 module.exports = { Pipeline };
+

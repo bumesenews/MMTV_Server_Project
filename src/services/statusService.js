@@ -1,14 +1,19 @@
 const { logEvent, events } = require('../utils/logger');
-const { minutesUntilKickoff, toYangon } = require('../utils/time');
+const {
+  minutesUntilKickoff,
+  toYangon,
+  resolveFixtureStatus,
+  MATCH_LIVE_DURATION_MIN,
+} = require('../utils/time');
 
 /**
- * Final status for Flutter:
+ * Final status for Flutter matches.json:
  * Scheduled | LIVE | END
  *
- * LIVE only when at least one stream URL exists.
- * Kickoff/FotMob "live" alone must NOT mark LIVE (no empty-stream live badges).
- *
- * END when finished, or kickoff was long ago with no streams.
+ * Driven by fixture kickoff date/time (FotMob), NOT streaming-site status.
+ * - Before kickoff → Scheduled
+ * - Kickoff until +120 minutes → LIVE
+ * - After +120 minutes → END (streams stripped)
  */
 function hasPlayableStream(match) {
   return (match.streams || []).some((s) => s && String(s.url || '').trim());
@@ -16,46 +21,51 @@ function hasPlayableStream(match) {
 
 function resolveMatchStatus(match, options = {}) {
   const previous = match.status || 'Scheduled';
-  const hasValidStream = hasPlayableStream(match);
-  const finished = Boolean(
-    match.finished || match.fotmobFinished || options.forceEnd
-  );
-  const mins = minutesUntilKickoff(match.kickoff);
 
-  let status = 'Scheduled';
-
-  if (finished || options.forceEnd) {
-    status = 'END';
-  } else if (hasValidStream) {
-    status = 'LIVE';
-  } else if (mins != null && mins < -210) {
-    // Kickoff > 3.5h ago and still no streams → treat as ended
-    status = 'END';
-  } else {
-    // No stream URL yet — keep Scheduled even if kickoff already started
-    status = 'Scheduled';
+  if (options.forceEnd || match.forceEnd) {
+    if (previous !== 'END') {
+      logEvent(events.STATUS_CHANGED, 'Match status changed', {
+        matchId: match.matchId,
+        from: previous,
+        to: 'END',
+        reason: 'forceEnd',
+        kickoff: match.kickoff,
+      });
+    }
+    return 'END';
   }
+
+  const status = resolveFixtureStatus(match.kickoff);
 
   if (status !== previous) {
     logEvent(events.STATUS_CHANGED, 'Match status changed', {
       matchId: match.matchId,
       from: previous,
       to: status,
-      hasStreams: hasValidStream,
+      hasStreams: hasPlayableStream(match),
       kickoff: match.kickoff,
+      minsUntilKickoff: minutesUntilKickoff(match.kickoff),
+      liveDurationMin: MATCH_LIVE_DURATION_MIN,
     });
   }
 
   return status;
 }
 
+function stripStreamsIfEnded(match, status) {
+  if (status !== 'END') return match.streams || [];
+  return [];
+}
+
 function enrichMatchState(match) {
   const status = resolveMatchStatus(match);
   const kickoff = toYangon(match.kickoff);
-  const playable = (match.streams || []).filter((s) => s && String(s.url || '').trim());
+  const streams = stripStreamsIfEnded(match, status);
+  const playable = streams.filter((s) => s && String(s.url || '').trim());
   return {
     ...match,
     status,
+    streams,
     timezone: 'Asia/Yangon',
     hasStreams: playable.some((s) => s.active !== false),
     streamCount: playable.filter((s) => s.active !== false).length,
