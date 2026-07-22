@@ -31,7 +31,7 @@ class SocoliveSource extends BaseStreamingSource {
       try {
         for (const url of this.scheduleUrls()) {
           try {
-            await page.goto(url, { waitUntil: 'networkidle2', timeout: this.browser.timeout });
+            await page.goto(url, { waitUntil: 'domcontentloaded', timeout: this.browser.timeout });
             await sleep(3000);
             const cards = await this.extractCardsFromPage(page, url);
             discovered.push(...cards);

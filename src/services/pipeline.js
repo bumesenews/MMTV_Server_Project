@@ -63,6 +63,11 @@ class Pipeline {
       logger.warn('Pipeline already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };
     }
+    // Never share Chromium with highlight job on 1GB hosts
+    if (this.highlightRunning) {
+      logger.warn('Highlight job active — skip pipeline to avoid OOM');
+      return { ok: false, reason: 'highlight_running' };
+    }
 
     this.running = true;
     const startedAt = Date.now();
@@ -258,12 +263,15 @@ class Pipeline {
       };
       return { ok: false, reason: err.message, kept };
     } finally {
-      try {
-        await this.browser.close();
-      } catch {
-        // ignore
-      }
       this.running = false;
+      // Only tear down Chromium when no other scrape owns it
+      if (!this.highlightRunning) {
+        try {
+          await this.browser.close();
+        } catch {
+          // ignore
+        }
+      }
     }
   }
 
@@ -424,6 +432,10 @@ class Pipeline {
     if (this.highlightRunning) {
       logger.warn('Highlight job already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };
+    }
+    if (this.running) {
+      logger.warn('Pipeline active — skip highlight job to avoid OOM');
+      return { ok: false, reason: 'pipeline_running' };
     }
 
     this.highlightRunning = true;

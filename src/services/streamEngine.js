@@ -47,7 +47,7 @@ class StreamEngine {
     const mins = minutesUntilKickoff(fixture.kickoff);
     // Even on force, only deep-extract near kickoff / live (Puppeteer is slow).
     // Soco / fixtures / highlights / channels still refresh every run.
-    const windowMin = force ? 180 : 30;
+  const windowMin = force ? (process.env.LOW_MEMORY_MODE === 'false' ? 180 : 60) : 30;
     if (mins != null && mins <= windowMin) return true;
     return false;
   }
@@ -112,10 +112,16 @@ class StreamEngine {
               matchId: fixture.matchId,
               error: err.message,
             });
-            if (typeof source?.browser?.restart === 'function') {
-              // Keep remaining sources healthy after a hard browser failure.
+            // Only relaunch Chromium if it actually died (avoid thrash on 1GB)
+            const mgr = source?.browser;
+            if (
+              mgr &&
+              typeof mgr.restart === 'function' &&
+              typeof mgr.isConnected === 'function' &&
+              !mgr.isConnected()
+            ) {
               try {
-                await source.browser.restart();
+                await mgr.restart({ force: true });
               } catch {
                 // ignore restart errors
               }

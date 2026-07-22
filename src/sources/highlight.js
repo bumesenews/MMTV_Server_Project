@@ -98,24 +98,24 @@ class HighlightSource {
     if (!this.browser) throw new Error('HighlightSource requires browserManager');
 
     logEvent(events.SCRAPER_START, 'Highlight scrape start', { source: this.name });
-    const page = await this.browser.newPage();
     const allowed = this.getAllowedDates();
-    // Only skip enrich when caller says this id already has playable media
     const skipIds = new Set(
       [...(skipEnrichIds instanceof Set ? skipEnrichIds : skipEnrichIds || [])].map(String)
     );
-    // Backward compat: old knownIds meant "already stored" — do NOT skip enrich unless also in skipEnrichIds
     void knownIds;
 
+    // 1) List page only — close before any embed work (never hold 2 Chromium pages)
+    let highlights = [];
+    const listPage = await this.browser.newPage();
     try {
-      await page.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
-      await page.goto(this.baseUrl, {
+      await listPage.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
+      await listPage.goto(this.baseUrl, {
         waitUntil: 'domcontentloaded',
         timeout: this.browser.timeout,
       });
-      await sleep(2500);
-      const html = await page.content();
-      let highlights = this.parseHighlights(html)
+      await sleep(2000);
+      const html = await listPage.content();
+      highlights = this.parseHighlights(html)
         .map((h) => ({
           ...h,
           matchDate: this.dateHelper.normalizeDate(h.matchDate || h.url),
@@ -123,86 +123,92 @@ class HighlightSource {
         .filter((h) => h.matchDate && allowed.has(h.matchDate));
 
       if (this.maxItems > 0) highlights = highlights.slice(0, this.maxItems);
+    } finally {
+      await this.browser.safeClosePage(listPage);
+    }
 
-      if (extractM3u8) {
-        let enriched = 0;
-        let skipped = 0;
-        for (let i = 0; i < highlights.length; i += 1) {
-          const key = String(highlights[i].id || '');
-          // Skip only when we already have m3u8 for this id (performance)
-          if (key && skipIds.has(key)) {
-            skipped += 1;
-            logger.debug('Highlight enrich skipped — m3u8 already cached', {
-              id: key,
-              title: highlights[i].title,
-            });
-            continue;
-          }
-          try {
-            highlights[i] = await this.enrichHighlight(page, highlights[i]);
-            enriched += 1;
-          } catch (err) {
-            logger.warn('Highlight enrich failed', {
-              title: highlights[i].title,
-              error: err.message,
-            });
-            highlights[i] = {
-              ...highlights[i],
-              embedUrl: null,
-              m3u8: null,
-              error: err.message,
-            };
-          }
+    // 2) Enrich one highlight at a time (match page → close → embed page → close)
+    if (extractM3u8) {
+      let enriched = 0;
+      let skipped = 0;
+      for (let i = 0; i < highlights.length; i += 1) {
+        const key = String(highlights[i].id || '');
+        if (key && skipIds.has(key)) {
+          skipped += 1;
+          logger.debug('Highlight enrich skipped — m3u8 already cached', {
+            id: key,
+            title: highlights[i].title,
+          });
+          continue;
         }
-        logger.info('Highlight enrich pass', {
-          total: highlights.length,
-          enriched,
-          skippedCached: skipped,
-        });
+        try {
+          highlights[i] = await this.enrichHighlight(highlights[i]);
+          enriched += 1;
+        } catch (err) {
+          logger.warn('Highlight enrich failed', {
+            title: highlights[i].title,
+            error: err.message,
+          });
+          highlights[i] = {
+            ...highlights[i],
+            embedUrl: null,
+            m3u8: null,
+            error: err.message,
+          };
+        }
       }
-
-      const result = highlights.map((h) => ({
-        id: h.id,
-        title: h.title,
-        img: h.img,
-        url: h.url,
-        matchDate: h.matchDate,
-        embedUrl: h.embedUrl || null,
-        m3u8: h.m3u8 || null,
-        headers: h.m3u8
-          ? {
-              'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
-              Referer: h.embedUrl || h.url || this.baseUrl,
-            }
-          : null,
-        source: this.name,
-      }));
-
-      logEvent(events.SCRAPER_SUCCESS, 'Highlight scrape success', {
-        source: this.name,
-        count: result.length,
-        withM3u8: result.filter((r) => r.m3u8).length,
+      logger.info('Highlight enrich pass', {
+        total: highlights.length,
+        enriched,
+        skippedCached: skipped,
       });
+    }
 
-      return result;
+    const result = highlights.map((h) => ({
+      id: h.id,
+      title: h.title,
+      img: h.img,
+      url: h.url,
+      matchDate: h.matchDate,
+      embedUrl: h.embedUrl || null,
+      m3u8: h.m3u8 || null,
+      headers: h.m3u8
+        ? {
+            'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
+            Referer: h.embedUrl || h.url || this.baseUrl,
+          }
+        : null,
+      source: this.name,
+    }));
+
+    logEvent(events.SCRAPER_SUCCESS, 'Highlight scrape success', {
+      source: this.name,
+      count: result.length,
+      withM3u8: result.filter((r) => r.m3u8).length,
+    });
+
+    return result;
+  }
+
+  async enrichHighlight(item) {
+    let embedUrl = null;
+    const page = await this.browser.newPage();
+    try {
+      await page.goto(item.url, {
+        waitUntil: 'domcontentloaded',
+        timeout: this.browser.timeout,
+      });
+      await sleep(1200);
+      const html = await page.content();
+      const $ = load(html);
+      embedUrl =
+        this.absUrl($('#player a').attr('href'), item.url) ||
+        this.absUrl($('#player iframe').attr('src'), item.url) ||
+        this.absUrl($("iframe[src*='embed']").first().attr('src'), item.url) ||
+        null;
     } finally {
       await this.browser.safeClosePage(page);
     }
-  }
-
-  async enrichHighlight(listPage, item) {
-    await listPage.goto(item.url, {
-      waitUntil: 'domcontentloaded',
-      timeout: this.browser.timeout,
-    });
-    await sleep(1500);
-    const html = await listPage.content();
-    const $ = load(html);
-    const embedUrl =
-      this.absUrl($('#player a').attr('href'), item.url) ||
-      this.absUrl($('#player iframe').attr('src'), item.url) ||
-      this.absUrl($("iframe[src*='embed']").first().attr('src'), item.url) ||
-      null;
 
     let m3u8 = null;
     if (embedUrl) m3u8 = await this.findM3u8FromEmbed(embedUrl);
@@ -216,9 +222,9 @@ class HighlightSource {
         waitUntil: 'domcontentloaded',
         timeout: this.browser.timeout,
       });
-      await sleep(4000);
+      await sleep(3000);
       await page.click('video, .vjs-big-play-button, .play-button, button').catch(() => {});
-      await sleep(5000);
+      await sleep(3500);
 
       const network = (page.__streamCapture?.getUniqueStreams() || []).map((s) => s.url);
       const html = await page.content();

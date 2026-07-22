@@ -14,7 +14,7 @@ try {
 
 const DEFAULT_BASE_URL = 'https://socolivegg.io';
 const DEFAULT_SPORT = 'football';
-const STREAM_CONCURRENCY = 6;
+const STREAM_CONCURRENCY = Number(process.env.SOCO_CONCURRENCY || 2);
 const STREAM_LEAD_MS = 5 * 60 * 1000;
 const MATCH_DURATION_MS = (105 + 30) * 60 * 1000;
 const FETCH_RETRIES = 3;

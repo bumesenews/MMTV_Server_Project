@@ -29,18 +29,22 @@ async function main() {
   const scheduler = new Scheduler(pipeline, process.env);
   scheduler.start();
 
+  // Boot: one job at a time (1GB EC2). Light first pipeline, then highlights.
+  // Avoid forceStreamCheck:true — it deep-scrapes ~3h of fixtures and OOMs t3.micro.
   setTimeout(() => {
-    pipeline.run({ forceStreamCheck: true }).catch((err) => {
-      logger.error('Initial pipeline run failed', { error: err.message });
-    });
-  }, 3000);
-
-  // Initial highlight sync shortly after boot (then every 3 hours via HIGHLIGHT_CRON)
-  setTimeout(() => {
-    pipeline.runHighlights({ force: false }).catch((err) => {
-      logger.error('Initial highlight job failed', { error: err.message });
-    });
-  }, 12000);
+    pipeline
+      .run({ forceStreamCheck: false })
+      .catch((err) => {
+        logger.error('Initial pipeline run failed', { error: err.message });
+      })
+      .finally(() => {
+        setTimeout(() => {
+          pipeline.runHighlights({ force: false }).catch((err) => {
+            logger.error('Initial highlight job failed', { error: err.message });
+          });
+        }, 5000);
+      });
+  }, 5000);
 
   const shutdown = async (signal) => {
     logger.info(`Received ${signal}, shutting down`);

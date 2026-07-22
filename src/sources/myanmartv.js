@@ -4,7 +4,7 @@ const { DEFAULT_UA } = require('../browser/puppeteerManager');
 
 const BASE_URL = 'https://www.myanmartvchannels.com/';
 const CHANNELS_URL = `${BASE_URL}tv-channels.html`;
-const FETCH_CONCURRENCY = 6;
+const FETCH_CONCURRENCY = Number(process.env.MYANMARTV_CONCURRENCY || 2);
 const FETCH_RETRIES = 3;
 const FETCH_DELAY_MS = 1500;
 const FETCH_TIMEOUT_MS = 30000;

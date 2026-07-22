@@ -47,18 +47,40 @@ class BaseStreamingSource {
 
   async withRetries(fn, label = 'task') {
     let lastError;
-    for (let attempt = 1; attempt <= this.maxRetries; attempt += 1) {
+    const maxRetries = Math.min(
+      this.maxRetries,
+      process.env.LOW_MEMORY_MODE === 'false' ? this.maxRetries : 2
+    );
+    for (let attempt = 1; attempt <= maxRetries; attempt += 1) {
       try {
         return await fn(attempt);
       } catch (err) {
         lastError = err;
+        const msg = String(err.message || '');
+        const hardCrash =
+          /Target closed|Session closed|Browser disconnected|Protocol error|net::ERR/i.test(
+            msg
+          );
         logEvent(events.SCRAPER_ERROR, `${this.name} ${label} failed`, {
           source: this.name,
           attempt,
           error: err.message,
+          hardCrash,
         });
-        if (attempt < this.maxRetries) {
-          await this.browser.restart();
+        if (attempt < maxRetries) {
+          // Full Chromium relaunch only after hard browser death (saves RAM thrash)
+          if (
+            hardCrash &&
+            this.browser &&
+            typeof this.browser.restart === 'function' &&
+            (!this.browser.isConnected || !this.browser.isConnected())
+          ) {
+            try {
+              await this.browser.restart({ force: true });
+            } catch {
+              // ignore
+            }
+          }
           await sleep(1500 * attempt);
         }
       }

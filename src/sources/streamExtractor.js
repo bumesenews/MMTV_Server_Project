@@ -20,8 +20,9 @@ async function extractStreamsFromPage({
   const selectors = config.selectors || {};
   const detection = config.streamDetection || {};
   const playerRules = config.playerRules || {};
-  const waitAfterLoad = Number(detection.waitAfterLoadMs || 8000);
-  const waitAfterClick = Number(detection.waitAfterClickMs || 4000);
+  // Defaults tuned for 1GB EC2 — sources.json can still override per site
+  const waitAfterLoad = Number(detection.waitAfterLoadMs || 4000);
+  const waitAfterClick = Number(detection.waitAfterClickMs || 2000);
   const streams = [];
 
   const sourcePriority = Number(config.priority || 0);

@@ -46,8 +46,8 @@
       },
       "streamDetection": {
         "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8"],
-        "waitAfterLoadMs": 8000,
-        "waitAfterClickMs": 4000
+        "waitAfterLoadMs": 4000,
+        "waitAfterClickMs": 2000
       },
       "playerRules": {
         "autoPlay": true,
@@ -89,8 +89,8 @@
       },
       "streamDetection": {
         "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8"],
-        "waitAfterLoadMs": 8000,
-        "waitAfterClickMs": 4000
+        "waitAfterLoadMs": 4000,
+        "waitAfterClickMs": 2000
       },
       "playerRules": {
         "autoPlay": true,
@@ -128,8 +128,8 @@
       },
       "streamDetection": {
         "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8"],
-        "waitAfterLoadMs": 9000,
-        "waitAfterClickMs": 4500
+        "waitAfterLoadMs": 4500,
+        "waitAfterClickMs": 2500
       },
       "playerRules": {
         "autoPlay": true,
@@ -138,7 +138,7 @@
     },
     {
       "name": "90phut",
-      "enabled": true,
+      "enabled": false,
       "type": "streaming",
       "priority": 350,
       "extractionMethod": "puppeteer",
@@ -171,8 +171,8 @@
       },
       "streamDetection": {
         "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8"],
-        "waitAfterLoadMs": 8000,
-        "waitAfterClickMs": 4000
+        "waitAfterLoadMs": 4000,
+        "waitAfterClickMs": 2000
       },
       "playerRules": {
         "autoPlay": true,
@@ -182,7 +182,7 @@
     },
     {
       "name": "yyzb",
-      "enabled": true,
+      "enabled": false,
       "type": "streaming",
       "priority": 300,
       "extractionMethod": "puppeteer",
@@ -215,8 +215,8 @@
       },
       "streamDetection": {
         "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8"],
-        "waitAfterLoadMs": 9000,
-        "waitAfterClickMs": 4500
+        "waitAfterLoadMs": 4500,
+        "waitAfterClickMs": 2500
       },
       "playerRules": {
         "autoPlay": true,
@@ -226,7 +226,7 @@
     },
     {
       "name": "socolive",
-      "enabled": true,
+      "enabled": false,
       "type": "streaming",
       "priority": 250,
       "extractionMethod": "puppeteer",
@@ -254,8 +254,8 @@
       },
       "streamDetection": {
         "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8"],
-        "waitAfterLoadMs": 8000,
-        "waitAfterClickMs": 4000
+        "waitAfterLoadMs": 4000,
+        "waitAfterClickMs": 2000
       },
       "playerRules": {
         "autoPlay": true,
@@ -341,7 +341,7 @@
       "domains": ["https://hoofoot.com/"],
       "recentDays": 7,
       "retentionDays": 7,
-      "maxItems": 50,
+      "maxItems": 12,
       "notes": "Scraped every 3 hours (HIGHLIGHT_CRON). Merge + 7-day retention via HighlightManager."
     },
     {
