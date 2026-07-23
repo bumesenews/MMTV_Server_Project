@@ -31,9 +31,24 @@ function buildAliasIndex(entries, nameKey = 'standardName') {
   return index;
 }
 
+function buildFotmobIdIndex(entries) {
+  const index = new Map();
+  for (const entry of entries || []) {
+    const standard = cleanText(entry.standardName);
+    if (!standard) continue;
+    for (const id of entry.fotmobIds || []) {
+      const n = Number(id);
+      if (Number.isFinite(n)) index.set(n, standard);
+    }
+  }
+  return index;
+}
+
 class Normalizer {
   constructor({ leagues = [], teams = [] } = {}) {
+    this.leagues = leagues || [];
     this.leagueIndex = buildAliasIndex(leagues);
+    this.fotmobIdIndex = buildFotmobIdIndex(leagues);
     this.teamIndex = buildAliasIndex(teams);
     this.allowedLeagues = new Set(
       (leagues || []).map((l) => cleanText(l.standardName)).filter(Boolean)
@@ -41,22 +56,53 @@ class Normalizer {
   }
 
   reload({ leagues = [], teams = [] } = {}) {
+    this.leagues = leagues || [];
     this.leagueIndex = buildAliasIndex(leagues);
+    this.fotmobIdIndex = buildFotmobIdIndex(leagues);
     this.teamIndex = buildAliasIndex(teams);
     this.allowedLeagues = new Set(
       (leagues || []).map((l) => cleanText(l.standardName)).filter(Boolean)
     );
   }
 
-  normalizeLeague(rawName) {
+  /**
+   * Prefer FotMob league id when present (avoids Ecuador Serie A → Italy Serie A).
+   * Then try "Country + name", then exact alias.
+   */
+  normalizeLeague(rawName, { fotmobId = null, country = '' } = {}) {
+    const id = Number(fotmobId);
+    if (Number.isFinite(id) && this.fotmobIdIndex.has(id)) {
+      return this.fotmobIdIndex.get(id);
+    }
+
     const cleaned = cleanText(rawName);
     if (!cleaned) return null;
+
+    const countryClean = cleanText(country);
+    if (countryClean) {
+      const withCountry = this.leagueIndex.get(foldKey(`${countryClean} ${cleaned}`));
+      if (withCountry) return withCountry;
+    }
+
     const mapped = this.leagueIndex.get(foldKey(cleaned));
-    return mapped || cleaned;
+    if (mapped) {
+      // Bare "Serie A" is ambiguous (Italy id 55 vs Ecuador id 246 on FotMob).
+      // Only accept with Italy context or via fotmobIds above.
+      if (foldKey(cleaned) === 'serie a') {
+        const countryFold = foldKey(countryClean);
+        if (countryFold && (countryFold.includes('ital') || countryFold === 'ita')) {
+          return mapped;
+        }
+        return null;
+      }
+      return mapped;
+    }
+
+    return cleaned;
   }
 
-  isAllowedLeague(rawOrStandard) {
-    const standard = this.normalizeLeague(rawOrStandard);
+  isAllowedLeague(rawOrStandard, opts = {}) {
+    const standard = this.normalizeLeague(rawOrStandard, opts);
     return Boolean(standard && this.allowedLeagues.has(standard));
   }
 
@@ -73,15 +119,21 @@ class Normalizer {
     return mapped || cleaned;
   }
 
-  filterAllowedLeague(rawLeague) {
-    const standard = this.normalizeLeague(rawLeague);
-    const allowed = this.isAllowedLeague(standard);
+  filterAllowedLeague(rawLeague, opts = {}) {
+    const standard = this.normalizeLeague(rawLeague, opts);
+    const allowed = Boolean(standard && this.allowedLeagues.has(standard));
     if (!allowed) {
-      logger.debug('League filtered out', { league: rawLeague, standard });
+      logger.debug('League filtered out', {
+        league: rawLeague,
+        standard,
+        fotmobId: opts.fotmobId || null,
+        country: opts.country || null,
+      });
     } else {
       logEvent(events.LEAGUE_FILTERED, 'League allowed', {
         league: rawLeague,
         standard,
+        fotmobId: opts.fotmobId || null,
       });
     }
     return allowed ? standard : null;
@@ -92,5 +144,6 @@ module.exports = {
   cleanText,
   foldKey,
   buildAliasIndex,
+  buildFotmobIdIndex,
   Normalizer,
 };

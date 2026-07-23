@@ -55,14 +55,17 @@
     },
     {
       "standardName": "Serie A",
+      "fotmobIds": [55],
       "aliases": [
-        "Serie A",
+        "Serie A (Italy)",
         "Serie A TIM",
         "Italian Serie A",
         "Italy Serie A",
         "意甲",
-        "Serie A Italy"
-      ]
+        "Serie A Italy",
+        "ITA Serie A"
+      ],
+      "notes": "Do not use bare alias 'Serie A' — FotMob also uses that name for Ecuador (id 246)"
     },
     {
       "standardName": "Bundesliga",

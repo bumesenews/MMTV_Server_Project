@@ -1,7 +1,7 @@
 const axios = require('axios');
 const { logger, logEvent, events } = require('../utils/logger');
 const { generateMatchId } = require('../utils/matchId');
-const { cleanText } = require('../utils/normalize');
+const { cleanText, foldKey } = require('../utils/normalize');
 const {
   toYangon,
   formatDate,
@@ -75,13 +75,33 @@ class FotMobSource {
     const leagues = data?.leagues || data?.matches?.leagues || [];
 
     for (const leagueBlock of leagues) {
-      const rawLeague =
+      const name =
         leagueBlock?.name ||
         leagueBlock?.leagueName ||
         leagueBlock?.primaryOrSecondaryText ||
         '';
+      const country =
+        leagueBlock?.country ||
+        leagueBlock?.nation ||
+        leagueBlock?.ccode ||
+        leagueBlock?.countryCode ||
+        '';
+      const fotmobId =
+        leagueBlock?.id ||
+        leagueBlock?.leagueId ||
+        leagueBlock?.primaryId ||
+        null;
 
-      const standardLeague = this.normalizer.filterAllowedLeague(rawLeague);
+      // Prefer "Ecuador Serie A" style label when country is present
+      const rawLeague =
+        country && name && !foldKey(name).includes(foldKey(country))
+          ? `${country} ${name}`.trim()
+          : cleanText(name);
+
+      const standardLeague = this.normalizer.filterAllowedLeague(rawLeague, {
+        fotmobId,
+        country,
+      });
       if (!standardLeague) continue;
 
       const matches = leagueBlock?.matches || leagueBlock?.allMatches || [];
@@ -94,8 +114,17 @@ class FotMobSource {
     // Alternate shape: flat list
     if (!leagues.length && Array.isArray(data?.matches)) {
       for (const match of data.matches) {
-        const rawLeague = match?.tournament?.name || match?.leagueName || '';
-        const standardLeague = this.normalizer.filterAllowedLeague(rawLeague);
+        const name = match?.tournament?.name || match?.leagueName || '';
+        const country = match?.tournament?.country || match?.country || '';
+        const fotmobId = match?.tournament?.id || match?.leagueId || null;
+        const rawLeague =
+          country && name && !foldKey(name).includes(foldKey(country))
+            ? `${country} ${name}`.trim()
+            : cleanText(name);
+        const standardLeague = this.normalizer.filterAllowedLeague(rawLeague, {
+          fotmobId,
+          country,
+        });
         if (!standardLeague) continue;
         const parsed = this.parseMatch(match, standardLeague, rawLeague, dateKey);
         if (parsed) fixtures.push(parsed);
