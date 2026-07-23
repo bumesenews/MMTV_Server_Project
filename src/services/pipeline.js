@@ -401,7 +401,7 @@ class Pipeline {
 
     try {
       const soco = new SocoSource({ config: cfg, normalizer: this.normalizer });
-      const full = await soco.scrapeFull({ fetchStreams: true });
+      const full = await soco.scrapeFull({ fetchStreams: false });
       const socoMatches = full.matches || [];
 
       // Merge into FotMob fixtures when matchId aligns

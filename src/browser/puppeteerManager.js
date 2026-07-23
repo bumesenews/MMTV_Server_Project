@@ -98,7 +98,12 @@ function buildChromeArgs(lowMem) {
     '--disable-dev-shm-usage',
     '--disable-gpu',
     '--disable-software-rasterizer',
+    '--disable-features=IsolateOrigins,site-per-process',
     '--disable-extensions',
+    '--disable-plugins',
+    '--disable-images',
+    '--memory-pressure-off',
+    '--js-flags=--max-old-space-size=128',
     '--disable-background-networking',
     '--disable-background-timer-throttling',
     '--disable-backgrounding-occluded-windows',
@@ -106,7 +111,6 @@ function buildChromeArgs(lowMem) {
     '--disable-component-update',
     '--disable-default-apps',
     '--disable-domain-reliability',
-    '--disable-features=AudioServiceOutOfProcess,IsolateOrigins,site-per-process,TranslateUI',
     '--disable-hang-monitor',
     '--disable-ipc-flooding-protection',
     '--disable-notifications',
@@ -132,7 +136,6 @@ function buildChromeArgs(lowMem) {
       '--no-zygote',
       '--single-process',
       '--renderer-process-limit=1',
-      '--js-flags=--max-old-space-size=64',
       '--window-size=800,600'
     );
   } else {
@@ -142,20 +145,28 @@ function buildChromeArgs(lowMem) {
   return args;
 }
 
+function resolveHeadlessMode(raw = process.env.PUPPETEER_HEADLESS) {
+  const value = String(raw ?? 'true').trim().toLowerCase();
+  if (value === 'false' || value === '0' || value === 'no') return false;
+  if (value === 'new' || value === 'shell') return 'new';
+  return true;
+}
+
 class PuppeteerManager {
   constructor(options = {}) {
     this.lowMemory = options.lowMemory ?? lowMemoryMode();
-    this.headless = options.headless ?? process.env.PUPPETEER_HEADLESS !== 'false';
+    this.headless =
+      options.headless !== undefined ? options.headless : resolveHeadlessMode();
     this.timeout = Number(
       options.timeout ||
         process.env.PUPPETEER_TIMEOUT_MS ||
-        (this.lowMemory ? 35000 : 45000)
+        (this.lowMemory ? 25000 : 45000)
     );
     this.userAgent = options.userAgent || DEFAULT_UA;
     this.restartEvery = Number(
       options.restartEvery ||
         process.env.BROWSER_RESTART_EVERY_N_PAGES ||
-        (this.lowMemory ? 8 : 25)
+        (this.lowMemory ? 5 : 25)
     );
     this.blockResources =
       options.blockResources ?? process.env.PUPPETEER_BLOCK_RESOURCES !== 'false';
@@ -197,19 +208,39 @@ class PuppeteerManager {
         ? { width: 800, height: 600 }
         : { width: 1280, height: 720 };
 
+      // 1GB-oriented Chromium flags (merged with buildChromeArgs baseline)
+      const lowMemArgs = [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-software-rasterizer',
+        '--disable-features=IsolateOrigins,site-per-process',
+        '--disable-extensions',
+        '--disable-plugins',
+        '--disable-images',
+        '--memory-pressure-off',
+        '--js-flags=--max-old-space-size=128',
+        '--single-process',
+      ];
+      const args = [
+        ...new Set([...buildChromeArgs(this.lowMemory), ...(this.lowMemory ? lowMemArgs : [])]),
+      ];
+
       logger.info('Launching Puppeteer browser (puppeteer-core)', {
-        headless: Boolean(this.headless),
+        headless: this.headless,
         timeout: this.timeout,
         platform: process.platform,
         executablePath: this.executablePath,
         lowMemory: this.lowMemory,
         blockResources: this.blockResources,
+        argCount: args.length,
       });
 
       const launchOpts = {
         executablePath: this.executablePath,
-        headless: this.headless ? true : false,
-        args: buildChromeArgs(this.lowMemory),
+        headless: this.headless,
+        args,
         defaultViewport: viewport,
         ignoreHTTPSErrors: true,
       };

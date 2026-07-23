@@ -30,7 +30,7 @@ async function main() {
   scheduler.start();
 
   // Boot: one job at a time (1GB EC2). Pipeline → highlights → MyanmarTV.
-  // Avoid forceStreamCheck:true — it deep-scrapes ~3h of fixtures and OOMs t3.micro.
+  // Avoid forceStreamCheck:true — it deep-scrapes fixtures and OOMs t3.micro.
   setTimeout(() => {
     pipeline
       .run({ forceStreamCheck: false })
@@ -49,11 +49,11 @@ async function main() {
                 pipeline.runMyanmarTv({ force: false }).catch((err) => {
                   logger.error('Initial MyanmarTV job failed', { error: err.message });
                 });
-              }, 5000);
+              }, 15000);
             });
-        }, 5000);
+        }, 15000);
       });
-  }, 5000);
+  }, 10000);
 
   const shutdown = async (signal) => {
     logger.info(`Received ${signal}, shutting down`);

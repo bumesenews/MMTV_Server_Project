@@ -14,7 +14,7 @@ try {
 
 const DEFAULT_BASE_URL = 'https://socolivegg.io';
 const DEFAULT_SPORT = 'football';
-const STREAM_CONCURRENCY = Number(process.env.SOCO_CONCURRENCY || 2);
+const STREAM_CONCURRENCY = Number(process.env.SOCO_CONCURRENCY || 1);
 const MATCH_DURATION_MS = (105 + 30) * 60 * 1000;
 const FETCH_RETRIES = 3;
 const FETCH_DELAY_MS = 1200;
@@ -415,8 +415,9 @@ class SocoSource {
    * Full scrape for Flutter soco.json (today/tomorrow cards + stream links).
    * Status comes from the Soco website card (data-status / class / text).
    * Streaming URLs are fetched only when that site status is LIVE.
+   * Default fetchStreams=false on 1GB hosts — pass true when m3u8 extraction is needed.
    */
-  async scrapeFull({ fetchStreams = true } = {}) {
+  async scrapeFull({ fetchStreams = false } = {}) {
     logEvent(events.SCRAPER_START, 'Soco full scrape start', {
       source: this.name,
       baseUrl: this.baseUrl,

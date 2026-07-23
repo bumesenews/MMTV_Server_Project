@@ -1,317 +1,178 @@
-# Football Live Streaming Backend — Project Description
+# How this project works
 
-Production Node.js backend that collects football fixtures and live stream URLs, builds Flutter-ready JSON feeds, serves them over HTTP, and optionally publishes them to GitHub when content changes.
+Football live streaming backend for Flutter. It scrapes fixtures and stream URLs, builds four JSON feeds, serves them over HTTP, and optionally uploads to GitHub when data changes.
 
-**Timezone:** Asia/Yangon everywhere (kickoff times, cron, date filters).
-
-**Runtime target:** small AWS EC2 (e.g. t3.micro 1GB) with PM2, low-memory Chromium usage, and jobs that never overlap heavy work.
-
----
-
-## 1. Purpose
-
-Flutter (and other clients) need stable JSON endpoints for:
-
-1. **Live matches** — which games are on today/tomorrow, status, and playable m3u8 links
-2. **Soco feed** — a second live list scraped from the Soco site, grouped by league
-3. **Highlights** — recent match highlight clips with embed/m3u8
-4. **Myanmar TV** — local TV channel streams
-
-This server is the scraper + publisher. It is **not** a full database. Local files under `data/` are the working store; GitHub is delivery/backup only.
+**Timezone:** Asia/Yangon  
+**Production target:** AWS EC2 `t3.micro` (1GB RAM) + PM2 + 1GB swap  
 
 ---
 
-## 2. What it produces (four feeds)
+## What it produces
 
-| Feed | Local path | HTTP | Shape (summary) |
-|------|------------|------|-----------------|
-| **matches** | `data/delivery/matches.json` | `/flutter/matches.json` | `{ matches: [...], meta }` — FotMob fixtures + merged streams |
-| **soco** | `data/delivery/soco.json` | `/flutter/soco.json` | `{ leagues: [{ league_name, league_icon, matches }] }` |
-| **highlight** | `data/delivery/highlight.json` | `/flutter/highlight.json` | `{ highlights: [...], count, scraped_at }` |
-| **myanmartv** | `data/delivery/myanmartv.json` | `/flutter/myanmartv.json` | `[{ title, img, streamUrl }, ...]` |
+| Feed | File | URL |
+|------|------|-----|
+| Main live matches | `data/delivery/matches.json` | `/flutter/matches.json` |
+| Soco leagues feed | `data/delivery/soco.json` | `/flutter/soco.json` |
+| Highlights | `data/delivery/highlight.json` | `/flutter/highlight.json` |
+| Myanmar TV | `data/delivery/myanmartv.json` | `/flutter/myanmartv.json` |
 
-Also kept: `data/current.json` (combined cache used by the pipeline and admin).
-
-When GitHub is configured, the same four files are uploaded to the delivery repo **only if** content changed (empty overwrites are refused).
+GitHub is **delivery/backup only** (upload when content changes). It is not the database. Local `data/` is the working store.
 
 ---
 
-## 3. Architecture overview
+## Job schedule
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  Express API + Admin UI  (src/index.js → app.js)             │
-│  /flutter/*.json  /api/*  /admin                            │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────┐
-│  Scheduler (cron, Asia/Yangon)                              │
-│                                                             │
-│  Main pipeline     → matches + soco                         │
-│  Highlight job 3h  → highlight.json                         │
-│  MyanmarTV job 12h → myanmartv.json                         │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────┐
-│  Pipeline / dedicated jobs                                  │
-│  ConfigLoader → sources → merge → status → cache → GitHub   │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-        ┌────────────────────┼────────────────────┐
-        ▼                    ▼                    ▼
-   FotMob API          Stream sites            Soco / Hoofoot /
-   (fixtures)          (Puppeteer m3u8)        MyanmarTV (HTTP)
-```
-
-### Important directories
-
-| Path | Role |
-|------|------|
-| `src/sources/` | Per-website scrapers |
-| `src/services/` | Pipeline, status, streams, cache, GitHub, scheduler |
-| `src/admin/` | Admin auth, overrides, league/source toggles, publish |
-| `src/browser/` | Shared Puppeteer/Chromium manager |
-| `config/` | Local fallback for sources / leagues / teams |
-| `data/` | Runtime JSON (`current.json`, `delivery/`, admin store) |
-| `public/admin/` | Admin web UI |
-| `secrets/` | Firebase service account (not committed) |
-
----
-
-## 4. Scheduled jobs
-
-```
-Main pipeline tick (PIPELINE_CRON, e.g. */5 * * * *)
+Main pipeline (PIPELINE_CRON = */15 * * * *)
 └── matches.json + soco.json
 
-Highlight Job (HIGHLIGHT_CRON = 0 */3 * * *)   ← every 3 hours
+Highlight Job (HIGHLIGHT_CRON = 0 */6 * * *)   ← every 6 hours
 └── Highlights → highlight.json
 
 MyanmarTV Job (MYANMARTV_CRON = 0 */12 * * *)  ← every 12 hours
 └── Channels → myanmartv.json
 ```
 
-Jobs skip if another heavy job is already running (avoids OOM on 1GB hosts).
+Jobs skip if another heavy job is already running (avoids OOM).
 
-On boot (`npm start`): pipeline → then highlights → then MyanmarTV, each delayed so they do not overlap.
+**Boot sequence** (one at a time): wait 10s → pipeline (`forceStreamCheck: false`) → wait 15s → highlights → wait 15s → MyanmarTV.
 
 ---
 
-## 5. Feed rules in detail
+## Config: GitHub first, local fallback
 
-### 5.1 `matches.json` (main live feed)
+When `GITHUB_TOKEN` + `GITHUB_OWNER` + `GITHUB_REPO` are set, the server loads:
 
-**Fixtures (FotMob)**
+- `config/sources.json`
+- `config/leagues.json`
+- `config/teams.json`
 
-- Source of truth for *which* matches exist and *when* they kick off
-- Only **today and tomorrow** (Yangon)
-- Scraped **once per Yangon calendar day** (in-memory cache)
-- Forced refresh: `npm run scrape -- --force`
-- League filter via `config/leagues.json` (+ admin league toggles)
+from GitHub (`GITHUB_CONFIG_PATH`, default `config/`).
 
-**Status — from fixture kickoff time, not streaming sites**
+If GitHub fails or is not configured → uses local `./config/`.
 
-Streaming sites change domains often, so status must not depend on them.
+**`soco` and `socolive` are different sources.** Changing one domain does not change the other.
+
+Edit GitHub config via:
+
+1. Admin → **Remote Config** → Save  
+2. Or edit `config/sources.json` on GitHub directly  
+
+---
+
+## `matches.json` rules
+
+Fixtures come from **FotMob** (today + tomorrow only, scraped **once per Yangon day**).
+
+**Status from fixture kickoff time** (not streaming websites):
 
 | Time vs kickoff | Status | Streams |
 |-----------------|--------|---------|
 | Before kickoff | `Scheduled` | May be empty |
-| Kickoff → +120 minutes | `LIVE` | Kept if found |
-| After +120 minutes | `END` | **Cleared** |
+| Kickoff → +120 min | `LIVE` | Kept if found |
+| After +120 min | `END` | Removed |
 
-**Stream URL discovery**
+**Stream find windows:**
 
-- First attempt at **T−30 minutes** (e.g. 05:00 for 05:30 kickoff)
-- Retry at **T−15 minutes** if still missing
-- During LIVE, can still find if missing
-- After +120m: stop and remove URLs
+- First try at **T−30 min** (e.g. 05:00 for 05:30 kickoff)  
+- Retry at **T−15 min** if still missing  
+- During LIVE, can still find if missing  
 
-**Stream sources (Puppeteer)** — e.g. LuongSon, Socolive, Xoilac, Cakhia, …
-Configured in `config/sources.json` (`type: "streaming"`). Domain, selectors, attrs, mirrors are editable without code changes. The stream engine walks **all** enabled sources and merges URLs onto the same match.
-
-**Soco merge:** if Soco finds the same `matchId`, its m3u8 links can be merged into `matches.json` as an extra source.
-
-### 5.2 `soco.json` (separate Soco feed)
-
-Independent of FotMob status rules.
-
-- Scrapes Soco **today + tomorrow** section APIs (HTTP + Cheerio)
-- **Status from the Soco website** (`data-status` codes, live class, score/period text)
-- **Streaming URL fetched only when website status is `LIVE`**
-- Scheduled / END → empty `links`
-- Optional `leagueFilter` (UEFA CL, FIF, AFF Cup, KOR D1, BRA D1, …)
-- Team logos from card HTML or `data-home-team-id` / `data-away-team-id`
-- Domain / paths / selectors / attrs fully config-driven
-
-Output shape for Flutter:
-
-```json
-{
-  "leagues": [
-    {
-      "league_name": "...",
-      "league_icon": "...",
-      "matches": [
-        {
-          "home_team": { "name": "...", "logo": "..." },
-          "away_team": { "name": "...", "logo": "..." },
-          "month": "7/23/2026",
-          "time": "5:30:00 AM",
-          "links": [{ "name": "HD 1", "url": "https://...m3u8", "reffer": "..." }]
-        }
-      ]
-    }
-  ]
-}
-```
-
-### 5.3 `highlight.json`
-
-- Source: Hoofoot (Puppeteer)
-- Dedicated job every **3 hours**
-- Merge + dedupe + retention (default ~7 days)
-- GitHub upload only when changed; never overwrite with empty on failure
-
-### 5.4 `myanmartv.json`
-
-- Source: myanmartvchannels.com (HTTP)
-- Dedicated job every **12 hours**
-- Main pipeline only **reuses** the last successful channel list (no scrape every tick)
-- GitHub upload only when changed
+Stream sites (LuongSon, Socolive, Xoilac, …) are Puppeteer-based. Domains/selectors live in `sources.json`.
 
 ---
 
-## 6. Configuration
+## `soco.json` rules
 
-### Local / remote config
+Independent of FotMob.
 
-1. Prefer remote config from GitHub (`GITHUB_*` + config path)
-2. Fall back to `./config` if GitHub is unavailable
-
-| File | Purpose |
-|------|---------|
-| `config/sources.json` | Enable sources; domains; mirrors; paths; selectors; attrs; priorities |
-| `config/leagues.json` | Allowed leagues + name aliases (normalize Vietnamese/English names) |
-| `config/teams.json` | Team name aliases for stable `matchId` matching |
-
-When a streaming site moves, update **domain / href / attr / selectors** in `sources.json` (admin can edit this too). Do not hardcode domains in scrapers beyond safe fallbacks.
-
-### Environment (see `.env.example`)
-
-| Area | Examples |
-|------|----------|
-| Server | `HOST`, `PORT`, `TZ=Asia/Yangon`, `LOW_MEMORY_MODE` |
-| Cron | `PIPELINE_CRON`, `HIGHLIGHT_CRON`, `MYANMARTV_CRON` |
-| GitHub delivery | `GITHUB_TOKEN`, `GITHUB_OWNER`, `GITHUB_REPO`, `GITHUB_BRANCH`, path vars |
-| API | `API_KEY`, `ENABLE_PUBLIC_JSON` |
-| Admin | `ADMIN_JWT_SECRET`, `ADMIN_USERNAME`, `ADMIN_PASSWORD` |
-| Browser | `PUPPETEER_EXECUTABLE_PATH`, timeouts, resource blocking |
-| Concurrency | `SOCO_CONCURRENCY`, `MYANMARTV_CONCURRENCY` |
+- Scrapes Soco **today + tomorrow** (HTTP + Cheerio)  
+- **Status from the Soco website** (`data-status` / live class / score text)  
+- **Streaming URL only when website status is `LIVE`**  
+- Optional `leagueFilter` (UEFA CL, FIF, AFF Cup, KOR D1, BRA D1, …)  
+- On 1GB hosts: `SOCO_CONCURRENCY=1`, `scrapeFull({ fetchStreams: false })` by default (set `true` when you need m3u8)  
+- Domain / paths / selectors / attrs are config-driven  
 
 ---
 
-## 7. Core modules (who does what)
+## Low-memory production (1GB)
 
-| Module | Responsibility |
-|--------|----------------|
-| `src/index.js` | Boot API, admin, scheduler, initial jobs |
-| `src/app.js` | Express routes, Flutter JSON aliases, API key gate |
+| Setting | Value |
+|---------|--------|
+| `LOW_MEMORY_MODE` | `true` |
+| Node heap | `--max-old-space-size=256 --expose-gc` |
+| PM2 `max_memory_restart` | `350M` |
+| Pipeline cron | every **15 min** |
+| Highlights | every **6 hours** |
+| MyanmarTV | every **12 hours** |
+| Concurrency | `SOCO` / `MYANMARTV` / retries = **1** |
+| `HIGHLIGHT_LIMIT` | `8` |
+| Puppeteer timeout | `25000` ms |
+| Browser restart | every **5** pages |
+| `PUPPETEER_HEADLESS` | `new` |
+| Chromium | `--single-process`, `--disable-dev-shm-usage`, js heap 128MB, image blocking, etc. |
+
+Also recommended on Ubuntu EC2: **1GB swap** + `vm.swappiness=10`.
+
+See `.env.example` and `ecosystem.config.js` for the full tuned values.
+
+---
+
+## Main modules
+
+| Path | Role |
+|------|------|
+| `src/index.js` | Boot API, admin, scheduler, staggered initial jobs |
 | `src/services/pipeline.js` | Main run + `runHighlights` + `runMyanmarTv` |
 | `src/services/scheduler.js` | Three cron jobs |
-| `src/services/fixtureService.js` / `fotmob.js` | Today/tomorrow fixtures |
-| `src/services/streamEngine.js` | When to deep-extract streams (−30 / −15 / LIVE) |
-| `src/services/statusService.js` | matches.json Scheduled / LIVE / END from kickoff |
-| `src/services/matchMerger.js` | Merge multi-source streams onto one match |
-| `src/services/deliveryFormats.js` | Flutter JSON shapes |
-| `src/services/cacheService.js` | Local delivery + previous-data safety |
-| `src/services/githubService.js` | Upload if changed |
+| `src/services/streamEngine.js` | When to deep-extract streams |
+| `src/services/statusService.js` | matches.json Scheduled / LIVE / END |
 | `src/services/configLoader.js` | GitHub or local config |
-| `src/sources/soco.js` | Soco discover + LIVE-only stream extract |
-| `src/sources/*` | Site-specific scrapers |
-| `src/utils/normalize.js` | League/team alias folding |
-| `src/utils/time.js` | Yangon time, fixture status helpers, stream windows |
-| `src/admin/*` | Login, dashboard, overrides, league/source toggles, FCM notify |
+| `src/services/githubService.js` | Upload feeds if changed |
+| `src/sources/fotmob.js` | Fixtures only |
+| `src/sources/soco.js` | Soco HTTP scraper |
+| `src/sources/socolive.js` / `luongson.js` / … | Puppeteer stream sites |
+| `src/browser/puppeteerManager.js` | Shared Chromium (low-RAM args) |
+| `src/admin/` | Login, overrides, remote config editor |
 
 ---
 
-## 8. HTTP API (summary)
-
-| Endpoint | Role |
-|----------|------|
-| `GET /flutter/matches.json` | Main feed |
-| `GET /flutter/soco.json` | Soco leagues feed |
-| `GET /flutter/highlight.json` | Highlights |
-| `GET /flutter/myanmartv.json` | Channels |
-| `GET /api/health` | Process + last run flags |
-| `GET /api/matches` | Cached combined payload |
-| `POST /api/pipeline/run` | Trigger main pipeline |
-| `POST /api/pipeline/highlights` | Trigger highlight job |
-| `POST /api/pipeline/channels` | Trigger MyanmarTV job |
-| `POST /api/admin/auth/login` | Admin JWT |
-| `/admin` | Admin UI |
-
-Public Flutter GETs can be opened without API key when `ENABLE_PUBLIC_JSON=true`.
-
----
-
-## 9. Admin panel
-
-- URL: `http://<host>:3000/admin`
-- Seed user: `npm run admin:seed`
-- Typical controls: enable/disable sources & leagues, edit source config (domains/selectors), manual stream overrides, view logs/dashboard, publish/notify
-
-Overrides can pin/featured matches or inject manual stream URLs without waiting for scrapers.
-
----
-
-## 10. How to run
+## How to run
 
 ```bash
 cp .env.example .env    # fill secrets
 npm install
-npm start               # API + all crons
+npm start               # or: pm2 start ecosystem.config.js
 
-# One-shot jobs
 npm run scrape                     # matches + soco
 npm run scrape -- --highlights     # highlights only
 npm run scrape -- --channels       # MyanmarTV only
-npm run scrape -- --force          # force fixture refresh + stream checks
+npm run scrape -- --force          # force fixture refresh
 
-# Process manager
-npm run pm2:start
-npm run pm2:logs
-npm run pm2:restart
+pm2 restart football-streaming --update-env
+pm2 logs football-streaming
 ```
 
-Requires **Node.js ≥ 18** and a system Chrome/Chromium path for Puppeteer-core.
+Admin UI: `http://<host>:3000/admin`  
+Health: `http://<host>:3000/api/health`
 
 ---
 
-## 11. Safety / production behaviour
+## Safety behaviour
 
-- Never upload **empty** JSON when a scrape fails — keep previous valid data
-- Skip overlapping pipeline / highlight / MyanmarTV runs
-- Do not share Chromium between pipeline and highlight on small hosts
-- Per-source failures are logged; other sources continue
-- Compare payloads before GitHub upload (ignore volatile timestamps)
-- Low-memory mode caps heap and shortens force-extract windows
-
----
-
-## 12. Mental model (short)
-
-1. **FotMob** → which matches exist today/tomorrow and exact kickoff.
-2. **Stream sites** → m3u8 links near kickoff (−30m / −15m), for `matches.json`.
-3. **matches.json status** → from kickoff clock (LIVE for 120 minutes, then END + drop streams).
-4. **Soco** → own website status; fetch stream URL only when site says LIVE.
-5. **Highlights every 3h**, **Myanmar TV every 12h** — separate from the live match tick.
-6. Flutter reads the four JSON files from this server or GitHub raw URLs.
+- Never upload empty JSON on scrape failure — keep previous data  
+- Skip overlapping pipeline / highlight / MyanmarTV runs  
+- Do not share Chromium between heavy jobs on 1GB hosts  
+- Per-source failures are logged; other sources continue  
+- Compare payloads before GitHub upload (ignore volatile timestamps)  
 
 ---
 
-## 13. Related docs / files
+## Mental model
 
-- This file: full project description
-- `.env.example`: all environment variables
-- `config/sources.json`: live scraper configuration
-- `ecosystem.config.js`: PM2 process settings
+1. **FotMob** → which matches exist today/tomorrow and kickoff time.  
+2. **Stream sites** → m3u8 near kickoff (−30m / −15m) for `matches.json`.  
+3. **matches.json status** → from kickoff clock (LIVE 120 min, then END).  
+4. **Soco** → own website status; stream URL only when site says LIVE.  
+5. **Highlights every 6h**, **Myanmar TV every 12h** — separate from live tick.  
+6. Flutter reads the four JSON files from this server or GitHub raw URLs.  
