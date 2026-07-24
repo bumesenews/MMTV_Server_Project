@@ -42,6 +42,12 @@ class Scheduler {
           await this.pipeline.run({ forceStreamCheck: false });
         } catch (err) {
           logger.error('Scheduled pipeline failed', { error: err.message });
+          try {
+            const { getTelegramService } = require('./telegram.service');
+            await getTelegramService().serverCrash(err);
+          } catch {
+            // ignore telegram failures
+          }
         }
       },
       { timezone: 'Asia/Yangon' }

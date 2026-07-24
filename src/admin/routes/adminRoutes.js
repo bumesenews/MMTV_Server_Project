@@ -49,9 +49,11 @@ function createAdminRouter(ctx) {
   router.get('/matches', auth, (_req, res) => {
     const current = ctx.cache.getCurrent();
     const overrides = ctx.overrides.all();
+    const manual = ctx.manualMatches.all();
     const matches = (current?.matches || []).map((m) => ({
       ...m,
       override: overrides[m.matchId] || null,
+      isManual: Boolean(m.manual || manual[m.matchId]),
     }));
     // Include hidden matches for admin (from overrides even if filtered out of public JSON)
     for (const [matchId, ov] of Object.entries(overrides)) {
@@ -60,15 +62,126 @@ function createAdminRouter(ctx) {
           matchId,
           hidden: true,
           override: ov,
-          homeTeam: '(hidden)',
-          awayTeam: '',
-          league: '',
+          homeTeam: ov.homeTeam || '(hidden)',
+          awayTeam: ov.awayTeam || '',
+          league: ov.league || '',
           status: ov.status || 'Scheduled',
           streams: ov.manualStreams || [],
+          isManual: Boolean(manual[matchId]),
         });
       }
     }
+    // Manual matches not yet in cache
+    for (const [matchId, m] of Object.entries(manual)) {
+      if (!matches.find((x) => x.matchId === matchId)) {
+        matches.push({ ...m, isManual: true, override: overrides[matchId] || null });
+      }
+    }
     res.json({ ok: true, matches, generatedAt: current?.generatedAt || null });
+  });
+
+  router.post('/matches', auth, editor, async (req, res) => {
+    try {
+      const body = req.body || {};
+      // Prefer logos from team catalog when not provided
+      if (!body.homeLogo && body.homeTeam) {
+        body.homeLogo = ctx.teams.findLogo(body.homeTeam) || body.homeLogo;
+      }
+      if (!body.awayLogo && body.awayTeam) {
+        body.awayLogo = ctx.teams.findLogo(body.awayTeam) || body.awayLogo;
+      }
+      if (!body.leagueIcon && body.league) {
+        body.leagueIcon = ctx.leagues.getIcon(body.league) || body.leagueIcon;
+      }
+
+      const match = ctx.manualMatches.create(body);
+
+      // Seed override so status/stream edits stay locked
+      ctx.overrides.updateMatch(match.matchId, {
+        status: match.status,
+        statusLocked: true,
+        kickoff: match.kickoff,
+        date: match.date,
+        time: match.time,
+        league: match.league,
+        leagueIcon: match.leagueIcon,
+        homeTeam: match.homeTeam,
+        awayTeam: match.awayTeam,
+      });
+      if (match.streams?.[0]?.url) {
+        try {
+          ctx.overrides.addManualStream(match.matchId, {
+            url: match.streams[0].url,
+            quality: match.streams[0].quality,
+            name: match.streams[0].name,
+          });
+        } catch {
+          // ignore duplicate
+        }
+      }
+
+      const current = ctx.cache.getCurrent() || {
+        matches: [],
+        highlights: [],
+        channels: [],
+        meta: {},
+      };
+      const without = (current.matches || []).filter((m) => m.matchId !== match.matchId);
+      current.matches = [...without, match];
+      ctx.cache.writeJson(ctx.cache.currentPath, current);
+
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'manual_match_create' },
+      });
+
+      ctx.logService.add({
+        category: 'admin',
+        action: 'match_create',
+        message: `Created manual match ${match.matchId}`,
+        actor: req.admin.username,
+        meta: { matchId: match.matchId },
+      });
+
+      res.json({ ok: true, match, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.delete('/matches/:matchId', auth, editor, async (req, res) => {
+    try {
+      const { matchId } = req.params;
+      const wasManual = Boolean(ctx.manualMatches.get(matchId));
+      if (wasManual) {
+        ctx.manualMatches.remove(matchId);
+      } else {
+        // Hide scraped match from public feed
+        ctx.overrides.updateMatch(matchId, { hidden: true });
+      }
+
+      const current = ctx.cache.getCurrent();
+      if (current?.matches) {
+        current.matches = current.matches.filter((m) => m.matchId !== matchId);
+        ctx.cache.writeJson(ctx.cache.currentPath, current);
+      }
+
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: wasManual ? 'manual_match_delete' : 'match_hide' },
+      });
+
+      ctx.logService.add({
+        category: 'admin',
+        action: wasManual ? 'match_delete' : 'match_hide',
+        message: `${wasManual ? 'Deleted' : 'Hidden'} match ${matchId}`,
+        actor: req.admin.username,
+      });
+
+      res.json({ ok: true, published, deleted: wasManual, hidden: !wasManual });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
   });
 
   router.patch('/matches/:matchId', auth, editor, async (req, res) => {
@@ -83,7 +196,12 @@ function createAdminRouter(ctx) {
           patch.time = formatTime(dt);
         }
       }
+      if (patch.status != null) patch.statusLocked = true;
       const override = ctx.overrides.updateMatch(matchId, patch);
+
+      if (ctx.manualMatches.get(matchId)) {
+        ctx.manualMatches.update(matchId, patch);
+      }
 
       // Also patch in-memory/current cache fields before republish
       const current = ctx.cache.getCurrent();
@@ -92,8 +210,14 @@ function createAdminRouter(ctx) {
         if (idx >= 0) {
           current.matches[idx] = {
             ...current.matches[idx],
-            ...(patch.status != null ? { status: patch.status } : {}),
-            ...(patch.kickoff ? { kickoff: patch.kickoff, date: patch.date, time: patch.time } : {}),
+            ...(patch.status != null
+              ? { status: patch.status, statusLocked: true }
+              : {}),
+            ...(patch.kickoff
+              ? { kickoff: patch.kickoff, date: patch.date, time: patch.time }
+              : {}),
+            ...(patch.league != null ? { league: patch.league } : {}),
+            ...(patch.leagueIcon != null ? { leagueIcon: patch.leagueIcon } : {}),
           };
           ctx.cache.writeJson(ctx.cache.currentPath, current);
         }
@@ -191,21 +315,101 @@ function createAdminRouter(ctx) {
     res.json({ ok: true, leagues: ctx.leagues.list() });
   });
 
-  router.patch('/leagues/:name', auth, editor, async (req, res) => {
+  router.post('/leagues', auth, editor, async (req, res) => {
     try {
-      const name = decodeURIComponent(req.params.name);
-      const league = ctx.leagues.setEnabled(name, req.body?.enabled !== false);
+      const league = ctx.leagues.add(req.body || {});
       const published = await ctx.publish.republishFromCache({
         actor: req.admin.username,
-        meta: { reason: 'league_toggle' },
+        meta: { reason: 'league_add' },
       });
       ctx.logService.add({
         category: 'admin',
-        action: 'league_toggle',
-        message: `${name} enabled=${league.enabled}`,
+        action: 'league_add',
+        message: `Added league ${league.standardName}`,
         actor: req.admin.username,
       });
       res.json({ ok: true, league, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.patch('/leagues/:name', auth, editor, async (req, res) => {
+    try {
+      const name = decodeURIComponent(req.params.name);
+      const body = req.body || {};
+      const league =
+        body.enabled != null && body.iconUrl === undefined && Object.keys(body).length === 1
+          ? ctx.leagues.setEnabled(name, body.enabled !== false)
+          : ctx.leagues.update(name, body);
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'league_update' },
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'league_update',
+        message: `Updated league ${name}`,
+        actor: req.admin.username,
+        meta: body,
+      });
+      res.json({ ok: true, league, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.delete('/leagues/:name', auth, editor, async (req, res) => {
+    try {
+      const name = decodeURIComponent(req.params.name);
+      ctx.leagues.remove(name);
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'league_delete' },
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'league_delete',
+        message: `Deleted league ${name}`,
+        actor: req.admin.username,
+      });
+      res.json({ ok: true, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ---------- Teams ----------
+  router.get('/teams', auth, (_req, res) => {
+    res.json({ ok: true, teams: ctx.teams.listAll() });
+  });
+
+  router.post('/teams', auth, editor, async (req, res) => {
+    try {
+      const team = ctx.teams.add(req.body || {});
+      ctx.logService.add({
+        category: 'admin',
+        action: 'team_add',
+        message: `Added team ${team.standardName}`,
+        actor: req.admin.username,
+      });
+      res.json({ ok: true, team });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.delete('/teams/:name', auth, editor, async (req, res) => {
+    try {
+      const name = decodeURIComponent(req.params.name);
+      ctx.teams.remove(name);
+      ctx.logService.add({
+        category: 'admin',
+        action: 'team_delete',
+        message: `Deleted team ${name}`,
+        actor: req.admin.username,
+      });
+      res.json({ ok: true });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
     }

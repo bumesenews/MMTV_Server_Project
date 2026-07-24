@@ -1,6 +1,7 @@
 const axios = require('axios');
 const { logger, logEvent, events } = require('../utils/logger');
 const { githubHeaders } = require('./configLoader');
+const { getGithubMonitor } = require('../monitor/github.monitor');
 const { hasDataChanged, hashPayload } = require('../utils/compare');
 
 /**
@@ -222,6 +223,9 @@ class GitHubService {
           path: this.paths[key],
         };
         logger.error('GitHub feed upload failed', { feed: key, error: err.message });
+        await getGithubMonitor()
+          .notifyUploadFailed(err, { feed: key })
+          .catch(() => {});
       }
     }
 

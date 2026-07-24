@@ -5,6 +5,7 @@ const { Pipeline } = require('./services/pipeline');
 const { Scheduler } = require('./services/scheduler');
 const { createApp } = require('./app');
 const { createAdminContext } = require('./admin/services/adminContext');
+const { startMonitoring } = require('./monitor');
 
 async function main() {
   const pipeline = new Pipeline(process.env);
@@ -13,6 +14,9 @@ async function main() {
   const admin = createAdminContext({ pipeline, cache, github, env: process.env });
   await admin.users.ensureSeedAdmin();
   pipeline.attachAdmin(admin);
+
+  const monitoring = startMonitoring({ pipeline, env: process.env });
+  pipeline.attachMonitoring(monitoring);
 
   const app = createApp({ pipeline, cache, admin, env: process.env });
   const port = Number(process.env.PORT || 3000);
@@ -24,6 +28,7 @@ async function main() {
       timezone: 'Asia/Yangon',
       adminPanel: `http://${host}:${port}/admin`,
     });
+    monitoring.telegram.serverStarted().catch(() => {});
   });
 
   const scheduler = new Scheduler(pipeline, process.env);
@@ -58,6 +63,11 @@ async function main() {
   const shutdown = async (signal) => {
     logger.info(`Received ${signal}, shutting down`);
     scheduler.stop();
+    try {
+      monitoring.stop();
+    } catch {
+      // ignore
+    }
     server.close();
     try {
       await pipeline.browser.close();
@@ -71,7 +81,13 @@ async function main() {
   process.on('SIGTERM', () => shutdown('SIGTERM'));
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   logger.error('Fatal startup error', { error: err.message, stack: err.stack });
+  try {
+    const { getTelegramService } = require('./services/telegram.service');
+    await getTelegramService().serverCrash(err);
+  } catch {
+    // ignore
+  }
   process.exit(1);
 });

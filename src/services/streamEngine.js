@@ -8,7 +8,7 @@ const {
 } = require('../utils/time');
 const { StreamValidator } = require('./streamValidator');
 const { MatchMerger } = require('./matchMerger');
-const { enrichMatchState, hasPlayableStream } = require('./statusService');
+const { enrichMatchState, hasValidStream } = require('./statusService');
 
 /**
  * Production multi-source streaming extraction engine (matches.json).
@@ -20,7 +20,7 @@ const { enrichMatchState, hasPlayableStream } = require('./statusService');
  *  - stop after T+120m (status END clears streams in statusService)
  */
 class StreamEngine {
-  constructor({ sources = [], validator, merger } = {}) {
+  constructor({ sources = [], validator, merger, scraperMonitor } = {}) {
     this.sources = sources
       .filter((s) => s && s.config?.enabled !== false)
       .sort(
@@ -29,6 +29,7 @@ class StreamEngine {
     this.validator = validator || new StreamValidator();
     this.merger = merger || new MatchMerger(this.validator);
     this.lastCheckByMatch = new Map();
+    this.scraperMonitor = scraperMonitor || null;
   }
 
   shouldCheck(match) {
@@ -60,7 +61,7 @@ class StreamEngine {
     // Too early → wait until T−30
     if (mins > STREAM_FIND_LEAD_MIN) return false;
 
-    const hasStreams = hasPlayableStream(fixture);
+    const hasStreams = hasValidStream(fixture);
     const attempts = fixture.streamAttempts || {};
 
     // T−30 .. T−15: first find window
@@ -75,7 +76,7 @@ class StreamEngine {
       return !hasStreams || !attempts.t15;
     }
 
-    // LIVE (kickoff .. +120m): extract if still missing, or force refresh
+    // After kickoff .. +120m: keep extracting until a valid stream exists (PREPARING_STREAM → LIVE)
     if (force) return true;
     return !hasStreams;
   }
@@ -166,6 +167,13 @@ class StreamEngine {
               matchId: base.matchId,
               error: err.message,
             });
+            if (this.scraperMonitor) {
+              await this.scraperMonitor
+                .notifySourceFailed(source.name, err, {
+                  url: found?.matchUrl || source.baseUrl,
+                })
+                .catch(() => {});
+            }
             const mgr = source?.browser;
             if (
               mgr &&
@@ -213,12 +221,23 @@ class StreamEngine {
       try {
         logger.info('Discovering matches once', { source: source.name });
         bySource[source.name] = await source.discoverMatches();
+        this.scraperMonitor?.recordSourceResult(source.name, {
+          ok: true,
+          url: source.baseUrl || source.config?.domains?.[0],
+        });
       } catch (err) {
         logEvent(events.SCRAPER_ERROR, 'Discover-all source failed', {
           source: source.name,
           error: err.message,
         });
         bySource[source.name] = [];
+        if (this.scraperMonitor) {
+          await this.scraperMonitor
+            .notifySourceFailed(source.name, err, {
+              url: source.baseUrl || source.config?.domains?.[0],
+            })
+            .catch(() => {});
+        }
       }
     }
     return bySource;

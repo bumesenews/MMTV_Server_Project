@@ -102,11 +102,16 @@ const MATCH_LIVE_DURATION_MIN = 120;
  * - Far out: every 30m
  * - At −30m window: every 5m
  * - At −15m / near kickoff: every 2m
+ * - PREPARING_STREAM: every 2m (keep looking for a valid URL)
  * - LIVE: every 5m
  * - END: stop
+ *
+ * Note: Scheduled / PREPARING_STREAM / LIVE / END for matches.json is resolved
+ * in statusService (kickoff + valid stream). This helper only drives check cadence.
  */
 function getCheckIntervalMinutes(kickoff, status) {
   if (status === 'END') return null;
+  if (status === 'PREPARING_STREAM') return 2;
   if (status === 'LIVE') return 5;
 
   const mins = minutesUntilKickoff(kickoff);
@@ -117,16 +122,18 @@ function getCheckIntervalMinutes(kickoff, status) {
 }
 
 /**
- * Fixture-time status for matches.json (not streaming-site status).
+ * Time-only phase helper (no stream knowledge).
+ * Full match status (incl. PREPARING_STREAM / LIVE) lives in statusService.
+ *
  * Scheduled → before kickoff
- * LIVE → kickoff .. kickoff+120m
+ * POST_KICKOFF → kickoff .. kickoff+120m
  * END → after +120m
  */
 function resolveFixtureStatus(kickoff) {
   const mins = minutesUntilKickoff(kickoff);
   if (mins == null) return 'Scheduled';
   if (mins > 0) return 'Scheduled';
-  if (mins > -MATCH_LIVE_DURATION_MIN) return 'LIVE';
+  if (mins > -MATCH_LIVE_DURATION_MIN) return 'POST_KICKOFF';
   return 'END';
 }
 

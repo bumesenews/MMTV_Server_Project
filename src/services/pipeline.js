@@ -17,6 +17,9 @@ const { HighlightSource } = require('../sources/highlight');
 const { MyanmarTvSource } = require('../sources/myanmartv');
 const { buildEngineStreamingSources } = require('../sources/registry');
 const { HighlightManager } = require('./highlightManager');
+const { getScraperMonitor, isTimeoutError } = require('../monitor/scraper.monitor');
+const { getGithubMonitor } = require('../monitor/github.monitor');
+const { getTelegramService } = require('./telegram.service');
 
 /**
  * Main AWS processing pipeline (matches.json):
@@ -37,6 +40,7 @@ class Pipeline {
     this.browser = new PuppeteerManager();
     this.normalizer = new Normalizer();
     this.admin = admin;
+    this.monitoring = null;
     this.running = false;
     this.highlightRunning = false;
     this.lastRun = null;
@@ -49,6 +53,10 @@ class Pipeline {
 
   attachAdmin(admin) {
     this.admin = admin;
+  }
+
+  attachMonitoring(monitoring) {
+    this.monitoring = monitoring || null;
   }
 
   buildStreamingSources(sourcesDoc) {
@@ -115,6 +123,14 @@ class Pipeline {
         logEvent(events.SCRAPER_ERROR, 'Fixture collection failed — keep previous data', {
           error: err.message,
         });
+        const scraperMonitor = this.monitoring?.scraperMonitor || getScraperMonitor();
+        if (isTimeoutError(err)) {
+          await scraperMonitor
+            .notifyTimeout(fotmobConfig.domains?.[0] || 'fotmob', err)
+            .catch(() => {});
+        } else {
+          await scraperMonitor.notifySourceFailed('fotmob', err).catch(() => {});
+        }
         if (this.admin?.logService) {
           this.admin.logService.add({
             category: 'scraper',
@@ -128,7 +144,13 @@ class Pipeline {
       }
 
       const streamingSources = this.buildStreamingSources(config.sources);
-      const engine = new StreamEngine({ sources: streamingSources });
+      const scraperMonitor = this.monitoring?.scraperMonitor || getScraperMonitor();
+      scraperMonitor.beginCycle();
+
+      const engine = new StreamEngine({
+        sources: streamingSources,
+        scraperMonitor,
+      });
 
       let matches;
       try {
@@ -138,13 +160,18 @@ class Pipeline {
         logEvent(events.SCRAPER_ERROR, 'Stream engine failed — fixtures only payload', {
           error: err.message,
         });
+        await scraperMonitor.notifySourceFailed('streamEngine', err).catch(() => {});
         matches = fixtures;
       }
 
       // Soco (socolivemm.io) — full scrape for soco.json + merge into main live
       const previous = this.cache.getCurrent();
-      const socoResult = await this._scrapeSocoFull(matches, config.sources);
+      const socoResult = await this._scrapeSocoFull(matches, config.sources, scraperMonitor);
       matches = socoResult.matches;
+
+      const enabledStreamNames = streamingSources.map((s) => s.name).filter(Boolean);
+      if (this._isSourceEnabled(config.sources, 'soco')) enabledStreamNames.push('soco');
+      await scraperMonitor.evaluateCycle({ enabledSources: enabledStreamNames }).catch(() => {});
 
       // Highlights + Myanmar TV channels
       const extras = await this._collectExtraContent(config.sources, previous);
@@ -177,6 +204,10 @@ class Pipeline {
           };
           return { ok: false, reason: 'empty_payload', previous: published.payload };
         }
+
+        await (this.monitoring?.githubMonitor || getGithubMonitor())
+          .inspectResult(published.github)
+          .catch(() => {});
 
         const durationMs = Date.now() - startedAt;
         logEvent(events.SCRAPER_SUCCESS, 'Pipeline success', {
@@ -246,6 +277,9 @@ class Pipeline {
           feeds: {},
         };
       }
+      await (this.monitoring?.githubMonitor || getGithubMonitor())
+        .inspectResult(githubResult)
+        .catch(() => {});
 
       const durationMs = Date.now() - startedAt;
       this.lastRun = {
@@ -267,6 +301,7 @@ class Pipeline {
       };
     } catch (err) {
       logEvent(events.SCRAPER_ERROR, 'Pipeline fatal error', { error: err.message });
+      await getTelegramService().serverCrash(err).catch(() => {});
       const kept = this.cache.keepPreviousOnFailure();
       this.lastRun = {
         ok: false,
@@ -389,7 +424,7 @@ class Pipeline {
   /**
    * Full soco scrape for Flutter soco.json (leagues format) and merge into main live matches.
    */
-  async _scrapeSocoFull(matches, sourcesDoc) {
+  async _scrapeSocoFull(matches, sourcesDoc, scraperMonitor) {
     const empty = { matches, socoMatches: [] };
     if (!this._isSourceEnabled(sourcesDoc, 'soco')) return empty;
 
@@ -403,6 +438,7 @@ class Pipeline {
       const soco = new SocoSource({ config: cfg, normalizer: this.normalizer });
       const full = await soco.scrapeFull({ fetchStreams: false });
       const socoMatches = full.matches || [];
+      scraperMonitor?.recordSourceResult('soco', { ok: true, url: cfg.domains?.[0] });
 
       // Merge into FotMob fixtures when matchId aligns
       const merger = new MatchMerger();
@@ -449,6 +485,11 @@ class Pipeline {
     } catch (err) {
       logEvent(events.SCRAPER_ERROR, 'Soco full scrape failed', { error: err.message });
       if (this.admin?.sources) this.admin.sources.recordError('soco', err.message);
+      if (scraperMonitor) {
+        await scraperMonitor
+          .notifySourceFailed('soco', err, { url: cfg.domains?.[0] })
+          .catch(() => {});
+      }
       return empty;
     }
   }
@@ -704,6 +745,7 @@ class Pipeline {
         });
         github = { uploaded: false, reason: 'github_error', error: err.message };
       }
+      await getGithubMonitor().inspectResult(github).catch(() => {});
 
       if (this.admin?.sources) {
         this.admin.sources.recordSuccess(
@@ -794,7 +836,7 @@ class Pipeline {
 
       let scraped = [];
       try {
-        const tv = new MyanmarTvSource({ config: cfg });
+        const tv = new MyanmarTvSource({ config: cfg, browserManager: this.browser });
         scraped = await tv.collect();
         logEvent(events.SCRAPER_SUCCESS, 'MyanmarTV scrape completed', {
           count: scraped.length,
@@ -898,6 +940,7 @@ class Pipeline {
         });
         github = { uploaded: false, reason: 'github_error', error: err.message };
       }
+      await getGithubMonitor().inspectResult(github).catch(() => {});
 
       if (this.admin?.sources) {
         this.admin.sources.recordSuccess(

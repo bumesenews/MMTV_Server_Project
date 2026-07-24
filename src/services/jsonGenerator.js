@@ -8,11 +8,12 @@ const { enrichMatchState } = require('./statusService');
  */
 function generateFlutterJson(matches, meta = {}, extras = {}) {
   const cleanedMatches = (matches || []).map((raw) => {
-    // Status from fixture kickoff time (Scheduled / LIVE / END@+120m)
+    // Status from kickoff + valid stream (Scheduled / PREPARING_STREAM / LIVE / END)
     const m = enrichMatchState(raw);
     return {
     matchId: m.matchId,
     league: m.league,
+    leagueIcon: m.leagueIcon || null,
     homeTeam: m.homeTeam,
     awayTeam: m.awayTeam,
     homeTeamId: m.homeTeamId || null,
@@ -24,6 +25,8 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
     kickoff: m.kickoff,
     timezone: m.timezone || 'Asia/Yangon',
     status: m.status || 'Scheduled',
+    manual: Boolean(m.manual),
+    statusLocked: Boolean(m.statusLocked),
     pinned: Boolean(m.pinned),
     featured: Boolean(m.featured),
     hasStreams: Boolean(m.hasStreams),
@@ -35,7 +38,8 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
       .map((s) => ({
         source: s.source,
         type: s.type || 'm3u8',
-        quality: s.quality || 'HD',
+        quality: s.quality || s.name || 'HD',
+        name: s.name || s.quality || 'HD',
         url: s.url,
         headers: {
           'User-Agent': s.headers?.['User-Agent'] || '',

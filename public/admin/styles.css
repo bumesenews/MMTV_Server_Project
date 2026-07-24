@@ -90,6 +90,7 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   font-size: 0.72rem; border: 1px solid var(--border); background: var(--panel-2);
 }
 .badge.live { color: #fff; background: var(--live); border-color: var(--live); }
+.badge.preparing { color: #5a3d00; background: #ffe6a8; border-color: #f0c14b; }
 .badge.manual { color: #062; background: #b8f0d4; border-color: #7ad7ad; }
 .badge.off { opacity: 0.6; }
 

@@ -131,6 +131,7 @@
       matches: renderMatches,
       streams: renderStreams,
       leagues: renderLeagues,
+      teams: renderTeams,
       sources: renderSources,
       config: renderConfig,
       notifications: renderNotifications,
@@ -193,9 +194,53 @@
 
   async function renderMatches() {
     setTitle('Match Management');
-    const data = await api('/matches');
-    state.matches = data.matches || [];
+    const [matchData, leagueData, teamData] = await Promise.all([
+      api('/matches'),
+      api('/leagues'),
+      api('/teams'),
+    ]);
+    state.matches = matchData.matches || [];
+    const leagues = (leagueData.leagues || []).filter((l) => l.enabled !== false);
+    const teams = (teamData.teams || []).filter((t) => t.enabled !== false);
+    const leagueOpts = leagues
+      .map((l) => `<option value="${esc(l.standardName)}" data-icon="${esc(l.iconUrl || '')}">${esc(l.standardName)}</option>`)
+      .join('');
+    const teamOpts = teams
+      .map((t) => `<option value="${esc(t.standardName)}" data-logo="${esc(t.logo || '')}">${esc(t.standardName)}</option>`)
+      .join('');
+
     pageEl.innerHTML = `
+      <div class="panel">
+        <h3>Add Match</h3>
+        <form id="match-create-form" class="grid-2">
+          <label>League
+            <select name="league" required>
+              <option value="">Select league</option>
+              ${leagueOpts}
+            </select>
+          </label>
+          <label>League icon URL<input name="leagueIcon" placeholder="https://.../league.png" /></label>
+          <label>Home team
+            <input name="homeTeam" list="team-list" required placeholder="Home team" />
+          </label>
+          <label>Away team
+            <input name="awayTeam" list="team-list" required placeholder="Away team" />
+          </label>
+          <datalist id="team-list">${teamOpts}</datalist>
+          <label>Date<input name="date" type="date" required /></label>
+          <label>Time<input name="time" type="time" required /></label>
+          <label>Status
+            <select name="status">
+              <option>Scheduled</option>
+              <option>LIVE</option>
+              <option>END</option>
+            </select>
+          </label>
+          <label>Stream name<input name="streamName" value="HD" placeholder="HD / Link 1" /></label>
+          <label style="grid-column:1/-1">Streaming URL<input name="streamUrl" placeholder="https://.../index.m3u8" /></label>
+          <div style="grid-column:1/-1"><button type="submit">Create Match</button></div>
+        </form>
+      </div>
       <div class="panel">
         <div class="table-wrap">
           <table>
@@ -209,11 +254,11 @@
                 <tr data-id="${esc(m.matchId)}">
                   <td>
                     <strong>${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</strong>
-                    <div class="muted" style="font-size:0.75rem">${esc(m.matchId)}</div>
+                    <div class="muted" style="font-size:0.75rem">${esc(m.matchId)}${m.isManual || m.manual ? ' · manual' : ''}</div>
                   </td>
-                  <td>${esc(m.league || '')}</td>
+                  <td>${esc(m.league || '')}${m.leagueIcon ? `<div><img src="${esc(m.leagueIcon)}" alt="" style="height:18px;margin-top:4px" /></div>` : ''}</td>
                   <td>${esc(m.date || '')} ${esc(m.time || '')}</td>
-                  <td><span class="badge ${m.status === 'LIVE' ? 'live' : ''}">${esc(m.status || '')}</span></td>
+                  <td><span class="badge ${m.status === 'LIVE' ? 'live' : m.status === 'PREPARING_STREAM' ? 'preparing' : ''}">${esc(m.status || '')}</span></td>
                   <td>${(m.streams || []).length}</td>
                   <td>
                     ${m.pinned ? '<span class="badge">PIN</span>' : ''}
@@ -226,17 +271,49 @@
                       <button class="secondary" data-act="toggle" data-field="featured">${m.featured ? 'Unfeature' : 'Feature'}</button>
                       <button class="secondary" data-act="toggle" data-field="hidden">${m.override?.hidden || m.hidden ? 'Show' : 'Hide'}</button>
                       <select data-act="status">
-                        ${['Scheduled', 'LIVE', 'END'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                        ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
                       </select>
                       <input data-act="kickoff" type="datetime-local" style="width:auto" />
                       <button class="secondary" data-act="save-kickoff">Set Time</button>
+                      <button class="danger" data-act="delete">${m.isManual || m.manual ? 'Delete' : 'Hide'}</button>
                     </div>
                   </td>
-                </tr>`).join('') || '<tr><td colspan="7" class="muted">No matches yet. Run scraper.</td></tr>'}
+                </tr>`).join('') || '<tr><td colspan="7" class="muted">No matches yet. Add one above or run scraper.</td></tr>'}
             </tbody>
           </table>
         </div>
       </div>`;
+
+    const form = $('#match-create-form');
+    const leagueSelect = form.league;
+    leagueSelect.addEventListener('change', () => {
+      const opt = leagueSelect.selectedOptions[0];
+      if (opt?.dataset?.icon) form.leagueIcon.value = opt.dataset.icon;
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      try {
+        await api('/matches', {
+          method: 'POST',
+          body: JSON.stringify({
+            league: fd.get('league'),
+            leagueIcon: fd.get('leagueIcon'),
+            homeTeam: fd.get('homeTeam'),
+            awayTeam: fd.get('awayTeam'),
+            date: fd.get('date'),
+            time: fd.get('time'),
+            status: fd.get('status'),
+            streamName: fd.get('streamName'),
+            streamUrl: fd.get('streamUrl'),
+          }),
+        });
+        toast('Match created · JSON republished');
+        renderMatches();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
 
     pageEl.querySelectorAll('tr[data-id]').forEach((tr) => {
       const id = tr.dataset.id;
@@ -283,6 +360,16 @@
           toast(err.message, 'error');
         }
       });
+      tr.querySelector('[data-act="delete"]')?.addEventListener('click', async () => {
+        if (!confirm('Remove this match from the public feed?')) return;
+        try {
+          await api(`/matches/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          toast('Match removed');
+          renderMatches();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
     });
   }
 
@@ -299,7 +386,7 @@
         <h3>Add Manual Stream (highest priority)</h3>
         <form id="manual-form" class="grid-2">
           <label>Match<select name="matchId" required>${options || '<option value="">No matches</option>'}</select></label>
-          <label>Quality<input name="quality" value="HD" placeholder="HD / Full HD / 1080P" /></label>
+          <label>Stream name / Quality<input name="quality" value="HD" placeholder="HD / Link 1 / Full HD" /></label>
           <label style="grid-column:1/-1">m3u8 URL<input name="url" required placeholder="https://.../index.m3u8" /></label>
           <label>User-Agent<input name="userAgent" placeholder="Mozilla/5.0 ..." /></label>
           <label>Referer<input name="referer" placeholder="https://source.example/" /></label>
@@ -325,7 +412,7 @@
             <tbody>
               ${list.map((s) => `
                 <tr>
-                  <td><span class="badge manual">${esc(s.quality)}</span></td>
+                  <td><span class="badge manual">${esc(s.name || s.quality)}</span></td>
                   <td style="max-width:360px;word-break:break-all">${esc(s.url)}</td>
                   <td>${s.active !== false ? 'Yes' : 'No'}</td>
                   <td class="row">
@@ -367,6 +454,7 @@
           body: JSON.stringify({
             url: fd.get('url'),
             quality: fd.get('quality'),
+            name: fd.get('quality'),
             userAgent: fd.get('userAgent'),
             referer: fd.get('referer'),
             cookie: fd.get('cookie'),
@@ -399,30 +487,152 @@
     const { leagues } = await api('/leagues');
     pageEl.innerHTML = `
       <div class="panel">
-        <h3>Supported leagues</h3>
+        <h3>Add league</h3>
+        <form id="league-form" class="grid-2">
+          <label>League name<input name="standardName" required placeholder="Premier League" /></label>
+          <label>Icon URL<input name="iconUrl" placeholder="https://.../icon.png" /></label>
+          <div style="grid-column:1/-1"><button type="submit">Add League</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <h3>Leagues</h3>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>League</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th>Icon</th><th>League</th><th>Status</th><th></th></tr></thead>
             <tbody>
               ${leagues.map((l) => `
-                <tr>
-                  <td>${esc(l.standardName)}</td>
+                <tr data-name="${esc(l.standardName)}">
+                  <td>${l.iconUrl ? `<img src="${esc(l.iconUrl)}" alt="" style="height:24px" />` : '—'}</td>
+                  <td>${esc(l.standardName)}${l.custom ? ' <span class="badge manual">custom</span>' : ''}</td>
                   <td>${l.enabled ? '<span class="ok">Enabled</span>' : '<span class="error">Disabled</span>'}</td>
-                  <td><button class="secondary" data-name="${esc(l.standardName)}" data-enabled="${l.enabled}">${l.enabled ? 'Disable' : 'Enable'}</button></td>
-                </tr>`).join('')}
+                  <td class="row">
+                    <input data-act="icon" placeholder="Icon URL" value="${esc(l.iconUrl || '')}" style="min-width:180px" />
+                    <button class="secondary" data-act="save-icon">Save Icon</button>
+                    <button class="secondary" data-act="toggle" data-enabled="${l.enabled}">${l.enabled ? 'Disable' : 'Enable'}</button>
+                    <button class="danger" data-act="delete">Delete</button>
+                  </td>
+                </tr>`).join('') || '<tr><td colspan="4" class="muted">No leagues</td></tr>'}
             </tbody>
           </table>
         </div>
       </div>`;
-    pageEl.querySelectorAll('button[data-name]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
+
+    $('#league-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        await api('/leagues', {
+          method: 'POST',
+          body: JSON.stringify({
+            standardName: fd.get('standardName'),
+            iconUrl: fd.get('iconUrl'),
+          }),
+        });
+        toast('League added');
+        renderLeagues();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+
+    pageEl.querySelectorAll('tr[data-name]').forEach((tr) => {
+      const name = tr.dataset.name;
+      tr.querySelector('[data-act="toggle"]')?.addEventListener('click', async (btn) => {
+        const enabled = tr.querySelector('[data-act="toggle"]').dataset.enabled === 'true';
         try {
-          await api(`/leagues/${encodeURIComponent(btn.dataset.name)}`, {
+          await api(`/leagues/${encodeURIComponent(name)}`, {
             method: 'PATCH',
-            body: JSON.stringify({ enabled: btn.dataset.enabled !== 'true' }),
+            body: JSON.stringify({ enabled: !enabled }),
           });
           toast('League updated · JSON republished');
           renderLeagues();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+      tr.querySelector('[data-act="save-icon"]')?.addEventListener('click', async () => {
+        const iconUrl = tr.querySelector('[data-act="icon"]').value;
+        try {
+          await api(`/leagues/${encodeURIComponent(name)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ iconUrl }),
+          });
+          toast('League icon saved');
+          renderLeagues();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+      tr.querySelector('[data-act="delete"]')?.addEventListener('click', async () => {
+        if (!confirm(`Delete league "${name}"?`)) return;
+        try {
+          await api(`/leagues/${encodeURIComponent(name)}`, { method: 'DELETE' });
+          toast('League deleted');
+          renderLeagues();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
+  async function renderTeams() {
+    setTitle('Team Management');
+    const { teams } = await api('/teams');
+    pageEl.innerHTML = `
+      <div class="panel">
+        <h3>Add team</h3>
+        <form id="team-form" class="grid-2">
+          <label>Team name<input name="standardName" required placeholder="Manchester United" /></label>
+          <label>Logo URL<input name="logo" placeholder="https://.../logo.png" /></label>
+          <label style="grid-column:1/-1">Aliases (comma-separated)<input name="aliases" placeholder="Man Utd, MU" /></label>
+          <div style="grid-column:1/-1"><button type="submit">Add Team</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <h3>Teams</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Logo</th><th>Team</th><th>Aliases</th><th></th></tr></thead>
+            <tbody>
+              ${(teams || []).map((t) => `
+                <tr>
+                  <td>${t.logo ? `<img src="${esc(t.logo)}" alt="" style="height:24px" />` : '—'}</td>
+                  <td>${esc(t.standardName)}</td>
+                  <td class="muted">${esc((t.aliases || []).join(', '))}</td>
+                  <td><button class="danger" data-del="${esc(t.standardName)}">Delete</button></td>
+                </tr>`).join('') || '<tr><td colspan="4" class="muted">No teams</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    $('#team-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        await api('/teams', {
+          method: 'POST',
+          body: JSON.stringify({
+            standardName: fd.get('standardName'),
+            logo: fd.get('logo'),
+            aliases: fd.get('aliases'),
+          }),
+        });
+        toast('Team added');
+        renderTeams();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+
+    pageEl.querySelectorAll('[data-del]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`Delete team "${btn.dataset.del}"?`)) return;
+        try {
+          await api(`/teams/${encodeURIComponent(btn.dataset.del)}`, { method: 'DELETE' });
+          toast('Team deleted');
+          renderTeams();
         } catch (err) {
           toast(err.message, 'error');
         }

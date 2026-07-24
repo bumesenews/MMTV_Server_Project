@@ -2,21 +2,34 @@ const { logEvent, events } = require('../utils/logger');
 const {
   minutesUntilKickoff,
   toYangon,
-  resolveFixtureStatus,
   MATCH_LIVE_DURATION_MIN,
 } = require('../utils/time');
 
 /**
  * Final status for Flutter matches.json:
- * Scheduled | LIVE | END
+ * Scheduled | PREPARING_STREAM | LIVE | END
  *
- * Driven by fixture kickoff date/time (FotMob), NOT streaming-site status.
+ * Driven by fixture kickoff date/time (FotMob) + validated stream presence.
  * - Before kickoff → Scheduled
- * - Kickoff until +120 minutes → LIVE
- * - After +120 minutes → END (streams stripped)
+ * - After kickoff .. +120m, no valid stream → PREPARING_STREAM
+ * - After kickoff .. +120m, valid stream → LIVE
+ * - After +120m → END (streams stripped)
+ *
+ * LIVE is never set from kickoff alone; it requires a valid stream URL.
  */
 function hasPlayableStream(match) {
   return (match.streams || []).some((s) => s && String(s.url || '').trim());
+}
+
+/** Valid = non-empty URL that passed (or was kept as) active stream. */
+function hasValidStream(match) {
+  return (match.streams || []).some(
+    (s) =>
+      s &&
+      String(s.url || '').trim() &&
+      s.active !== false &&
+      (s.validation == null || s.validation.ok !== false)
+  );
 }
 
 function resolveMatchStatus(match, options = {}) {
@@ -35,7 +48,25 @@ function resolveMatchStatus(match, options = {}) {
     return 'END';
   }
 
-  const status = resolveFixtureStatus(match.kickoff);
+  // Admin / manual fixtures: keep the status set from the admin panel
+  if (match.statusLocked && match.status) {
+    return match.status;
+  }
+
+  const mins = minutesUntilKickoff(match.kickoff);
+  let status = 'Scheduled';
+
+  if (mins == null) {
+    status = 'Scheduled';
+  } else if (mins > 0) {
+    // Before kickoff — never LIVE from time alone
+    status = 'Scheduled';
+  } else if (mins <= -MATCH_LIVE_DURATION_MIN) {
+    status = 'END';
+  } else {
+    // After kickoff until +120m: stream presence decides LIVE vs preparing
+    status = hasValidStream(match) ? 'LIVE' : 'PREPARING_STREAM';
+  }
 
   if (status !== previous) {
     logEvent(events.STATUS_CHANGED, 'Match status changed', {
@@ -43,8 +74,9 @@ function resolveMatchStatus(match, options = {}) {
       from: previous,
       to: status,
       hasStreams: hasPlayableStream(match),
+      hasValidStream: hasValidStream(match),
       kickoff: match.kickoff,
-      minsUntilKickoff: minutesUntilKickoff(match.kickoff),
+      minsUntilKickoff: mins,
       liveDurationMin: MATCH_LIVE_DURATION_MIN,
     });
   }
@@ -65,6 +97,7 @@ function enrichMatchState(match) {
   return {
     ...match,
     status,
+    statusLocked: Boolean(match.statusLocked),
     streams,
     timezone: 'Asia/Yangon',
     hasStreams: playable.some((s) => s.active !== false),
@@ -78,4 +111,5 @@ module.exports = {
   resolveMatchStatus,
   enrichMatchState,
   hasPlayableStream,
+  hasValidStream,
 };

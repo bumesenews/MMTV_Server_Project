@@ -21,7 +21,7 @@
       "enabled": true,
       "type": "streaming",
       "priority": 500,
-      "extractionMethod": "puppeteer",
+      "extractionMethod": "axios-first",
       "parser": "luongson",
       "domains": ["https://luongsontvv.org"],
       "mirrorDomains": [],
@@ -59,8 +59,8 @@
       "enabled": true,
       "type": "streaming",
       "priority": 450,
-      "extractionMethod": "puppeteer",
-      "domains": ["https://cakhiazvk.tv"],
+      "extractionMethod": "axios-first",
+      "domains": ["https://cakhiazvl.tv"],
       "mirrorDomains": [],
       "paths": {
         "home": "/",
@@ -103,10 +103,10 @@
       "enabled": true,
       "type": "streaming",
       "priority": 400,
-      "extractionMethod": "puppeteer",
+      "extractionMethod": "axios-first",
       "parser": "xoilac",
-      "domains": ["https://xoilacxyw.io"],
-      "mirrorDomains": ["https://xoilacxyy.io"],
+      "domains": ["https://xoilacxtu.tv"],
+      "mirrorDomains": ["https://xoilacxtu.tv"],
       "paths": {
         "home": "/",
         "schedule": "/lich-thi-dau"
@@ -141,8 +141,8 @@
       "enabled": false,
       "type": "streaming",
       "priority": 350,
-      "extractionMethod": "puppeteer",
-      "domains": ["https://90phutyy.io"],
+      "extractionMethod": "axios-first",
+      "domains": ["https://90phutzk.tv"],
       "mirrorDomains": [],
       "paths": {
         "home": "/",
@@ -178,14 +178,14 @@
         "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-btn", "#play", ".btn-play"]
       },
-      "notes": "Primary: https://90phutyy.io/"
+      "notes": "Primary: https://90phutzk.tv"
     },
     {
       "name": "yyzb",
       "enabled": false,
       "type": "streaming",
       "priority": 300,
-      "extractionMethod": "puppeteer",
+      "extractionMethod": "axios-first",
       "domains": ["https://m.yyzbtv6.com"],
       "mirrorDomains": [],
       "paths": {
@@ -222,17 +222,17 @@
         "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-btn", "#play", ".btn-play", ".play-button"]
       },
-      "notes": "Primary: https://m.yyzbtv6.com/"
+      "notes": "Primary: https://m.yyzbtv6.com"
     },
     {
       "name": "socolive",
       "enabled": false,
       "type": "streaming",
       "priority": 250,
-      "extractionMethod": "puppeteer",
+      "extractionMethod": "axios-first",
       "parser": "socolive",
-      "domains": ["https://socolivegg.io"],
-      "mirrorDomains": ["https://socoliveku.cc"],
+      "domains": ["https://socolivekz.cc/"],
+      "mirrorDomains": ["https://socolivekz.cc/"],
       "paths": {
         "home": "/",
         "schedule": "/lich-thi-dau"
@@ -268,8 +268,8 @@
       "type": "streaming",
       "priority": 200,
       "extractionMethod": "http",
-      "domains": ["https://socolivegg.io"],
-      "mirrorDomains": ["https://socoliveku.cc"],
+      "domains": ["https://socolivekz.cc/"],
+      "mirrorDomains": ["https://socolivekz.cc/"],
       "sport": "football",
       "sections": ["today", "tomorrow"],
       "onlyAllowedLeagues": true,

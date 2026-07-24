@@ -1,5 +1,5 @@
 const { BaseStreamingSource, sleep } = require('./baseStreamingSource');
-const { extractStreamsFromPage } = require('./streamExtractor');
+const { extractStreamsAxiosThenPuppeteer } = require('./httpStreamExtractor');
 const { logger, logEvent, events } = require('../utils/logger');
 const { formatDate, nowYangon } = require('../utils/time');
 
@@ -115,39 +115,18 @@ class SocoliveSource extends BaseStreamingSource {
   }
 
   async extractStreams(matchPageUrl) {
-    return this.withRetries(async () => {
-      logEvent(events.SCRAPER_START, 'Socolive stream extract start', {
-        source: this.name,
-        url: matchPageUrl,
-      });
-
-      const page = await this.browser.newInterceptPage(this.getM3u8Patterns());
-      try {
-        await page.goto(matchPageUrl, {
-          waitUntil: 'domcontentloaded',
-          timeout: this.browser.timeout,
-        });
-
-        // Socolive players sometimes need an extra settle after SPA route
-        await sleep(1500);
-
-        const streams = await extractStreamsFromPage({
-          page,
+    return this.withRetries(
+      async () =>
+        extractStreamsAxiosThenPuppeteer({
+          matchPageUrl,
           sourceName: this.name,
           config: this.config,
-          matchPageUrl,
-          browserManager: this.browser,
-        });
-
-        logEvent(events.SCRAPER_SUCCESS, 'Socolive stream extract success', {
-          source: this.name,
-          count: streams.length,
-        });
-        return streams;
-      } finally {
-        await this.browser.safeClosePage(page);
-      }
-    }, 'extractStreams');
+          browser: this.browser,
+          puppeteerSettleMs: 1500,
+          getM3u8Patterns: () => this.getM3u8Patterns(),
+        }),
+      'extractStreams'
+    );
   }
 }
 

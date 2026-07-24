@@ -1,5 +1,5 @@
 const { BaseStreamingSource, sleep } = require('./baseStreamingSource');
-const { extractStreamsFromPage } = require('./streamExtractor');
+const { extractStreamsAxiosThenPuppeteer } = require('./httpStreamExtractor');
 const { logger, logEvent, events } = require('../utils/logger');
 const { formatDate, nowYangon } = require('../utils/time');
 
@@ -101,36 +101,17 @@ class LuongSonSource extends BaseStreamingSource {
   }
 
   async extractStreams(matchPageUrl) {
-    return this.withRetries(async () => {
-      logEvent(events.SCRAPER_START, 'LuongSon stream extract start', {
-        source: this.name,
-        url: matchPageUrl,
-      });
-
-      const page = await this.browser.newInterceptPage(this.getM3u8Patterns());
-      try {
-        await page.goto(matchPageUrl, {
-          waitUntil: 'domcontentloaded',
-          timeout: this.browser.timeout,
-        });
-
-        const streams = await extractStreamsFromPage({
-          page,
+    return this.withRetries(
+      async () =>
+        extractStreamsAxiosThenPuppeteer({
+          matchPageUrl,
           sourceName: this.name,
           config: this.config,
-          matchPageUrl,
-          browserManager: this.browser,
-        });
-
-        logEvent(events.SCRAPER_SUCCESS, 'LuongSon stream extract success', {
-          source: this.name,
-          count: streams.length,
-        });
-        return streams;
-      } finally {
-        await this.browser.safeClosePage(page);
-      }
-    }, 'extractStreams');
+          browser: this.browser,
+          getM3u8Patterns: () => this.getM3u8Patterns(),
+        }),
+      'extractStreams'
+    );
   }
 }
 

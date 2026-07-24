@@ -1,6 +1,7 @@
 const { generateFlutterJson } = require('../../services/jsonGenerator');
 const { buildDeliveryBundle } = require('../../services/deliveryFormats');
 const { priorityMapFromSourcesDoc } = require('../../sources/registry');
+const { getGithubMonitor } = require('../../monitor/github.monitor');
 const { enrichMatchState } = require('../../services/statusService');
 
 /**
@@ -13,12 +14,16 @@ class PublishService {
     github,
     overrideService,
     leagueAdminService,
+    manualMatchService = null,
+    teamAdminService = null,
     logService = null,
   }) {
     this.cache = cache;
     this.github = github;
     this.overrides = overrideService;
     this.leagues = leagueAdminService;
+    this.manualMatches = manualMatchService;
+    this.teams = teamAdminService;
     this.logService = logService;
     this.lastGithub = null;
   }
@@ -29,7 +34,19 @@ class PublishService {
    * @param {object} extras - { highlights, channels, socoMatches }
    */
   async publish(matches, meta = {}, { actor = 'system', extras = {} } = {}) {
-    const filteredLeagues = this.leagues.filterMatches(matches || []);
+    let merged = this.manualMatches
+      ? this.manualMatches.mergeInto(matches || [])
+      : matches || [];
+
+    // Fill league icons / team logos from admin catalogs when missing
+    merged = merged.map((m) => {
+      const leagueIcon = m.leagueIcon || this.leagues.getIcon?.(m.league) || null;
+      const homeLogo = m.homeLogo || this.teams?.findLogo?.(m.homeTeam) || null;
+      const awayLogo = m.awayLogo || this.teams?.findLogo?.(m.awayTeam) || null;
+      return { ...m, leagueIcon, homeLogo, awayLogo };
+    });
+
+    const filteredLeagues = this.leagues.filterMatches(merged);
     // LIVE only with stream URLs — fix FotMob/kickoff LIVE before overrides/JSON
     const statusFixed = (filteredLeagues || []).map((m) => enrichMatchState(m));
     const priorityMap = priorityMapFromSourcesDoc(meta.sourcesDoc || null);
@@ -99,6 +116,8 @@ class PublishService {
         });
       }
     }
+
+    await getGithubMonitor().inspectResult(github).catch(() => {});
 
     if (this.logService) {
       this.logService.add({

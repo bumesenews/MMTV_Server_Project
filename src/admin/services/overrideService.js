@@ -43,9 +43,19 @@ class OverrideService {
       pinned: patch.pinned != null ? Boolean(patch.pinned) : current.pinned,
       featured: patch.featured != null ? Boolean(patch.featured) : current.featured,
       status: patch.status !== undefined ? patch.status : current.status,
+      statusLocked:
+        patch.status !== undefined
+          ? true
+          : patch.statusLocked != null
+            ? Boolean(patch.statusLocked)
+            : current.statusLocked,
       kickoff: patch.kickoff !== undefined ? patch.kickoff : current.kickoff,
       date: patch.date !== undefined ? patch.date : current.date,
       time: patch.time !== undefined ? patch.time : current.time,
+      league: patch.league !== undefined ? patch.league : current.league,
+      leagueIcon: patch.leagueIcon !== undefined ? patch.leagueIcon : current.leagueIcon,
+      homeTeam: patch.homeTeam !== undefined ? patch.homeTeam : current.homeTeam,
+      awayTeam: patch.awayTeam !== undefined ? patch.awayTeam : current.awayTeam,
       updatedAt: new Date().toISOString(),
     };
     all[matchId] = next;
@@ -132,7 +142,8 @@ class OverrideService {
           .map((s) => ({
             source: 'manual',
             type: s.type || 'm3u8',
-            quality: s.quality || 'HD',
+            quality: s.quality || s.name || 'HD',
+            name: s.name || s.quality || 'HD',
             url: s.url,
             headers: {
               'User-Agent': s.headers?.['User-Agent'] || '',
@@ -154,9 +165,14 @@ class OverrideService {
           pinned: Boolean(ov.pinned),
           featured: Boolean(ov.featured),
           status: ov.status || match.status,
+          statusLocked: Boolean(ov.statusLocked || ov.status || match.statusLocked),
           kickoff,
           date: ov.date || match.date,
           time: ov.time || match.time,
+          league: ov.league || match.league,
+          leagueIcon: ov.leagueIcon || match.leagueIcon || null,
+          homeTeam: ov.homeTeam || match.homeTeam,
+          awayTeam: ov.awayTeam || match.awayTeam,
           streams,
           hasStreams: streams.some((s) => s.active !== false && s.url),
           streamCount: streams.filter((s) => s.active !== false && s.url).length,
@@ -178,9 +194,14 @@ function defaultOverride() {
     pinned: false,
     featured: false,
     status: null,
+    statusLocked: false,
     kickoff: null,
     date: null,
     time: null,
+    league: null,
+    leagueIcon: null,
+    homeTeam: null,
+    awayTeam: null,
     manualStreams: [],
     updatedAt: new Date().toISOString(),
   };
@@ -190,11 +211,13 @@ function normalizeManualStream(input = {}) {
   if (!input.url || !String(input.url).trim()) {
     throw new Error('Stream URL is required');
   }
+  const quality = input.quality || input.name || 'HD';
   return {
     id: input.id || newId(),
     source: 'manual',
     type: input.type || 'm3u8',
-    quality: input.quality || 'HD',
+    quality,
+    name: input.name || quality,
     url: String(input.url).trim(),
     headers: {
       'User-Agent': input.headers?.['User-Agent'] || input.userAgent || '',

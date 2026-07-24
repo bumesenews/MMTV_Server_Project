@@ -11,6 +11,9 @@ data/admin/admin-logs.json
 data/admin/notifications.json
 data/admin/league-settings.json
 data/admin/source-settings.json
+data/admin/manual-matches.json
+data/admin/team-settings.json
+data/telegram-alert-state.json
 secrets/*
 !secrets/.gitkeep
 !secrets/README.md

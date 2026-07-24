@@ -2,6 +2,12 @@ const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
 const { DEFAULT_UA } = require('../browser/puppeteerManager');
 const { HighlightManager } = require('../services/highlightManager');
+const {
+  axiosGetHtml,
+  findStreamPatterns,
+  flvToM3u8,
+  pickStreamUrl,
+} = require('./httpStreamExtractor');
 
 const BASE_URL = 'https://hoofoot.com/';
 const MATCH_DATE_RE = /_(\d{4})_(\d{2})_(\d{2})(?:[/?]|$)/;
@@ -10,7 +16,8 @@ const TIMEZONE = 'Asia/Yangon';
 
 /**
  * Hoofoot match highlights (from MM_TV.Pro highlight.js)
- * Parsing / enrich logic kept intact — retention & merge live in HighlightManager.
+ * Stream/m3u8: axios HTML first, puppeteer-core fallback.
+ * Retention & merge live in HighlightManager.
  */
 class HighlightSource {
   constructor({ config, browserManager } = {}) {
@@ -40,7 +47,6 @@ class HighlightSource {
     const { DateTime } = require('luxon');
     const today = DateTime.now().setZone(TIMEZONE).startOf('day');
     const dates = [];
-    // Keep N calendar days including today (aligned with HighlightManager retention)
     for (let i = 0; i < this.recentDays; i += 1) {
       dates.push(today.minus({ days: i }).toFormat('yyyy-MM-dd'));
     }
@@ -94,18 +100,20 @@ class HighlightSource {
     return items;
   }
 
-  async collect({ extractM3u8 = true, skipEnrichIds = null, knownIds = null } = {}) {
-    if (!this.browser) throw new Error('HighlightSource requires browserManager');
+  async fetchListHtml() {
+    try {
+      const html = await axiosGetHtml(this.baseUrl, { referer: this.baseUrl });
+      if (html && html.length > 500) {
+        logger.debug('Highlight list fetched via axios');
+        return html;
+      }
+    } catch (err) {
+      logger.warn('Highlight list axios failed — falling back to puppeteer', {
+        error: err.message,
+      });
+    }
 
-    logEvent(events.SCRAPER_START, 'Highlight scrape start', { source: this.name });
-    const allowed = this.getAllowedDates();
-    const skipIds = new Set(
-      [...(skipEnrichIds instanceof Set ? skipEnrichIds : skipEnrichIds || [])].map(String)
-    );
-    void knownIds;
-
-    // 1) List page only — close before any embed work (never hold 2 Chromium pages)
-    let highlights = [];
+    if (!this.browser) throw new Error('HighlightSource requires browserManager for list fallback');
     const listPage = await this.browser.newPage();
     try {
       await listPage.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
@@ -114,20 +122,41 @@ class HighlightSource {
         timeout: this.browser.timeout,
       });
       await sleep(2000);
-      const html = await listPage.content();
-      highlights = this.parseHighlights(html)
-        .map((h) => ({
-          ...h,
-          matchDate: this.dateHelper.normalizeDate(h.matchDate || h.url),
-        }))
-        .filter((h) => h.matchDate && allowed.has(h.matchDate));
-
-      if (this.maxItems > 0) highlights = highlights.slice(0, this.maxItems);
+      return await listPage.content();
     } finally {
       await this.browser.safeClosePage(listPage);
     }
+  }
 
-    // 2) Enrich one highlight at a time (match page → close → embed page → close)
+  extractEmbedFromHtml(html, pageUrl) {
+    const $ = load(html);
+    return (
+      this.absUrl($('#player a').attr('href'), pageUrl) ||
+      this.absUrl($('#player iframe').attr('src'), pageUrl) ||
+      this.absUrl($("iframe[src*='embed']").first().attr('src'), pageUrl) ||
+      null
+    );
+  }
+
+  async collect({ extractM3u8 = true, skipEnrichIds = null, knownIds = null } = {}) {
+    logEvent(events.SCRAPER_START, 'Highlight scrape start', { source: this.name });
+    const allowed = this.getAllowedDates();
+    const skipIds = new Set(
+      [...(skipEnrichIds instanceof Set ? skipEnrichIds : skipEnrichIds || [])].map(String)
+    );
+    void knownIds;
+
+    let highlights = [];
+    const html = await this.fetchListHtml();
+    highlights = this.parseHighlights(html)
+      .map((h) => ({
+        ...h,
+        matchDate: this.dateHelper.normalizeDate(h.matchDate || h.url),
+      }))
+      .filter((h) => h.matchDate && allowed.has(h.matchDate));
+
+    if (this.maxItems > 0) highlights = highlights.slice(0, this.maxItems);
+
     if (extractM3u8) {
       let enriched = 0;
       let skipped = 0;
@@ -192,22 +221,33 @@ class HighlightSource {
 
   async enrichHighlight(item) {
     let embedUrl = null;
-    const page = await this.browser.newPage();
+
     try {
-      await page.goto(item.url, {
-        waitUntil: 'domcontentloaded',
-        timeout: this.browser.timeout,
+      const html = await axiosGetHtml(item.url, { referer: this.baseUrl });
+      embedUrl = this.extractEmbedFromHtml(html, item.url);
+      if (embedUrl) {
+        logger.debug('Highlight embed found via axios', { title: item.title });
+      }
+    } catch (err) {
+      logger.debug('Highlight match axios failed', {
+        title: item.title,
+        error: err.message,
       });
-      await sleep(1200);
-      const html = await page.content();
-      const $ = load(html);
-      embedUrl =
-        this.absUrl($('#player a').attr('href'), item.url) ||
-        this.absUrl($('#player iframe').attr('src'), item.url) ||
-        this.absUrl($("iframe[src*='embed']").first().attr('src'), item.url) ||
-        null;
-    } finally {
-      await this.browser.safeClosePage(page);
+    }
+
+    if (!embedUrl && this.browser) {
+      const page = await this.browser.newPage();
+      try {
+        await page.goto(item.url, {
+          waitUntil: 'domcontentloaded',
+          timeout: this.browser.timeout,
+        });
+        await sleep(1200);
+        const html = await page.content();
+        embedUrl = this.extractEmbedFromHtml(html, item.url);
+      } finally {
+        await this.browser.safeClosePage(page);
+      }
     }
 
     let m3u8 = null;
@@ -216,6 +256,28 @@ class HighlightSource {
   }
 
   async findM3u8FromEmbed(embedUrl) {
+    // 1) axios first
+    try {
+      const html = await axiosGetHtml(embedUrl, { referer: this.baseUrl });
+      const htmlUrls = findStreamPatterns(html, embedUrl).flatMap((url) => {
+        const hls = flvToM3u8(url);
+        return hls ? [hls, url] : [url];
+      });
+      const picked = pickBestM3u8(htmlUrls) || pickStreamUrl(htmlUrls);
+      if (picked) {
+        logger.debug('Highlight m3u8 found via axios', { embedUrl });
+        return picked;
+      }
+    } catch (err) {
+      logger.debug('Highlight embed axios failed — trying puppeteer', {
+        embedUrl,
+        error: err.message,
+      });
+    }
+
+    // 2) puppeteer-core fallback
+    if (!this.browser) return null;
+
     const page = await this.browser.newInterceptPage([/\.m3u8/i]);
     try {
       await page.goto(embedUrl, {
@@ -228,7 +290,7 @@ class HighlightSource {
 
       const network = (page.__streamCapture?.getUniqueStreams() || []).map((s) => s.url);
       const html = await page.content();
-      const htmlUrls = findPatterns(html, embedUrl).flatMap((url) => {
+      const htmlUrls = findStreamPatterns(html, embedUrl).flatMap((url) => {
         const hls = flvToM3u8(url);
         return hls ? [hls, url] : [url];
       });
@@ -237,33 +299,6 @@ class HighlightSource {
       await this.browser.safeClosePage(page);
     }
   }
-}
-
-function findPatterns(text, baseUrl) {
-  const found = new Set();
-  const regexes = [
-    /https?:\/\/[^\s"'<>]+?\.m3u8(?:\?[^\s"'<>]*)?/gi,
-    /streamingurl\s*[:=]\s*["']([^"']+)["']/gi,
-    /urlStream\s*=\s*["']([^"']+)["']/gi,
-    /["']file["']\s*:\s*["']([^"']+\.m3u8[^"']*)["']/gi,
-  ];
-  for (const regex of regexes) {
-    for (const match of text.matchAll(regex)) {
-      const value = match[1] || match[0];
-      if (!value || /localhost/i.test(value)) continue;
-      try {
-        found.add(new URL(value, baseUrl).href);
-      } catch {
-        if (value.startsWith('http')) found.add(value);
-      }
-    }
-  }
-  return [...found];
-}
-
-function flvToM3u8(url) {
-  if (!/\.flv(?:\?|$)/i.test(url)) return null;
-  return url.replace(/\.flv(\?.*)?$/i, '.m3u8$1');
 }
 
 function pickBestM3u8(urls) {
