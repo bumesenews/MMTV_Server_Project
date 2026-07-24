@@ -12,7 +12,10 @@
         "C1",
         "Cúp C1",
         "Cup C1",
-        "欧洲冠军联赛"
+        "欧洲冠军联赛",
+        "Champions League Qualification",
+        "UEFA Champions League Qualification",
+        "UCL Qualification"
       ]
     },
     {
@@ -24,7 +27,10 @@
         "欧联",
         "UEFA EL",
         "Europa League UEFA",
-        "欧洲联赛"
+        "欧洲联赛",
+        "Europa League Qualification",
+        "UEFA Europa League Qualification",
+        "UEL Qualification"
       ]
     },
     {
@@ -121,6 +127,11 @@
         "AFF CUP",
         "AFF Championship",
         "ASEAN Championship",
+        "ASEAN Championship Grp. A",
+        "ASEAN Championship Grp. B",
+        "ASEAN Championship Grp. C",
+        "ASEAN Championship Group A",
+        "ASEAN Championship Group B",
         "Suzuki Cup",
         "Cúp AFF",
         "AFF Suzuki Cup",

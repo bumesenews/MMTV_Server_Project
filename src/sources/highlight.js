@@ -101,19 +101,28 @@ class HighlightSource {
   }
 
   async fetchListHtml() {
-    try {
-      const html = await axiosGetHtml(this.baseUrl, { referer: this.baseUrl });
-      if (html && html.length > 500) {
-        logger.debug('Highlight list fetched via axios');
-        return html;
+    const tries = [
+      { referer: this.baseUrl },
+      { referer: 'https://www.google.com/' },
+      { referer: 'https://www.bing.com/' },
+    ];
+    for (const attempt of tries) {
+      try {
+        const html = await axiosGetHtml(this.baseUrl, { referer: attempt.referer });
+        if (html && html.length > 500 && !/just a moment|cf-browser-verification|access denied/i.test(html)) {
+          logger.debug('Highlight list fetched via axios', { referer: attempt.referer });
+          return html;
+        }
+      } catch (err) {
+        logger.warn('Highlight list axios failed — trying next strategy', {
+          error: err.message,
+          referer: attempt.referer,
+        });
       }
-    } catch (err) {
-      logger.warn('Highlight list axios failed — falling back to puppeteer', {
-        error: err.message,
-      });
     }
 
     if (!this.browser) throw new Error('HighlightSource requires browserManager for list fallback');
+    logger.warn('Highlight list axios failed — falling back to puppeteer');
     const listPage = await this.browser.newPage();
     try {
       await listPage.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);

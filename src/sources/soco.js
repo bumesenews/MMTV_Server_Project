@@ -137,13 +137,24 @@ class SocoSource {
   }
 
   headers(referer = this.baseUrl) {
-    const custom = this.config.headers || {};
+    const custom = { ...(this.config.headers || {}) };
+    // Always prefer this source's own origin as Referer (config may still have an old mirror).
+    const origin = (this.baseUrl || referer || '').replace(/\/$/, '');
+    delete custom.Referer;
+    delete custom.referer;
     return {
       'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
-      Accept: 'text/html,application/json,*/*',
-      'Accept-Language': 'en-US,en;q=0.9',
-      Referer: referer.endsWith('/') ? referer : `${referer}/`,
+      Accept: 'application/json,text/html,application/xhtml+xml,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+      'Sec-Fetch-Dest': 'empty',
+      'Sec-Fetch-Mode': 'cors',
+      'Sec-Fetch-Site': 'same-origin',
+      'X-Requested-With': 'XMLHttpRequest',
+      Origin: origin,
       ...custom,
+      Referer: `${origin}/`,
     };
   }
 
@@ -178,15 +189,29 @@ class SocoSource {
     for (let attempt = 1; attempt <= FETCH_RETRIES; attempt += 1) {
       try {
         const text = await this.fetchText(url);
-        const trimmed = text.trim();
-        if (!trimmed.startsWith('{')) {
-          throw new Error(`non-JSON response (${trimmed.slice(0, 40)}...)`);
+        const trimmed = String(text || '').trim();
+        if (!trimmed) throw new Error('empty response');
+
+        // Preferred: JSON envelope { success, data: { htmls: [...] } }
+        if (trimmed.startsWith('{')) {
+          const payload = JSON.parse(trimmed);
+          if (!payload?.success || !Array.isArray(payload?.data?.htmls)) {
+            throw new Error('missing htmls in API payload');
+          }
+          return payload.data.htmls.join('');
         }
-        const payload = JSON.parse(trimmed);
-        if (!payload?.success || !Array.isArray(payload?.data?.htmls)) {
-          throw new Error('missing htmls in API payload');
+
+        // Fallback: site returned full HTML page with match cards
+        if (
+          /match-football-item/i.test(trimmed) ||
+          /grid-match__/i.test(trimmed) ||
+          /<!doctype html/i.test(trimmed)
+        ) {
+          logger.info('Soco section returned HTML (using directly)', { section, url });
+          return trimmed;
         }
-        return payload.data.htmls.join('');
+
+        throw new Error(`unexpected response (${trimmed.slice(0, 40)}...)`);
       } catch (err) {
         if (attempt < FETCH_RETRIES) {
           await sleep(FETCH_DELAY_MS);

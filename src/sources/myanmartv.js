@@ -48,11 +48,30 @@ class MyanmarTvSource {
   }
 
   headers(referer) {
+    const origin = (() => {
+      try {
+        return new URL(this.baseUrl).origin;
+      } catch {
+        return '';
+      }
+    })();
     return {
       'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
-      Accept: 'text/html,application/xhtml+xml,*/*',
-      'Accept-Language': 'en-US,en;q=0.9',
-      ...(referer ? { Referer: referer } : {}),
+      Accept:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9,my;q=0.8',
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+      'Upgrade-Insecure-Requests': '1',
+      'Sec-Ch-Ua': '"Chromium";v="131", "Not_A Brand";v="24"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"Windows"',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': referer ? 'same-origin' : 'none',
+      'Sec-Fetch-User': '?1',
+      ...(origin ? { Origin: origin } : {}),
+      ...(referer ? { Referer: referer } : { Referer: this.baseUrl }),
     };
   }
 
@@ -92,6 +111,27 @@ class MyanmarTvSource {
         if (attempt < FETCH_RETRIES) await sleep(FETCH_DELAY_MS);
       }
     }
+
+    // EC2 / CDN 403 fallback via Chromium
+    if (this.browser && /403|401|429|ECONNRESET|ETIMEDOUT/i.test(String(lastError?.message || ''))) {
+      logger.warn('MyanmarTV axios failed — trying puppeteer', {
+        url,
+        error: lastError.message,
+      });
+      const page = await this.browser.newPage();
+      try {
+        await page.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
+        await page.goto(url, {
+          waitUntil: 'domcontentloaded',
+          timeout: this.browser.timeout,
+        });
+        await sleep(2000);
+        return await page.content();
+      } finally {
+        await this.browser.safeClosePage(page);
+      }
+    }
+
     throw lastError || new Error(`Failed to fetch ${url}`);
   }
 

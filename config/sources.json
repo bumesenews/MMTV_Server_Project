@@ -273,15 +273,7 @@
       "sport": "football",
       "sections": ["today", "tomorrow"],
       "onlyAllowedLeagues": true,
-      "leagueFilter": [
-        "UEFA CL",
-        "FIF",
-        "FIFA World Cup",
-        "FIFA Club World Cup",
-        "AFF Cup",
-        "KOR D1",
-        "BRA D1"
-      ],
+      "leagueFilter": [],
       "paths": {
         "today": "/sport/football/filter/today",
         "tomorrow": "/sport/football/filter/tomorrow"
@@ -329,8 +321,8 @@
         "streamButtons": ["#tv_links a.player-link", "#tv_links .player-link"]
       },
       "headers": {
-        "Accept": "text/html,application/json,*/*",
-        "Referer": "https://socolivegg.io/"
+        "Accept": "application/json,text/html,*/*",
+        "Referer": "https://socolivekz.cc/"
       },
       "notes": "HTTP API scraper — change domains/paths/selectors/attrs when site moves"
     },

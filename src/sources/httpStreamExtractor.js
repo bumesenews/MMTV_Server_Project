@@ -13,6 +13,13 @@ const MAX_EMBEDS = Number(process.env.HTTP_STREAM_MAX_EMBEDS || 6);
  * Shared axios HTML client for stream discovery.
  */
 async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS } = {}) {
+  const origin = (() => {
+    try {
+      return new URL(url).origin;
+    } catch {
+      return referer || '';
+    }
+  })();
   const res = await axios.get(url, {
     timeout,
     maxRedirects: 5,
@@ -20,9 +27,21 @@ async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS } = {}) {
     validateStatus: (s) => s >= 200 && s < 400,
     headers: {
       'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
-      Accept: 'text/html,application/xhtml+xml,application/json,*/*',
-      'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8',
+      Accept:
+        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8,my;q=0.7',
+      'Cache-Control': 'no-cache',
+      Pragma: 'no-cache',
+      'Upgrade-Insecure-Requests': '1',
+      'Sec-Ch-Ua': '"Chromium";v="131", "Not_A Brand";v="24"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"Windows"',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': referer ? 'cross-site' : 'none',
+      'Sec-Fetch-User': '?1',
       ...(referer ? { Referer: referer } : {}),
+      ...(origin ? { Origin: origin } : {}),
     },
   });
   return typeof res.data === 'string' ? res.data : JSON.stringify(res.data);

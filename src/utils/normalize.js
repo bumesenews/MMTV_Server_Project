@@ -67,7 +67,8 @@ class Normalizer {
 
   /**
    * Prefer FotMob league id when present (avoids Ecuador Serie A → Italy Serie A).
-   * Then try "Country + name", then exact alias.
+   * Then try "Country + name", exact alias, then prefix/contains alias match
+   * (e.g. "Europa League Qualification", "ASEAN Championship Grp. A").
    */
   normalizeLeague(rawName, { fotmobId = null, country = '' } = {}) {
     const id = Number(fotmobId);
@@ -84,11 +85,12 @@ class Normalizer {
       if (withCountry) return withCountry;
     }
 
-    const mapped = this.leagueIndex.get(foldKey(cleaned));
+    const key = foldKey(cleaned);
+    const mapped = this.leagueIndex.get(key);
     if (mapped) {
       // Bare "Serie A" is ambiguous (Italy id 55 vs Ecuador id 246 on FotMob).
       // Only accept with Italy context or via fotmobIds above.
-      if (foldKey(cleaned) === 'serie a') {
+      if (key === 'serie a') {
         const countryFold = foldKey(countryClean);
         if (countryFold && (countryFold.includes('ital') || countryFold === 'ita')) {
           return mapped;
@@ -97,6 +99,26 @@ class Normalizer {
       }
       return mapped;
     }
+
+    // Fuzzy: longest alias that is a prefix of the raw name (or vice versa for short forms)
+    let best = null;
+    let bestLen = 0;
+    for (const [aliasKey, standard] of this.leagueIndex.entries()) {
+      if (!aliasKey || aliasKey.length < 5) continue;
+      if (key === 'serie a' || aliasKey === 'serie a') continue;
+      const hit =
+        key === aliasKey ||
+        key.startsWith(`${aliasKey} `) ||
+        key.startsWith(`${aliasKey} grp`) ||
+        key.startsWith(`${aliasKey} group`) ||
+        key.startsWith(`${aliasKey} qualification`) ||
+        key.includes(` ${aliasKey} `);
+      if (hit && aliasKey.length > bestLen) {
+        best = standard;
+        bestLen = aliasKey.length;
+      }
+    }
+    if (best) return best;
 
     return cleaned;
   }
