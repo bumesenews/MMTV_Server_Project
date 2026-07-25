@@ -104,28 +104,32 @@ class SocoSource {
   }
 
   /**
-   * Keep only configured leagues (UEFA CL, FIF, AFF Cup, KOR D1, BRA D1, …).
-   * Resolves filter aliases via Normalizer, then compares to the card league.
+   * Keep only configured leagues when leagueFilter / onlyAllowedLeagues is set.
+   * standardLeague must already be the allowed-league result (or null).
    */
   passesLeagueFilter(leagueRaw, standardLeague) {
-    if (!this.leagueFilter.length) {
-      return this.onlyAllowedLeagues ? Boolean(standardLeague) : true;
-    }
-    if (!this._filterStandards) {
-      this._filterStandards = new Set();
-      for (const name of this.leagueFilter) {
-        const mapped = this.normalizer ? this.normalizer.normalizeLeague(name) : name;
-        if (mapped) this._filterStandards.add(foldKey(mapped));
-        this._filterStandards.add(foldKey(name));
+    if (this.leagueFilter.length) {
+      if (!this._filterStandards) {
+        this._filterStandards = new Set();
+        for (const name of this.leagueFilter) {
+          const mapped = this.normalizer ? this.normalizer.normalizeLeague(name) : name;
+          if (mapped) this._filterStandards.add(foldKey(mapped));
+          this._filterStandards.add(foldKey(name));
+        }
       }
+      const std = standardLeague || leagueRaw;
+      return (
+        this._filterStandards.has(foldKey(std)) ||
+        this._filterStandards.has(foldKey(leagueRaw)) ||
+        (standardLeague && this._filterStandards.has(foldKey(standardLeague)))
+      );
     }
-    const std = standardLeague || (this.normalizer
-      ? this.normalizer.normalizeLeague(leagueRaw)
-      : leagueRaw);
-    return (
-      this._filterStandards.has(foldKey(std)) ||
-      this._filterStandards.has(foldKey(leagueRaw))
-    );
+
+    // No explicit leagueFilter: optionally require leagues.json allow-list
+    if (this.onlyAllowedLeagues) {
+      return Boolean(standardLeague);
+    }
+    return true;
   }
 
   resolveBaseUrl() {
@@ -133,7 +137,8 @@ class SocoSource {
       ...(this.config.domains || []),
       ...(this.config.mirrorDomains || []),
     ].filter(Boolean);
-    return domains[0] || DEFAULT_BASE_URL;
+    const raw = domains[0] || DEFAULT_BASE_URL;
+    return String(raw).replace(/\/+$/, '');
   }
 
   headers(referer = this.baseUrl) {
@@ -294,14 +299,12 @@ class SocoSource {
 
       if (!homeRaw || !awayRaw || !matchUrl) return;
 
-      const normalizedLeague = this.normalizer
-        ? this.normalizer.normalizeLeague(leagueRaw)
-        : leagueRaw;
       const standardLeague = this.normalizer
         ? this.normalizer.filterAllowedLeague(leagueRaw)
         : leagueRaw;
 
-      if (!this.passesLeagueFilter(leagueRaw, standardLeague || normalizedLeague)) return;
+      // Do NOT fall back to raw league name here — that bypasses onlyAllowedLeagues
+      if (!this.passesLeagueFilter(leagueRaw, standardLeague)) return;
 
       const homeTeam = this.normalizer ? this.normalizer.normalizeTeam(homeRaw) : homeRaw;
       const awayTeam = this.normalizer ? this.normalizer.normalizeTeam(awayRaw) : awayRaw;
@@ -353,11 +356,24 @@ class SocoSource {
       source: this.name,
       baseUrl: this.baseUrl,
       sections: this.sections,
+      onlyAllowedLeagues: this.onlyAllowedLeagues,
+      leagueFilter: this.leagueFilter,
     });
     const all = [];
     for (const section of this.sections) {
       const html = await this.fetchSectionHtml(section);
-      if (html) all.push(...this.parseMatchesFromHtml(html, section));
+      const cardCount = html
+        ? (html.match(/match-football-item/gi) || []).length
+        : 0;
+      const parsed = html ? this.parseMatchesFromHtml(html, section) : [];
+      logger.info('Soco section parsed', {
+        source: this.name,
+        section,
+        htmlLen: html ? html.length : 0,
+        cards: cardCount,
+        kept: parsed.length,
+      });
+      if (parsed.length) all.push(...parsed);
       await sleep(FETCH_DELAY_MS);
     }
     logEvent(events.SCRAPER_SUCCESS, 'Soco discover success', {

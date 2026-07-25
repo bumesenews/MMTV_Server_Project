@@ -67,8 +67,9 @@ class Normalizer {
 
   /**
    * Prefer FotMob league id when present (avoids Ecuador Serie A → Italy Serie A).
-   * Then try "Country + name", exact alias, then prefix/contains alias match
+   * Then try "Country + name", exact alias, then safe prefix match
    * (e.g. "Europa League Qualification", "ASEAN Championship Grp. A").
+   * Never map Women's / INT women's comps onto men's UEFA CL via substring.
    */
   normalizeLeague(rawName, { fotmobId = null, country = '' } = {}) {
     const id = Number(fotmobId);
@@ -100,19 +101,28 @@ class Normalizer {
       return mapped;
     }
 
-    // Fuzzy: longest alias that is a prefix of the raw name (or vice versa for short forms)
+    // Reject women's competitions unless the alias/standard is explicitly women's
+    const isWomensRaw = /\bwom[e]?n'?s?\b|\bfemale\b|\bladies\b/i.test(key);
+
+    // Fuzzy: longest alias where the raw name STARTS with the alias
+    // (optionally after a known competition prefix). No mid-string includes.
+    const leadPrefixes = ['', 'uefa ', 'fifa ', 'english ', 'england ', 'spanish ', 'spain ', 'italian ', 'italy ', 'german ', 'germany ', 'french ', 'france '];
     let best = null;
     let bestLen = 0;
     for (const [aliasKey, standard] of this.leagueIndex.entries()) {
       if (!aliasKey || aliasKey.length < 5) continue;
       if (key === 'serie a' || aliasKey === 'serie a') continue;
-      const hit =
-        key === aliasKey ||
-        key.startsWith(`${aliasKey} `) ||
-        key.startsWith(`${aliasKey} grp`) ||
-        key.startsWith(`${aliasKey} group`) ||
-        key.startsWith(`${aliasKey} qualification`) ||
-        key.includes(` ${aliasKey} `);
+      const isWomensAlias = /\bwom[e]?n'?s?\b|\bfemale\b|\bladies\b/i.test(aliasKey);
+      if (isWomensRaw && !isWomensAlias) continue;
+
+      let hit = false;
+      for (const prefix of leadPrefixes) {
+        const candidate = `${prefix}${aliasKey}`;
+        if (key === candidate || key.startsWith(`${candidate} `) || key.startsWith(`${candidate} grp`) || key.startsWith(`${candidate} group`) || key.startsWith(`${candidate} qualification`)) {
+          hit = true;
+          break;
+        }
+      }
       if (hit && aliasKey.length > bestLen) {
         best = standard;
         bestLen = aliasKey.length;
