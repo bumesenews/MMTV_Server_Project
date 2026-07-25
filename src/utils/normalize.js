@@ -112,6 +112,13 @@ class Normalizer {
     for (const [aliasKey, standard] of this.leagueIndex.entries()) {
       if (!aliasKey || aliasKey.length < 5) continue;
       if (key === 'serie a' || aliasKey === 'serie a') continue;
+      // Do not map Summer Series / friendlies onto EPL via "Premier League" prefix
+      if (
+        (aliasKey === 'premier league' || aliasKey === 'english premier league' || aliasKey === 'epl') &&
+        /summer\s*series|friendl/.test(key)
+      ) {
+        continue;
+      }
       const isWomensAlias = /\bwom[e]?n'?s?\b|\bfemale\b|\bladies\b/i.test(aliasKey);
       if (isWomensRaw && !isWomensAlias) continue;
 

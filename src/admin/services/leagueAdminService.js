@@ -17,6 +17,8 @@ const DEFAULT_LEAGUES = [
   'K League 1 (KOR D1)',
   'Brazil Serie A (BRA D1)',
   'V.League 1 (Vietnam)',
+  'Club Friendlies',
+  'Premier League Summer Series',
 ];
 
 class LeagueAdminService {

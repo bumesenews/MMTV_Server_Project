@@ -76,6 +76,12 @@ const DEFAULT_ATTRS = {
 const DEFAULT_TEAM_LOGO_TEMPLATE =
   'https://imgts.sportpulseapiz.com/football/team/{id}/image/small';
 
+/** Extra leagues Soco should always recognize (merged into leagueFilter when set). */
+const SOCO_EXTRA_LEAGUES = [
+  'Club Friendlies',
+  'Premier League Summer Series',
+];
+
 /**
  * Source: socolivemm.io (from MM_TV.Pro soco.js)
  * HTTP/Cheerio based — domain, paths, selectors, attrs are config-driven.
@@ -99,6 +105,10 @@ class SocoSource {
       : ['today', 'tomorrow'];
     this.onlyAllowedLeagues = this.config.onlyAllowedLeagues === true;
     this.leagueFilter = uniqueList(this.config.leagueFilter);
+    this.extraLeagues = uniqueList([
+      ...SOCO_EXTRA_LEAGUES,
+      ...(this.config.extraLeagues || []),
+    ]);
     this.teamLogoTemplate =
       this.config.teamLogoTemplate || DEFAULT_TEAM_LOGO_TEMPLATE;
   }
@@ -108,6 +118,10 @@ class SocoSource {
    * standardLeague must already be the allowed-league result (or null).
    */
   passesLeagueFilter(leagueRaw, standardLeague) {
+    if (this.isExtraLeague(leagueRaw, standardLeague)) {
+      return true;
+    }
+
     if (this.leagueFilter.length) {
       if (!this._filterStandards) {
         this._filterStandards = new Set();
@@ -130,6 +144,24 @@ class SocoSource {
       return Boolean(standardLeague);
     }
     return true;
+  }
+
+  isExtraLeague(leagueRaw, standardLeague) {
+    if (!this.extraLeagues.length) return false;
+    if (!this._extraStandards) {
+      this._extraStandards = new Set();
+      for (const name of this.extraLeagues) {
+        const mapped = this.normalizer ? this.normalizer.normalizeLeague(name) : name;
+        if (mapped) this._extraStandards.add(foldKey(mapped));
+        this._extraStandards.add(foldKey(name));
+      }
+    }
+    const std = standardLeague || leagueRaw;
+    return (
+      this._extraStandards.has(foldKey(std)) ||
+      this._extraStandards.has(foldKey(leagueRaw)) ||
+      (standardLeague && this._extraStandards.has(foldKey(standardLeague)))
+    );
   }
 
   resolveBaseUrl() {

@@ -200,6 +200,34 @@
         "越南联赛",
         "V.League 1 Vietnam"
       ]
+    },
+    {
+      "standardName": "Club Friendlies",
+      "aliases": [
+        "Club Friendlies",
+        "Club Friendly",
+        "Friendlies",
+        "Friendly",
+        "Club Friendlies Clubs",
+        "Giao Hữu CLB",
+        "Giao Huu CLB",
+        "Giao hữu",
+        "Giao huu",
+        "Club Friendly Match",
+        "Pre-season Friendlies",
+        "Preseason Friendlies"
+      ]
+    },
+    {
+      "standardName": "Premier League Summer Series",
+      "aliases": [
+        "Premier League Summer Series",
+        "PL Summer Series",
+        "EPL Summer Series",
+        "Premier League Summer",
+        "Summer Series",
+        "PLSS"
+      ]
     }
   ]
 }
