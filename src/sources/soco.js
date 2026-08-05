@@ -2,7 +2,7 @@ const dns = require('dns');
 const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
 const { generateMatchId } = require('../utils/matchId');
-const { toYangon, formatDate, formatTime, isTodayOrTomorrow } = require('../utils/time');
+const { toYangon, formatDate, formatTime, isTodayOrTomorrow, MATCH_LIVE_DURATION_MIN } = require('../utils/time');
 const { foldKey } = require('../utils/normalize');
 const { DEFAULT_UA } = require('../browser/puppeteerManager');
 
@@ -15,7 +15,8 @@ try {
 const DEFAULT_BASE_URL = 'https://socolivegg.io';
 const DEFAULT_SPORT = 'football';
 const STREAM_CONCURRENCY = Number(process.env.SOCO_CONCURRENCY || 1);
-const MATCH_DURATION_MS = (105 + 30) * 60 * 1000;
+/** Align with matches.json: force END this long after kickoff even if site still looks LIVE. */
+const MATCH_DURATION_MS = MATCH_LIVE_DURATION_MIN * 60 * 1000;
 const FETCH_RETRIES = 3;
 const FETCH_DELAY_MS = 1200;
 
@@ -731,6 +732,18 @@ function parseMatchStatus(card, kickoffUnixSeconds, source) {
               : 'scheduled_before_kickoff';
       result = { status: 'Scheduled', live: false };
     }
+  }
+
+  // Safety net: sticky LIVE signals (score DOM / playing codes left after FT,
+  // common on Club Friendlies) must not keep status LIVE past the live window.
+  const kickoffMs = Number(kickoffUnixSeconds) * 1000;
+  if (
+    result.status === 'LIVE' &&
+    Number.isFinite(kickoffMs) &&
+    Date.now() >= kickoffMs + MATCH_DURATION_MS
+  ) {
+    branch = `${branch || 'live'}_forced_end_after_duration`;
+    result = { status: 'END', live: false };
   }
 
   logger.debug('Soco parseMatchStatus debug', {

@@ -179,6 +179,7 @@ function flattenSocoLeagues(socoPayload) {
         awayLogo: m.away_team?.logo || '',
         month: m.month,
         clock: m.time,
+        status: m.status || null,
         links: m.links || [],
       });
     }

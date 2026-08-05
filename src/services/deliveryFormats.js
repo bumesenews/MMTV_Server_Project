@@ -1,4 +1,4 @@
-const { nowYangon } = require('../utils/time');
+const { nowYangon, toYangon, MATCH_LIVE_DURATION_MIN } = require('../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../utils/compare');
 
 /**
@@ -67,12 +67,52 @@ function formatMatchesDelivery(matchesPayload) {
 }
 
 /**
+ * Resolve kickoff Date from soco match fields (unix/iso or month+time Yangon).
+ */
+function resolveSocoKickoff(m) {
+  if (m.kickoff || m.kickoffUnix) {
+    const d = toDate(m.kickoff || m.kickoffUnix);
+    if (d) return d;
+  }
+  const month = String(m.month || '').trim();
+  const clock = String(m.clock || m.time || '').trim();
+  if (!month || !clock) return null;
+  // "8/5/2026" + "5:30:00 PM" (Yangon wall clock from delivery format)
+  const parsed = toYangon(
+    DateTimeCompat.fromSocoMonthClock(month, clock)
+  );
+  return parsed ? parsed.toJSDate() : null;
+}
+
+/** Lightweight parse without pulling luxon formats into every call site. */
+const DateTimeCompat = {
+  fromSocoMonthClock(month, clock) {
+    // Prefer luxon via toYangon with constructed ISO-ish string
+    // month: M/D/YYYY, clock: h:mm:ss AM/PM
+    const m = String(month).match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (!m) return null;
+    const [, mo, day, year] = m;
+    const t = String(clock).trim();
+    const ampm = t.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)$/i);
+    if (!ampm) return `${year}-${mo.padStart(2, '0')}-${day.padStart(2, '0')} ${t}`;
+    let hour = Number(ampm[1]);
+    const minute = ampm[2];
+    const second = ampm[3] || '00';
+    const meridiem = ampm[4].toUpperCase();
+    if (meridiem === 'PM' && hour < 12) hour += 12;
+    if (meridiem === 'AM' && hour === 12) hour = 0;
+    return `${year}-${mo.padStart(2, '0')}-${day.padStart(2, '0')} ${String(hour).padStart(2, '0')}:${minute}:${second}`;
+  },
+};
+
+/**
  * Soco live — leagues-grouped shape used by Flutter:
  * { leagues: [{ league_name, league_icon, matches: [{ home_team, away_team, month, time, status, links }] }] }
  * status: LIVE | Scheduled | END (from socolivegg.io data-status / live signals)
  */
 function formatSocoLeagues(socoMatches = [], { leagueIcons = {} } = {}) {
   const byLeague = new Map();
+  const liveWindowMs = MATCH_LIVE_DURATION_MIN * 60 * 1000;
 
   for (const m of socoMatches || []) {
     const leagueName = String(m.league || m.league_name || 'Unknown').trim() || 'Unknown';
@@ -85,8 +125,17 @@ function formatSocoLeagues(socoMatches = [], { leagueIcons = {} } = {}) {
     }
 
     const links = normalizeSocoLinks(m);
-    const kickoff = m.kickoff || m.kickoffUnix || null;
-    const status = normalizeSocoStatus(m.status, links);
+    const kickoffDate = resolveSocoKickoff(m);
+    let status = normalizeSocoStatus(m.status, links);
+
+    // Force END after live window even if scrape left sticky LIVE (e.g. friendlies with score DOM).
+    if (
+      status === 'LIVE' &&
+      kickoffDate &&
+      Date.now() >= kickoffDate.getTime() + liveWindowMs
+    ) {
+      status = 'END';
+    }
 
     byLeague.get(leagueName).matches.push({
       home_team: {
@@ -97,8 +146,8 @@ function formatSocoLeagues(socoMatches = [], { leagueIcons = {} } = {}) {
         name: m.awayTeam || m.away_team?.name || '',
         logo: m.awayLogo || m.away_team?.logo || '',
       },
-      month: m.month || formatMonth(kickoff),
-      time: m.clock || formatClock(kickoff),
+      month: m.month || formatMonth(kickoffDate || m.kickoff || m.kickoffUnix),
+      time: m.clock || formatClock(kickoffDate || m.kickoff || m.kickoffUnix),
       status,
       // Streams only for LIVE; keep empty array for Scheduled / END
       links: status === 'LIVE' ? links : [],

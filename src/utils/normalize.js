@@ -101,6 +101,26 @@ class Normalizer {
       return mapped;
     }
 
+    // FotMob often prefixes with country codes (INT Club Friendlies, ENG Premier League).
+    // Strip a short leading country/org token and retry alias lookup.
+    const strippedKey = key.replace(
+      /^(int|eng|esp|ita|ger|fra|ned|por|bra|kor|usa|uefa|fifa|conmebol|afc)\s+/,
+      ''
+    );
+    if (strippedKey && strippedKey !== key) {
+      const strippedMapped = this.leagueIndex.get(strippedKey);
+      if (strippedMapped) {
+        if (strippedKey === 'serie a') {
+          const countryFold = foldKey(countryClean);
+          if (countryFold && (countryFold.includes('ital') || countryFold === 'ita')) {
+            return strippedMapped;
+          }
+        } else {
+          return strippedMapped;
+        }
+      }
+    }
+
     // Reject women's competitions unless the alias/standard is explicitly women's
     const isWomensRaw = /\bwom[e]?n'?s?\b|\bfemale\b|\bladies\b/i.test(key);
 

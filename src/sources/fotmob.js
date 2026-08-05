@@ -92,21 +92,33 @@ class FotMobSource {
         leagueBlock?.primaryId ||
         null;
 
-      // Prefer "Ecuador Serie A" style label when country is present
-      const rawLeague =
-        country && name && !foldKey(name).includes(foldKey(country))
-          ? `${country} ${name}`.trim()
-          : cleanText(name);
+      // Prefer bare league name first so "INT Club Friendlies" / "ENG Premier League"
+      // still match allow-list aliases. Fall back to "Country Name" for ambiguous
+      // comps (e.g. Ecuador Serie A).
+      const bareName = cleanText(name);
+      const withCountry =
+        country && bareName && !foldKey(bareName).includes(foldKey(country))
+          ? `${cleanText(country)} ${bareName}`.trim()
+          : null;
 
-      const standardLeague = this.normalizer.filterAllowedLeague(rawLeague, {
-        fotmobId,
-        country,
-      });
+      const standardLeague =
+        this.normalizer.filterAllowedLeague(bareName, { fotmobId, country }) ||
+        (withCountry
+          ? this.normalizer.filterAllowedLeague(withCountry, {
+              fotmobId,
+              country,
+            })
+          : null);
       if (!standardLeague) continue;
 
       const matches = leagueBlock?.matches || leagueBlock?.allMatches || [];
       for (const match of matches) {
-        const parsed = this.parseMatch(match, standardLeague, rawLeague, dateKey);
+        const parsed = this.parseMatch(
+          match,
+          standardLeague,
+          withCountry || bareName,
+          dateKey
+        );
         if (parsed) fixtures.push(parsed);
       }
     }
@@ -117,16 +129,26 @@ class FotMobSource {
         const name = match?.tournament?.name || match?.leagueName || '';
         const country = match?.tournament?.country || match?.country || '';
         const fotmobId = match?.tournament?.id || match?.leagueId || null;
-        const rawLeague =
-          country && name && !foldKey(name).includes(foldKey(country))
-            ? `${country} ${name}`.trim()
-            : cleanText(name);
-        const standardLeague = this.normalizer.filterAllowedLeague(rawLeague, {
-          fotmobId,
-          country,
-        });
+        const bareName = cleanText(name);
+        const withCountry =
+          country && bareName && !foldKey(bareName).includes(foldKey(country))
+            ? `${cleanText(country)} ${bareName}`.trim()
+            : null;
+        const standardLeague =
+          this.normalizer.filterAllowedLeague(bareName, { fotmobId, country }) ||
+          (withCountry
+            ? this.normalizer.filterAllowedLeague(withCountry, {
+                fotmobId,
+                country,
+              })
+            : null);
         if (!standardLeague) continue;
-        const parsed = this.parseMatch(match, standardLeague, rawLeague, dateKey);
+        const parsed = this.parseMatch(
+          match,
+          standardLeague,
+          withCountry || bareName,
+          dateKey
+        );
         if (parsed) fixtures.push(parsed);
       }
     }
