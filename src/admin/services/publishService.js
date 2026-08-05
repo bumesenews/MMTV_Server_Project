@@ -62,10 +62,14 @@ class PublishService {
         : flattenSocoLeagues(previousDelivery?.soco),
     };
 
+    // Do not embed full sources.json (domains/selectors/attrs) into matches.json —
+    // that config already lives in GitHub config/sources.json.
+    const { sourcesDoc: _omitSourcesDoc, ...publicMeta } = meta || {};
+
     const payload = generateFlutterJson(
       withOverrides,
       {
-        ...meta,
+        ...publicMeta,
         adminApplied: true,
       },
       extrasMerged

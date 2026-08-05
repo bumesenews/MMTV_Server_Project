@@ -104,6 +104,8 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
   // Avoid nesting bulky arrays twice in meta
   delete payload.meta.highlights;
   delete payload.meta.channels;
+  // Scraper site config belongs in config/sources.json, not the Flutter feed
+  delete payload.meta.sourcesDoc;
 
   payload.meta.checksum = hashPayload(sanitizeForCompare(payload));
   return payload;
