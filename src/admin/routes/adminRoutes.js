@@ -478,6 +478,60 @@ function createAdminRouter(ctx) {
     }
   });
 
+  router.get('/leagues/config', auth, async (_req, res) => {
+    try {
+      const result = await ctx.config.getLeaguesConfig();
+      res.json({
+        ok: true,
+        content: result.content,
+        origin: result.origin,
+        path: result.path,
+      });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.put('/leagues/config', auth, admin, async (req, res) => {
+    try {
+      const content = req.body?.content || req.body;
+      const result = await ctx.config.saveLeaguesConfig(content, {
+        actor: req.admin.username,
+        message: req.body?.message,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'leagues_config_save',
+        message: 'Saved leagues.json',
+        actor: req.admin.username,
+        meta: result,
+      });
+      res.json({ ok: true, ...result, content });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  /** Push server-local config/leagues.json up to GitHub (fixes stale remote allow-list). */
+  router.post('/leagues/config/sync', auth, admin, async (req, res) => {
+    try {
+      const result = await ctx.config.syncLocalLeaguesToGithub({
+        actor: req.admin.username,
+        message: req.body?.message,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'leagues_config_sync',
+        message: 'Synced local leagues.json to GitHub',
+        actor: req.admin.username,
+        meta: result,
+      });
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
   router.patch('/sources/:name/config', auth, admin, async (req, res) => {
     try {
       const result = await ctx.config.updateSourceEntry(req.params.name, req.body || {}, {

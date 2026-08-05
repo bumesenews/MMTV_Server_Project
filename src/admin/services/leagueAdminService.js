@@ -13,7 +13,7 @@ const DEFAULT_LEAGUES = [
   'FIFA Club World Cup',
   'UEFA Euro',
   'Copa América',
-  'AFF Cup',
+  'ASEAN Championship',
   'K League 1 (KOR D1)',
   'Brazil Serie A (BRA D1)',
   'V.League 1 (Vietnam)',
@@ -34,6 +34,17 @@ class LeagueAdminService {
   _ensureDefaults() {
     this.store.update((doc) => {
       doc.leagues = doc.leagues || {};
+      // Rename legacy AFF Cup → ASEAN Championship
+      if (doc.leagues['AFF Cup'] && !doc.leagues['ASEAN Championship']) {
+        const legacy = doc.leagues['AFF Cup'];
+        doc.leagues['ASEAN Championship'] = {
+          ...legacy,
+          standardName: 'ASEAN Championship',
+        };
+        delete doc.leagues['AFF Cup'];
+      } else if (doc.leagues['AFF Cup'] && doc.leagues['ASEAN Championship']) {
+        delete doc.leagues['AFF Cup'];
+      }
       for (const name of DEFAULT_LEAGUES) {
         if (!doc.leagues[name]) {
           doc.leagues[name] = { enabled: true, standardName: name, iconUrl: null };

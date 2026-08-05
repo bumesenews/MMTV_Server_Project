@@ -125,8 +125,15 @@ class GitHubService {
       return { uploaded: false, reason: 'invalid_payload', path: filePath };
     }
 
-    // Never wipe a previously populated feed with empty on scrape failure
-    if (this.isEmptyFeed(feedKey, payload) && previousLocal && !this.isEmptyFeed(feedKey, previousLocal)) {
+    // Never wipe a previously populated feed with empty on scrape failure.
+    // Check remote GitHub content too — local previous can already be empty
+    // after a bad run, which previously allowed empty overwrites of GitHub.
+    const remoteEarly = this.enabled ? await this.getFileSha(filePath) : { sha: null, content: null };
+    const previousPopulated =
+      (previousLocal && !this.isEmptyFeed(feedKey, previousLocal)) ||
+      (remoteEarly.content && !this.isEmptyFeed(feedKey, remoteEarly.content));
+
+    if (this.isEmptyFeed(feedKey, payload) && previousPopulated) {
       logEvent(events.GITHUB_SKIPPED, 'GitHub upload skipped — refuse empty overwrite', {
         path: filePath,
         feed: feedKey,
@@ -134,7 +141,7 @@ class GitHubService {
       return { uploaded: false, reason: 'refuse_empty', path: filePath };
     }
 
-    const remote = await this.getFileSha(filePath);
+    const remote = remoteEarly;
     const baseline = remote.content ?? previousLocal;
 
     if (!this.payloadChanged(baseline, payload)) {

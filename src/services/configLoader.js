@@ -37,11 +37,21 @@ class ConfigLoader {
 
     const local = this.loadFromLocal();
     const merged = {
-      leagues: remote?.leagues || local.leagues,
-      teams: remote?.teams || local.teams,
+      // Prefer local leagues over remote so deployed config/leagues.json
+      // (ASEAN, Friendlies, Summer Series, etc.) is not wiped by a stale GitHub copy.
+      // Remote still fills in if local is missing.
+      leagues: mergeLeaguesDoc(local.leagues, remote?.leagues),
+      teams: mergeTeamsDoc(local.teams, remote?.teams),
       sources: remote?.sources || local.sources,
       origin: remote ? 'github' : 'local',
       loadedAt: new Date().toISOString(),
+      leaguesOrigin: local.leagues?.allowedLeagues?.length
+        ? remote?.leagues?.allowedLeagues?.length
+          ? 'merged'
+          : 'local'
+        : remote?.leagues
+          ? 'github'
+          : 'local',
     };
 
     this.cache = merged;
@@ -104,6 +114,38 @@ function githubHeaders(token) {
     'User-Agent': 'football-live-streaming-backend',
     'X-GitHub-Api-Version': '2022-11-28',
   };
+}
+
+/** Local wins on same standardName; keep remote-only leagues that local dropped. */
+function mergeLeaguesDoc(local, remote) {
+  const localList = local?.allowedLeagues;
+  const remoteList = remote?.allowedLeagues;
+  if (!Array.isArray(localList) || localList.length === 0) {
+    return remote || local || { allowedLeagues: [] };
+  }
+  if (!Array.isArray(remoteList) || remoteList.length === 0) {
+    return local;
+  }
+  const byName = new Map();
+  for (const row of remoteList) {
+    const name = row?.standardName;
+    if (name) byName.set(String(name), row);
+  }
+  for (const row of localList) {
+    const name = row?.standardName;
+    if (name) byName.set(String(name), row);
+  }
+  // Drop legacy AFF Cup entry when ASEAN Championship is present (rename)
+  if (byName.has('ASEAN Championship') && byName.has('AFF Cup')) {
+    byName.delete('AFF Cup');
+  }
+  return { allowedLeagues: [...byName.values()] };
+}
+
+function mergeTeamsDoc(local, remote) {
+  const localList = local?.teams || local?.allowedTeams;
+  if (Array.isArray(localList) && localList.length) return local;
+  return remote || local || {};
 }
 
 module.exports = { ConfigLoader, githubHeaders };

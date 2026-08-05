@@ -99,6 +99,66 @@ class ConfigAdminService {
     };
   }
 
+  async getLeaguesConfig() {
+    if (this.enabled) {
+      const remote = await this.getRemoteFile('leagues.json');
+      if (remote) return remote;
+    }
+    const local = this.readLocalFile('leagues.json');
+    if (!local) throw new Error('leagues.json not found');
+    return local;
+  }
+
+  async saveLeaguesConfig(content, { message, actor } = {}) {
+    if (!content || !Array.isArray(content.allowedLeagues)) {
+      throw new Error('leagues config must include allowedLeagues array');
+    }
+    const localPath = path.join(this.localDir, 'leagues.json');
+    fs.writeFileSync(localPath, JSON.stringify(content, null, 2), 'utf8');
+
+    if (!this.enabled) {
+      return { saved: true, origin: 'local', uploaded: false, reason: 'github_not_configured' };
+    }
+
+    const remote = await this.getRemoteFile('leagues.json');
+    if (remote && !hasDataChanged(remote.content, content)) {
+      return { saved: true, origin: 'github', uploaded: false, reason: 'unchanged' };
+    }
+
+    const filePath = `${this.configPath}/leagues.json`.replace(/\/+/g, '/');
+    const body = {
+      message:
+        message ||
+        `chore: update leagues config via admin (${actor || 'admin'}) ${new Date().toISOString()}`,
+      content: Buffer.from(JSON.stringify(content, null, 2), 'utf8').toString('base64'),
+      branch: this.env.GITHUB_BRANCH || 'main',
+      ...(remote?.sha ? { sha: remote.sha } : {}),
+    };
+
+    const { data } = await axios.put(this.apiUrl(filePath), body, {
+      headers: githubHeaders(this.env.GITHUB_TOKEN),
+      timeout: 30000,
+    });
+
+    return {
+      saved: true,
+      origin: 'github',
+      uploaded: true,
+      commit: data.commit?.sha || null,
+      htmlUrl: data.content?.html_url || null,
+    };
+  }
+
+  /** Push local config/leagues.json to GitHub (ops recovery). */
+  async syncLocalLeaguesToGithub({ message, actor } = {}) {
+    const local = this.readLocalFile('leagues.json');
+    if (!local?.content) throw new Error('Local leagues.json not found');
+    return this.saveLeaguesConfig(local.content, {
+      message: message || `chore: sync local leagues.json (${actor || 'admin'})`,
+      actor,
+    });
+  }
+
   async updateSourceEntry(sourceName, patch = {}, meta = {}) {
     const current = await this.getSourcesConfig();
     const sources = [...(current.content.sources || [])];
