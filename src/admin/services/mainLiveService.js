@@ -1,4 +1,5 @@
 const path = require('path');
+const crypto = require('crypto');
 const { JsonStore } = require('../store/jsonStore');
 const { generateMatchId } = require('../../utils/matchId');
 const { combineDateAndTime, formatDate, formatTime, toYangon, nowYangon } = require('../../utils/time');
@@ -48,26 +49,7 @@ class MainLiveService {
     if (existing[matchId]) throw new Error(`Match already exists: ${matchId}`);
 
     const status = normalizeStatus(input.status);
-    const streamUrl = String(input.streamUrl || input.url || '').trim();
-    const streamName = String(input.streamName || input.quality || 'HD').trim() || 'HD';
-
-    const streams = [];
-    if (streamUrl) {
-      streams.push({
-        source: 'manual',
-        type: 'm3u8',
-        quality: streamName,
-        name: streamName,
-        url: streamUrl,
-        headers: {
-          'User-Agent': input.userAgent || '',
-          Referer: input.referer || '',
-        },
-        active: true,
-        priority: 1000,
-        checkedAt: new Date().toISOString(),
-      });
-    }
+    const streams = normalizeStreamsInput(input);
 
     const match = {
       matchId,
@@ -139,32 +121,21 @@ class MainLiveService {
       next.time = formatTime(kickoff);
     }
 
-    if (patch.streamUrl !== undefined || patch.streamName !== undefined) {
-      const url =
-        patch.streamUrl !== undefined
-          ? String(patch.streamUrl || '').trim()
-          : next.streams?.[0]?.url;
-      const name =
-        patch.streamName !== undefined
-          ? String(patch.streamName || 'HD').trim() || 'HD'
-          : next.streams?.[0]?.name || next.streams?.[0]?.quality || 'HD';
-      if (url) {
-        next.streams = [
-          {
-            source: 'manual',
-            type: 'm3u8',
-            quality: name,
-            name,
-            url,
-            headers: next.streams?.[0]?.headers || { 'User-Agent': '', Referer: '' },
-            active: true,
-            priority: 1000,
-            checkedAt: new Date().toISOString(),
-          },
-        ];
-      } else {
-        next.streams = [];
-      }
+    if (Array.isArray(patch.streams)) {
+      next.streams = normalizeStreamsInput({ streams: patch.streams });
+      next.hasStreams = next.streams.length > 0;
+      next.streamCount = next.streams.length;
+    } else if (patch.streamUrl !== undefined || patch.streamName !== undefined) {
+      // Legacy single-stream patch — replace first / set one stream
+      next.streams = normalizeStreamsInput({
+        streamUrl: patch.streamUrl !== undefined ? patch.streamUrl : next.streams?.[0]?.url,
+        streamName:
+          patch.streamName !== undefined
+            ? patch.streamName
+            : next.streams?.[0]?.name || next.streams?.[0]?.quality || 'HD',
+        userAgent: next.streams?.[0]?.headers?.['User-Agent'],
+        referer: next.streams?.[0]?.headers?.Referer,
+      });
       next.hasStreams = next.streams.length > 0;
       next.streamCount = next.streams.length;
     }
@@ -172,6 +143,62 @@ class MainLiveService {
     next.manual = true;
     next.statusLocked = next.statusLocked !== false;
     next.updatedAt = new Date().toISOString();
+    all[matchId] = next;
+    this.store.write({ matches: all });
+    return next;
+  }
+
+  addStream(matchId, input = {}) {
+    const all = this.all();
+    const current = all[matchId];
+    if (!current) throw new Error('MainLive match not found');
+
+    const built = normalizeStreamsInput({
+      streams: [input],
+      streamUrl: input.url || input.streamUrl,
+      streamName: input.name || input.quality || input.streamName,
+      userAgent: input.userAgent || input.headers?.['User-Agent'],
+      referer: input.referer || input.headers?.Referer,
+    });
+    if (!built.length) throw new Error('Stream URL is required');
+
+    const stream = built[0];
+    const streams = [...(current.streams || []), stream];
+    const next = {
+      ...current,
+      streams,
+      hasStreams: true,
+      streamCount: streams.length,
+      updatedAt: new Date().toISOString(),
+    };
+    all[matchId] = next;
+    this.store.write({ matches: all });
+    return { match: next, stream };
+  }
+
+  removeStream(matchId, streamId) {
+    const all = this.all();
+    const current = all[matchId];
+    if (!current) throw new Error('MainLive match not found');
+
+    const before = current.streams || [];
+    let streams = before.filter((s) => s.id !== streamId);
+    if (streams.length === before.length) {
+      const idx = Number(streamId);
+      if (Number.isInteger(idx) && idx >= 0 && idx < before.length) {
+        streams = before.filter((_, i) => i !== idx);
+      } else {
+        throw new Error('Stream not found');
+      }
+    }
+
+    const next = {
+      ...current,
+      streams,
+      hasStreams: streams.length > 0,
+      streamCount: streams.length,
+      updatedAt: new Date().toISOString(),
+    };
     all[matchId] = next;
     this.store.write({ matches: all });
     return next;
@@ -207,6 +234,75 @@ class MainLiveService {
     payload.meta.checksum = hashPayload(sanitizeForCompare(payload));
     return payload;
   }
+}
+
+function newStreamId() {
+  return `ml_${crypto.randomBytes(6).toString('hex')}`;
+}
+
+/**
+ * Accept either:
+ * - streams: [{ name|quality, url, headers?, type? }, ...]
+ * - legacy streamUrl + streamName
+ */
+function normalizeStreamsInput(input = {}) {
+  const rows = [];
+
+  if (Array.isArray(input.streams) && input.streams.length) {
+    for (const raw of input.streams) {
+      if (!raw || typeof raw !== 'object') continue;
+      const url = String(raw.url || raw.streamUrl || '').trim();
+      if (!url) continue;
+      const name =
+        String(raw.name || raw.quality || raw.streamName || 'HD').trim() || 'HD';
+      const headers =
+        raw.headers && typeof raw.headers === 'object'
+          ? {
+              'User-Agent': raw.headers['User-Agent'] || raw.userAgent || '',
+              Referer: raw.headers.Referer || raw.headers.referer || raw.referer || '',
+            }
+          : {
+              'User-Agent': raw.userAgent || '',
+              Referer: raw.referer || '',
+            };
+      rows.push({
+        id: String(raw.id || '').trim() || newStreamId(),
+        source: 'manual',
+        type: String(raw.type || 'm3u8').trim() || 'm3u8',
+        quality: name,
+        name,
+        url,
+        headers,
+        active: raw.active !== false,
+        priority: Number.isFinite(Number(raw.priority)) ? Number(raw.priority) : 1000 - rows.length,
+        checkedAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  if (!rows.length) {
+    const url = String(input.streamUrl || input.url || '').trim();
+    if (url) {
+      const name = String(input.streamName || input.quality || 'HD').trim() || 'HD';
+      rows.push({
+        id: newStreamId(),
+        source: 'manual',
+        type: 'm3u8',
+        quality: name,
+        name,
+        url,
+        headers: {
+          'User-Agent': input.userAgent || '',
+          Referer: input.referer || '',
+        },
+        active: true,
+        priority: 1000,
+        checkedAt: new Date().toISOString(),
+      });
+    }
+  }
+
+  return rows;
 }
 
 function normalizeStatus(raw) {

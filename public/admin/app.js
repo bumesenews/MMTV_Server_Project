@@ -204,11 +204,14 @@
     const leagues = (leagueData.leagues || []).filter((l) => l.enabled !== false);
     const teams = (teamData.teams || []).filter((t) => t.enabled !== false);
     const leagueOpts = leagues
-      .map((l) => `<option value="${esc(l.standardName)}" data-icon="${esc(l.iconUrl || '')}">${esc(l.standardName)}</option>`)
+      .map((l) => `<option value="${esc(l.standardName)}" data-icon="${esc(l.iconUrl || '')}"></option>`)
       .join('');
     const teamOpts = teams
       .map((t) => `<option value="${esc(t.standardName)}" data-logo="${esc(t.logo || '')}">${esc(t.standardName)}</option>`)
       .join('');
+    const leagueIconByName = Object.fromEntries(
+      leagues.map((l) => [String(l.standardName || '').toLowerCase(), l.iconUrl || ''])
+    );
 
     pageEl.innerHTML = `
       <div class="panel">
@@ -216,10 +219,8 @@
         <h3>Add MainLive Match</h3>
         <form id="mainlive-create-form" class="grid-2">
           <label>League
-            <select name="league" required>
-              <option value="">Select league</option>
-              ${leagueOpts}
-            </select>
+            <input name="league" list="mainlive-league-list" required placeholder="Type any league name" autocomplete="off" />
+            <datalist id="mainlive-league-list">${leagueOpts}</datalist>
           </label>
           <label>League icon URL<input name="leagueIcon" placeholder="https://.../league.png" /></label>
           <label>Home team
@@ -238,8 +239,14 @@
               <option>END</option>
             </select>
           </label>
-          <label>Stream name<input name="streamName" value="HD" placeholder="HD / Link 1" /></label>
-          <label style="grid-column:1/-1">Streaming URL<input name="streamUrl" placeholder="https://.../index.m3u8" /></label>
+          <div style="grid-column:1/-1">
+            <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
+              <strong>Stream URLs</strong>
+              <button type="button" class="secondary" id="mainlive-add-stream">+ Add stream</button>
+            </div>
+            <p class="muted" style="margin:0 0 8px">Add as many as you have (HD, SD, Full HD, …).</p>
+            <div id="mainlive-streams"></div>
+          </div>
           <div style="grid-column:1/-1"><button type="submit">Create MainLive Match</button></div>
         </form>
       </div>
@@ -270,6 +277,7 @@
                     <div class="row">
                       <button class="secondary" data-act="toggle" data-field="pinned">${m.pinned ? 'Unpin' : 'Pin'}</button>
                       <button class="secondary" data-act="toggle" data-field="featured">${m.featured ? 'Unfeature' : 'Feature'}</button>
+                      <button class="secondary" data-act="streams">Streams</button>
                       <select data-act="status">
                         ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
                       </select>
@@ -285,14 +293,56 @@
       </div>`;
 
     const form = $('#mainlive-create-form');
-    const leagueSelect = form.league;
-    leagueSelect.addEventListener('change', () => {
-      const opt = leagueSelect.selectedOptions[0];
-      if (opt?.dataset?.icon) form.leagueIcon.value = opt.dataset.icon;
-    });
+    const streamsBox = $('#mainlive-streams');
+    const defaultQualities = ['HD', 'SD', 'Full HD'];
+    const addStreamRow = (name = 'HD', url = '') => {
+      const row = document.createElement('div');
+      row.className = 'row mainlive-stream-row';
+      row.style.cssText = 'gap:8px;margin-bottom:8px;align-items:flex-end';
+      row.innerHTML = `
+        <label style="flex:0 0 120px">Name
+          <input name="streamName[]" value="${esc(name)}" placeholder="HD / SD" list="mainlive-quality-list" />
+        </label>
+        <label style="flex:1">URL
+          <input name="streamUrl[]" value="${esc(url)}" placeholder="https://.../index.m3u8" />
+        </label>
+        <button type="button" class="danger" data-remove-stream>Remove</button>
+      `;
+      row.querySelector('[data-remove-stream]').addEventListener('click', () => {
+        row.remove();
+      });
+      streamsBox.appendChild(row);
+    };
+    if (!$('#mainlive-quality-list')) {
+      const dl = document.createElement('datalist');
+      dl.id = 'mainlive-quality-list';
+      dl.innerHTML = defaultQualities.map((q) => `<option value="${q}"></option>`).join('');
+      document.body.appendChild(dl);
+    }
+    addStreamRow('HD');
+    $('#mainlive-add-stream').addEventListener('click', () => addStreamRow('SD'));
+
+    const fillLeagueIcon = () => {
+      const name = String(form.league.value || '').trim().toLowerCase();
+      const icon = leagueIconByName[name];
+      if (icon) form.leagueIcon.value = icon;
+    };
+    form.league.addEventListener('change', fillLeagueIcon);
+    form.league.addEventListener('blur', fillLeagueIcon);
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(form);
+      const names = fd.getAll('streamName[]');
+      const urls = fd.getAll('streamUrl[]');
+      const streams = [];
+      for (let i = 0; i < Math.max(names.length, urls.length); i += 1) {
+        const url = String(urls[i] || '').trim();
+        if (!url) continue;
+        streams.push({
+          name: String(names[i] || 'HD').trim() || 'HD',
+          url,
+        });
+      }
       try {
         await api('/mainlive', {
           method: 'POST',
@@ -304,11 +354,10 @@
             date: fd.get('date'),
             time: fd.get('time'),
             status: fd.get('status'),
-            streamName: fd.get('streamName'),
-            streamUrl: fd.get('streamUrl'),
+            streams,
           }),
         });
-        toast('MainLive match created · mainlive.json published');
+        toast(`MainLive match created · ${streams.length} stream(s) · published`);
         renderMainLive();
       } catch (err) {
         toast(err.message, 'error');
@@ -332,6 +381,9 @@
             toast(err.message, 'error');
           }
         });
+      });
+      tr.querySelector('[data-act="streams"]')?.addEventListener('click', async () => {
+        await manageMainLiveStreams(id);
       });
       tr.querySelector('[data-act="status"]')?.addEventListener('change', async (e) => {
         try {
@@ -370,6 +422,96 @@
         }
       });
     });
+  }
+
+  async function manageMainLiveStreams(matchId) {
+    const m = state.mainlive.find((x) => x.matchId === matchId);
+    if (!m) return;
+    let streams = (m.streams || []).map((s) => ({
+      id: s.id,
+      name: s.name || s.quality || 'HD',
+      url: s.url || '',
+      headers: s.headers || { 'User-Agent': '', Referer: '' },
+      active: s.active !== false,
+      type: s.type || 'm3u8',
+    }));
+    const overlay = document.createElement('div');
+    overlay.style.cssText =
+      'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px';
+    const card = document.createElement('div');
+    card.className = 'panel';
+    card.style.cssText = 'width:min(640px,100%);max-height:90vh;overflow:auto';
+
+    const syncFromDom = () => {
+      const rows = [...card.querySelectorAll('#ml-stream-list [data-i]')];
+      streams = rows.map((row) => {
+        const i = Number(row.dataset.i);
+        const prev = streams[i] || {};
+        return {
+          id: prev.id,
+          name: row.querySelector('[data-name]').value.trim() || 'HD',
+          url: row.querySelector('[data-url]').value.trim(),
+          headers: prev.headers || { 'User-Agent': '', Referer: '' },
+          active: prev.active !== false,
+          type: prev.type || 'm3u8',
+        };
+      });
+    };
+
+    const renderList = () => {
+      card.innerHTML = `
+        <h3>Streams · ${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</h3>
+        <div id="ml-stream-list">
+          ${streams.map((s, i) => `
+            <div class="row" style="gap:8px;margin-bottom:8px;align-items:flex-end" data-i="${i}">
+              <label style="flex:0 0 120px">Name<input data-name value="${esc(s.name || 'HD')}" list="mainlive-quality-list" /></label>
+              <label style="flex:1">URL<input data-url value="${esc(s.url || '')}" /></label>
+              <button type="button" class="danger" data-del>Remove</button>
+            </div>
+          `).join('') || '<p class="muted">No streams yet.</p>'}
+        </div>
+        <div class="row" style="gap:8px;margin-top:12px">
+          <button type="button" class="secondary" id="ml-add">+ Add</button>
+          <button type="button" id="ml-save">Save & publish</button>
+          <button type="button" class="ghost" id="ml-close">Close</button>
+        </div>
+      `;
+      card.querySelectorAll('[data-del]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          syncFromDom();
+          const i = Number(btn.closest('[data-i]').dataset.i);
+          streams.splice(i, 1);
+          renderList();
+        });
+      });
+      card.querySelector('#ml-add')?.addEventListener('click', () => {
+        syncFromDom();
+        streams.push({ name: 'SD', url: '' });
+        renderList();
+      });
+      card.querySelector('#ml-close')?.addEventListener('click', () => overlay.remove());
+      card.querySelector('#ml-save')?.addEventListener('click', async () => {
+        syncFromDom();
+        const next = streams.filter((s) => s.url);
+        try {
+          await api(`/mainlive/${encodeURIComponent(matchId)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ streams: next }),
+          });
+          toast(`Saved ${next.length} stream(s)`);
+          overlay.remove();
+          renderMainLive();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    };
+    renderList();
+    overlay.appendChild(card);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.remove();
+    });
+    document.body.appendChild(overlay);
   }
 
   async function renderMatches() {

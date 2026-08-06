@@ -142,6 +142,49 @@ function createAdminRouter(ctx) {
     }
   });
 
+  router.get('/mainlive/:matchId/streams', auth, (req, res) => {
+    const match = ctx.mainLive.get(req.params.matchId);
+    if (!match) return res.status(404).json({ ok: false, error: 'MainLive match not found' });
+    res.json({ ok: true, streams: match.streams || [] });
+  });
+
+  router.post('/mainlive/:matchId/streams', auth, editor, async (req, res) => {
+    try {
+      const { match, stream } = ctx.mainLive.addStream(req.params.matchId, req.body || {});
+      const published = await ctx.publish.publishMainLive({
+        actor: req.admin.username,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'mainlive_stream_add',
+        message: `Added stream ${stream.name} to MainLive ${req.params.matchId}`,
+        actor: req.admin.username,
+        meta: { matchId: req.params.matchId, streamId: stream.id },
+      });
+      res.json({ ok: true, match, stream, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.delete('/mainlive/:matchId/streams/:streamId', auth, editor, async (req, res) => {
+    try {
+      const match = ctx.mainLive.removeStream(req.params.matchId, req.params.streamId);
+      const published = await ctx.publish.publishMainLive({
+        actor: req.admin.username,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'mainlive_stream_delete',
+        message: `Removed stream ${req.params.streamId} from MainLive ${req.params.matchId}`,
+        actor: req.admin.username,
+      });
+      res.json({ ok: true, match, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
   // ---------- Matches (scraped matches.json) ----------
   router.get('/matches', auth, (_req, res) => {
     const current = ctx.cache.getCurrent();
