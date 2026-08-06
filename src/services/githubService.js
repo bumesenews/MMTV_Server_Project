@@ -10,6 +10,7 @@ const { hasDataChanged, hashPayload } = require('../utils/compare');
  * GitHub is delivery/backup — not a database.
  *
  * Feeds (default paths match Flutter raw URLs at repo root):
+ * - mainlive.json (admin-managed)
  * - matches.json
  * - soco.json
  * - highlight.json
@@ -24,6 +25,7 @@ class GitHubService {
     this.token = env.GITHUB_TOKEN;
 
     this.paths = {
+      mainlive: env.GITHUB_MAINLIVE_PATH || 'mainlive.json',
       matches: env.GITHUB_MATCHES_PATH || env.GITHUB_DATA_PATH || 'matches.json',
       soco: env.GITHUB_SOCO_PATH || 'soco.json',
       highlight: env.GITHUB_HIGHLIGHTS_PATH || 'highlight.json',
@@ -99,7 +101,7 @@ class GitHubService {
 
   isEmptyFeed(feedKey, payload) {
     if (payload == null) return true;
-    if (feedKey === 'matches') {
+    if (feedKey === 'matches' || feedKey === 'mainlive') {
       return !Array.isArray(payload.matches) || payload.matches.length === 0;
     }
     if (feedKey === 'soco') {
@@ -119,7 +121,7 @@ class GitHubService {
     return false;
   }
 
-  async uploadJsonIfChanged(filePath, payload, { previousLocal = null, feedKey = 'file' } = {}) {
+  async uploadJsonIfChanged(filePath, payload, { previousLocal = null, feedKey = 'file', allowEmpty = false } = {}) {
     if (!this.enabled) {
       logEvent(events.GITHUB_SKIPPED, 'GitHub upload skipped — not configured');
       return { uploaded: false, reason: 'not_configured', path: filePath };
@@ -130,14 +132,13 @@ class GitHubService {
     }
 
     // Never wipe a previously populated feed with empty on scrape failure.
-    // Check remote GitHub content too — local previous can already be empty
-    // after a bad run, which previously allowed empty overwrites of GitHub.
+    // Admin-owned mainlive may intentionally clear all rows (allowEmpty).
     const remoteEarly = this.enabled ? await this.getFileSha(filePath) : { sha: null, content: null };
     const previousPopulated =
       (previousLocal && !this.isEmptyFeed(feedKey, previousLocal)) ||
       (remoteEarly.content && !this.isEmptyFeed(feedKey, remoteEarly.content));
 
-    if (this.isEmptyFeed(feedKey, payload) && previousPopulated) {
+    if (this.isEmptyFeed(feedKey, payload) && previousPopulated && !allowEmpty) {
       logEvent(events.GITHUB_SKIPPED, 'GitHub upload skipped — refuse empty overwrite', {
         path: filePath,
         feed: feedKey,
@@ -199,20 +200,23 @@ class GitHubService {
   }
 
   /**
-   * Upload the four Flutter feeds independently (change-only per file).
-   * @param {object} bundle - { matches, soco, highlight, myanmartv }
+   * Upload Flutter feeds independently (change-only per file).
+   * Null keys are skipped — scraper publish omits mainlive so it stays admin-owned.
+   * @param {object} bundle - { mainlive?, matches, soco, highlight, myanmartv }
    * @param {object} previousBundle - previous local delivery files
+   * @param {object} options - { allowEmptyFeeds?: string[] }
    */
-  async uploadDeliveryBundle(bundle, previousBundle = {}) {
+  async uploadDeliveryBundle(bundle, previousBundle = {}, options = {}) {
     if (!this.enabled) {
       logEvent(events.GITHUB_SKIPPED, 'GitHub delivery upload skipped — not configured');
       return { uploaded: false, reason: 'not_configured', feeds: {} };
     }
 
+    const allowEmptyFeeds = new Set(options.allowEmptyFeeds || []);
     const feeds = {};
     let anyUploaded = false;
 
-    for (const key of ['matches', 'soco', 'highlight', 'myanmartv']) {
+    for (const key of ['mainlive', 'matches', 'soco', 'highlight', 'myanmartv']) {
       if (bundle[key] == null) {
         feeds[key] = { uploaded: false, reason: 'missing' };
         continue;
@@ -221,6 +225,7 @@ class GitHubService {
         const result = await this.uploadJsonIfChanged(this.paths[key], bundle[key], {
           previousLocal: previousBundle[key] || null,
           feedKey: key,
+          allowEmpty: allowEmptyFeeds.has(key),
         });
         feeds[key] = result;
         if (result.uploaded) anyUploaded = true;

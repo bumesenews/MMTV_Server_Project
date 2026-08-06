@@ -3,7 +3,8 @@ const { hashPayload, sanitizeForCompare } = require('../utils/compare');
 
 /**
  * Split Flutter delivery feeds (MM_TV.Pro / existing raw GitHub shapes):
- * - matches.json  → main live (FotMob + merged streams)
+ * - mainlive.json → admin-managed MainLive feed (separate from scraper)
+ * - matches.json  → scraped fixtures + merged streams (FotMob, etc.)
  * - soco.json     → { leagues: [...] } like pkutoelay-alt/soco
  * - highlight.json
  * - myanmartv.json (channels array)
@@ -44,7 +45,7 @@ function toDate(value) {
 }
 
 /**
- * Main live feed — matches only (no highlights/channels nested).
+ * Scraped matches feed — matches only (no highlights/channels nested).
  */
 function formatMatchesDelivery(matchesPayload) {
   const matches = matchesPayload?.matches || [];
@@ -57,6 +58,30 @@ function formatMatchesDelivery(matchesPayload) {
     meta: {
       ...(matchesPayload?.meta || {}),
       feed: 'matches',
+      liveCount: matches.filter((m) => m.status === 'LIVE').length,
+      scheduledCount: matches.filter((m) => m.status === 'Scheduled').length,
+      endedCount: matches.filter((m) => m.status === 'END').length,
+    },
+  };
+  payload.meta.checksum = hashPayload(sanitizeForCompare(payload));
+  return payload;
+}
+
+/**
+ * Admin MainLive feed — same JSON shape as matches.json, separate file.
+ */
+function formatMainLiveDelivery(matchesPayload) {
+  const matches = matchesPayload?.matches || [];
+  const payload = {
+    version: matchesPayload?.version || 1,
+    generatedAt: matchesPayload?.generatedAt || nowYangon().toISO(),
+    timezone: 'Asia/Yangon',
+    matchCount: matches.length,
+    matches,
+    meta: {
+      ...(matchesPayload?.meta || {}),
+      feed: 'mainlive',
+      source: matchesPayload?.meta?.source || 'admin',
       liveCount: matches.filter((m) => m.status === 'LIVE').length,
       scheduledCount: matches.filter((m) => m.status === 'Scheduled').length,
       endedCount: matches.filter((m) => m.status === 'END').length,
@@ -272,7 +297,8 @@ function formatChannelsDelivery(channels = []) {
 }
 
 /**
- * Build all four delivery files from pipeline outputs.
+ * Build scraper delivery files from pipeline outputs.
+ * mainlive.json is admin-owned and omitted here so publish does not overwrite it.
  */
 function buildDeliveryBundle({ matchesPayload, socoMatches, highlights, channels, socoMeta = {} }) {
   return {
@@ -285,6 +311,7 @@ function buildDeliveryBundle({ matchesPayload, socoMatches, highlights, channels
 
 module.exports = {
   formatMatchesDelivery,
+  formatMainLiveDelivery,
   formatSocoLeagues,
   formatHighlightsDelivery,
   formatChannelsDelivery,

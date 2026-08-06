@@ -45,7 +45,104 @@ function createAdminRouter(ctx) {
     res.json({ ok: true, dashboard: ctx.dashboard.get() });
   });
 
-  // ---------- Matches ----------
+  // ---------- MainLive (admin-owned mainlive.json — separate from matches.json) ----------
+  router.get('/mainlive', auth, (_req, res) => {
+    const delivery = ctx.cache.getDelivery('mainlive');
+    res.json({
+      ok: true,
+      matches: ctx.mainLive.list(),
+      generatedAt: delivery?.generatedAt || null,
+      matchCount: delivery?.matchCount ?? ctx.mainLive.list().length,
+    });
+  });
+
+  router.post('/mainlive', auth, editor, async (req, res) => {
+    try {
+      const body = req.body || {};
+      if (!body.homeLogo && body.homeTeam) {
+        body.homeLogo = ctx.teams.findLogo(body.homeTeam) || body.homeLogo;
+      }
+      if (!body.awayLogo && body.awayTeam) {
+        body.awayLogo = ctx.teams.findLogo(body.awayTeam) || body.awayLogo;
+      }
+      if (!body.leagueIcon && body.league) {
+        body.leagueIcon = ctx.leagues.getIcon(body.league) || body.leagueIcon;
+      }
+
+      const match = ctx.mainLive.create(body);
+      const published = await ctx.publish.publishMainLive({
+        actor: req.admin.username,
+      });
+
+      ctx.logService.add({
+        category: 'admin',
+        action: 'mainlive_create',
+        message: `Created MainLive match ${match.matchId}`,
+        actor: req.admin.username,
+        meta: { matchId: match.matchId },
+      });
+
+      res.json({ ok: true, match, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.patch('/mainlive/:matchId', auth, editor, async (req, res) => {
+    try {
+      const { matchId } = req.params;
+      const patch = req.body || {};
+      if (patch.kickoff) {
+        const dt = toYangon(patch.kickoff);
+        if (dt) {
+          patch.kickoff = dt.toISO();
+          patch.date = formatDate(dt);
+          patch.time = formatTime(dt);
+        }
+      }
+      if (patch.status != null) patch.statusLocked = true;
+
+      const match = ctx.mainLive.update(matchId, patch);
+      const published = await ctx.publish.publishMainLive({
+        actor: req.admin.username,
+      });
+
+      ctx.logService.add({
+        category: 'admin',
+        action: 'mainlive_update',
+        message: `Updated MainLive match ${matchId}`,
+        actor: req.admin.username,
+        meta: patch,
+      });
+
+      res.json({ ok: true, match, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.delete('/mainlive/:matchId', auth, editor, async (req, res) => {
+    try {
+      const { matchId } = req.params;
+      ctx.mainLive.remove(matchId);
+      const published = await ctx.publish.publishMainLive({
+        actor: req.admin.username,
+      });
+
+      ctx.logService.add({
+        category: 'admin',
+        action: 'mainlive_delete',
+        message: `Deleted MainLive match ${matchId}`,
+        actor: req.admin.username,
+      });
+
+      res.json({ ok: true, published, deleted: true });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ---------- Matches (scraped matches.json) ----------
   router.get('/matches', auth, (_req, res) => {
     const current = ctx.cache.getCurrent();
     const overrides = ctx.overrides.all();

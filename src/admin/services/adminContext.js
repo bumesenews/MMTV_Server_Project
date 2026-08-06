@@ -4,6 +4,7 @@ const { AdminLogService } = require('./adminLogService');
 const { OverrideService } = require('./overrideService');
 const { LeagueAdminService } = require('./leagueAdminService');
 const { ManualMatchService } = require('./manualMatchService');
+const { MainLiveService } = require('./mainLiveService');
 const { TeamAdminService } = require('./teamAdminService');
 const { SourceAdminService } = require('./sourceAdminService');
 const { ConfigAdminService } = require('./configAdminService');
@@ -18,6 +19,7 @@ function createAdminContext({ pipeline, cache, github, env = process.env }) {
   const overrides = new OverrideService(dataDir);
   const leagues = new LeagueAdminService(dataDir);
   const manualMatches = new ManualMatchService(dataDir);
+  const mainLive = new MainLiveService(dataDir);
   const teams = new TeamAdminService(dataDir, env);
   const sources = new SourceAdminService(dataDir);
   const config = new ConfigAdminService(env);
@@ -28,6 +30,7 @@ function createAdminContext({ pipeline, cache, github, env = process.env }) {
     overrideService: overrides,
     leagueAdminService: leagues,
     manualMatchService: manualMatches,
+    mainLiveService: mainLive,
     teamAdminService: teams,
     logService,
   });
@@ -47,6 +50,7 @@ function createAdminContext({ pipeline, cache, github, env = process.env }) {
     overrides,
     leagues,
     manualMatches,
+    mainLive,
     teams,
     sources,
     config,

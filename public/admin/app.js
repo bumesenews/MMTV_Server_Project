@@ -128,6 +128,7 @@
   async function renderPage(force) {
     const map = {
       dashboard: renderDashboard,
+      mainlive: renderMainLive,
       matches: renderMatches,
       streams: renderStreams,
       leagues: renderLeagues,
@@ -192,8 +193,187 @@
       </div>`;
   }
 
+  async function renderMainLive() {
+    setTitle('MainLive (mainlive.json)');
+    const [matchData, leagueData, teamData] = await Promise.all([
+      api('/mainlive'),
+      api('/leagues'),
+      api('/teams'),
+    ]);
+    state.mainlive = matchData.matches || [];
+    const leagues = (leagueData.leagues || []).filter((l) => l.enabled !== false);
+    const teams = (teamData.teams || []).filter((t) => t.enabled !== false);
+    const leagueOpts = leagues
+      .map((l) => `<option value="${esc(l.standardName)}" data-icon="${esc(l.iconUrl || '')}">${esc(l.standardName)}</option>`)
+      .join('');
+    const teamOpts = teams
+      .map((t) => `<option value="${esc(t.standardName)}" data-logo="${esc(t.logo || '')}">${esc(t.standardName)}</option>`)
+      .join('');
+
+    pageEl.innerHTML = `
+      <div class="panel">
+        <p class="muted">Admin-only feed published to <code>mainlive.json</code> on GitHub. Separate from scraped <code>matches.json</code> and <code>soco.json</code>.</p>
+        <h3>Add MainLive Match</h3>
+        <form id="mainlive-create-form" class="grid-2">
+          <label>League
+            <select name="league" required>
+              <option value="">Select league</option>
+              ${leagueOpts}
+            </select>
+          </label>
+          <label>League icon URL<input name="leagueIcon" placeholder="https://.../league.png" /></label>
+          <label>Home team
+            <input name="homeTeam" list="mainlive-team-list" required placeholder="Home team" />
+          </label>
+          <label>Away team
+            <input name="awayTeam" list="mainlive-team-list" required placeholder="Away team" />
+          </label>
+          <datalist id="mainlive-team-list">${teamOpts}</datalist>
+          <label>Date<input name="date" type="date" required /></label>
+          <label>Time<input name="time" type="time" required /></label>
+          <label>Status
+            <select name="status">
+              <option>Scheduled</option>
+              <option>LIVE</option>
+              <option>END</option>
+            </select>
+          </label>
+          <label>Stream name<input name="streamName" value="HD" placeholder="HD / Link 1" /></label>
+          <label style="grid-column:1/-1">Streaming URL<input name="streamUrl" placeholder="https://.../index.m3u8" /></label>
+          <div style="grid-column:1/-1"><button type="submit">Create MainLive Match</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Match</th><th>League</th><th>Kickoff</th><th>Status</th><th>Streams</th><th>Flags</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${state.mainlive.map((m) => `
+                <tr data-id="${esc(m.matchId)}">
+                  <td>
+                    <strong>${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</strong>
+                    <div class="muted" style="font-size:0.75rem">${esc(m.matchId)}</div>
+                  </td>
+                  <td>${esc(m.league || '')}${m.leagueIcon ? `<div><img src="${esc(m.leagueIcon)}" alt="" style="height:18px;margin-top:4px" /></div>` : ''}</td>
+                  <td>${esc(m.date || '')} ${esc(m.time || '')}</td>
+                  <td><span class="badge ${m.status === 'LIVE' ? 'live' : ''}">${esc(m.status || '')}</span></td>
+                  <td>${(m.streams || []).length}</td>
+                  <td>
+                    ${m.pinned ? '<span class="badge">PIN</span>' : ''}
+                    ${m.featured ? '<span class="badge">FEAT</span>' : ''}
+                  </td>
+                  <td>
+                    <div class="row">
+                      <button class="secondary" data-act="toggle" data-field="pinned">${m.pinned ? 'Unpin' : 'Pin'}</button>
+                      <button class="secondary" data-act="toggle" data-field="featured">${m.featured ? 'Unfeature' : 'Feature'}</button>
+                      <select data-act="status">
+                        ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                      </select>
+                      <input data-act="kickoff" type="datetime-local" style="width:auto" />
+                      <button class="secondary" data-act="save-kickoff">Set Time</button>
+                      <button class="danger" data-act="delete">Delete</button>
+                    </div>
+                  </td>
+                </tr>`).join('') || '<tr><td colspan="7" class="muted">No MainLive matches yet. Add one above.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    const form = $('#mainlive-create-form');
+    const leagueSelect = form.league;
+    leagueSelect.addEventListener('change', () => {
+      const opt = leagueSelect.selectedOptions[0];
+      if (opt?.dataset?.icon) form.leagueIcon.value = opt.dataset.icon;
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      try {
+        await api('/mainlive', {
+          method: 'POST',
+          body: JSON.stringify({
+            league: fd.get('league'),
+            leagueIcon: fd.get('leagueIcon'),
+            homeTeam: fd.get('homeTeam'),
+            awayTeam: fd.get('awayTeam'),
+            date: fd.get('date'),
+            time: fd.get('time'),
+            status: fd.get('status'),
+            streamName: fd.get('streamName'),
+            streamUrl: fd.get('streamUrl'),
+          }),
+        });
+        toast('MainLive match created · mainlive.json published');
+        renderMainLive();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+
+    pageEl.querySelectorAll('tr[data-id]').forEach((tr) => {
+      const id = tr.dataset.id;
+      tr.querySelectorAll('[data-act="toggle"]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const field = btn.dataset.field;
+          const m = state.mainlive.find((x) => x.matchId === id);
+          try {
+            await api(`/mainlive/${encodeURIComponent(id)}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ [field]: !Boolean(m[field]) }),
+            });
+            toast(`Updated ${field}`);
+            renderMainLive();
+          } catch (err) {
+            toast(err.message, 'error');
+          }
+        });
+      });
+      tr.querySelector('[data-act="status"]')?.addEventListener('change', async (e) => {
+        try {
+          await api(`/mainlive/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: e.target.value }),
+          });
+          toast('Status updated');
+          renderMainLive();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+      tr.querySelector('[data-act="save-kickoff"]')?.addEventListener('click', async () => {
+        const val = tr.querySelector('[data-act="kickoff"]').value;
+        if (!val) return toast('Pick a kickoff time', 'error');
+        try {
+          await api(`/mainlive/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ kickoff: new Date(val).toISOString() }),
+          });
+          toast('Kickoff updated');
+          renderMainLive();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+      tr.querySelector('[data-act="delete"]')?.addEventListener('click', async () => {
+        if (!confirm('Delete this MainLive match from mainlive.json?')) return;
+        try {
+          await api(`/mainlive/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          toast('MainLive match deleted');
+          renderMainLive();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    });
+  }
+
   async function renderMatches() {
-    setTitle('Match Management');
+    setTitle('Matches (matches.json)');
     const [matchData, leagueData, teamData] = await Promise.all([
       api('/matches'),
       api('/leagues'),

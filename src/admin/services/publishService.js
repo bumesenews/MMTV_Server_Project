@@ -6,7 +6,8 @@ const { enrichMatchState } = require('../../services/statusService');
 
 /**
  * Applies admin overrides + league filters, writes local cache, uploads GitHub if changed.
- * Publishes four Flutter feeds: matches, soco, highlight, myanmartv.
+ * Publishes Flutter feeds: matches, soco, highlight, myanmartv.
+ * mainlive.json is published separately via publishMainLive().
  */
 class PublishService {
   constructor({
@@ -15,6 +16,7 @@ class PublishService {
     overrideService,
     leagueAdminService,
     manualMatchService = null,
+    mainLiveService = null,
     teamAdminService = null,
     logService = null,
   }) {
@@ -23,9 +25,68 @@ class PublishService {
     this.overrides = overrideService;
     this.leagues = leagueAdminService;
     this.manualMatches = manualMatchService;
+    this.mainLive = mainLiveService;
     this.teams = teamAdminService;
     this.logService = logService;
     this.lastGithub = null;
+  }
+
+  /**
+   * Publish admin-owned mainlive.json only (does not touch matches/soco).
+   */
+  async publishMainLive({ actor = 'admin' } = {}) {
+    if (!this.mainLive) {
+      return { ok: false, reason: 'mainlive_not_configured' };
+    }
+
+    const delivery = { mainlive: this.mainLive.toDeliveryPayload() };
+    const { previous: prevDelivery } = this.cache.saveDeliveryBundle(delivery);
+
+    let github = { uploaded: false, reason: 'local_unchanged', feeds: {} };
+    try {
+      github = await this.github.uploadDeliveryBundle(delivery, prevDelivery, {
+        allowEmptyFeeds: ['mainlive'],
+      });
+      this.lastGithub = { ...github, at: new Date().toISOString() };
+    } catch (err) {
+      github = {
+        uploaded: false,
+        reason: 'github_error',
+        error: err.message,
+        hint: err.hint || null,
+        status: err.status || null,
+        feeds: {},
+      };
+      this.lastGithub = { ...github, at: new Date().toISOString() };
+      if (this.logService) {
+        this.logService.add({
+          category: 'github',
+          action: 'upload_failed',
+          message: err.message,
+          actor,
+          meta: { feed: 'mainlive', ...github },
+        });
+      }
+    }
+
+    await getGithubMonitor().inspectResult(github).catch(() => {});
+
+    if (this.logService) {
+      this.logService.add({
+        category: 'github',
+        action: github.uploaded ? 'upload' : 'skip',
+        message: `Publish mainlive.json matches=${delivery.mainlive.matchCount} (github: ${github.reason}${github.error ? ` - ${github.error}` : ''})`,
+        actor,
+        meta: { github, feed: 'mainlive' },
+      });
+    }
+
+    return {
+      ok: true,
+      delivery: delivery.mainlive,
+      github,
+      warning: github.reason === 'github_error' ? github.error : null,
+    };
   }
 
   /**
@@ -135,7 +196,7 @@ class PublishService {
       this.logService.add({
         category: 'github',
         action: github.uploaded ? 'upload' : 'skip',
-        message: `Publish feeds matches=${cached.matches.length} socoLeagues=${delivery.soco.leagues.length} highlights=${delivery.highlight.count} channels=${delivery.myanmartv.length} (github: ${github.reason}${github.error ? ` - ${github.error}` : ''})`,
+        message: `Publish feeds matches=${cached.matches.length} socoLeagues=${delivery.soco.leagues?.length || 0} highlights=${delivery.highlight.count} channels=${delivery.myanmartv.length} (github: ${github.reason}${github.error ? ` - ${github.error}` : ''})`,
         actor,
         meta: { changed, github },
       });

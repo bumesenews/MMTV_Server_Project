@@ -10,6 +10,7 @@ class CacheService {
     this.previousPath = path.join(dataDir, 'previous.json');
     this.deliveryDir = path.join(dataDir, 'delivery');
     this.deliveryFiles = {
+      mainlive: path.join(this.deliveryDir, 'mainlive.json'),
       matches: path.join(this.deliveryDir, 'matches.json'),
       soco: path.join(this.deliveryDir, 'soco.json'),
       highlight: path.join(this.deliveryDir, 'highlight.json'),
@@ -53,6 +54,7 @@ class CacheService {
 
   getDeliveryBundle() {
     return {
+      mainlive: this.readJson(this.deliveryFiles.mainlive),
       matches: this.readJson(this.deliveryFiles.matches),
       soco: this.readJson(this.deliveryFiles.soco),
       highlight: this.readJson(this.deliveryFiles.highlight),
@@ -68,13 +70,15 @@ class CacheService {
 
   /**
    * Persist delivery feeds under data/delivery/ for local Flutter endpoints + GitHub compare.
+   * Keys with null/undefined are skipped so admin-owned feeds (e.g. mainlive) stay intact.
    */
   saveDeliveryBundle(bundle) {
     this.ensureDir();
     const previous = this.getDeliveryBundle();
     const changed = {};
+    const keys = ['mainlive', 'matches', 'soco', 'highlight', 'myanmartv'];
 
-    for (const key of ['matches', 'soco', 'highlight', 'myanmartv']) {
+    for (const key of keys) {
       if (bundle[key] == null) {
         changed[key] = false;
         continue;
@@ -91,6 +95,7 @@ class CacheService {
     }
 
     logger.info('Delivery cache updated', {
+      mainlive: Array.isArray(bundle.mainlive?.matches) ? bundle.mainlive.matches.length : undefined,
       matches: Array.isArray(bundle.matches?.matches) ? bundle.matches.matches.length : 0,
       socoLeagues: Array.isArray(bundle.soco?.leagues) ? bundle.soco.leagues.length : 0,
       highlights: Array.isArray(bundle.highlight?.highlights)

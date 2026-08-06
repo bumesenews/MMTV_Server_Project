@@ -1,6 +1,6 @@
 # How this project works
 
-Football live streaming backend for Flutter. It scrapes fixtures and stream URLs, builds four JSON feeds, serves them over HTTP, and optionally uploads to GitHub when data changes.
+Football live streaming backend for Flutter. It scrapes fixtures and stream URLs, builds JSON feeds, serves them over HTTP, and optionally uploads to GitHub when data changes.
 
 **Timezone:** Asia/Yangon  
 **Production target:** AWS EC2 `t3.micro` (1GB RAM) + PM2 + 1GB swap  
@@ -9,14 +9,17 @@ Football live streaming backend for Flutter. It scrapes fixtures and stream URLs
 
 ## What it produces
 
-| Feed | File | URL |
-|------|------|-----|
-| Main live matches | `data/delivery/matches.json` | `/flutter/matches.json` |
-| Soco leagues feed | `data/delivery/soco.json` | `/flutter/soco.json` |
-| Highlights | `data/delivery/highlight.json` | `/flutter/highlight.json` |
-| Myanmar TV | `data/delivery/myanmartv.json` | `/flutter/myanmartv.json` |
+| Feed | File | URL | Source |
+|------|------|-----|--------|
+| MainLive | `data/delivery/mainlive.json` | `/flutter/mainlive.json` | Admin panel only |
+| Matches | `data/delivery/matches.json` | `/flutter/matches.json` | Scraper (+ optional admin manual) |
+| Soco leagues feed | `data/delivery/soco.json` | `/flutter/soco.json` | Soco scraper |
+| Highlights | `data/delivery/highlight.json` | `/flutter/highlight.json` | Highlight scraper |
+| Myanmar TV | `data/delivery/myanmartv.json` | `/flutter/myanmartv.json` | MyanmarTV scraper |
 
 GitHub is **delivery/backup only** (upload when content changes). It is not the database. Local `data/` is the working store.
+
+`mainlive.json` uses the same JSON shape as `matches.json` but is managed separately from the admin **MainLive** page and is never overwritten by the scraper.
 
 ---
 

@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "generatedAt": "2026-08-06T12:00:00.000+06:30",
+  "timezone": "Asia/Yangon",
+  "matchCount": 1,
+  "matches": [
+    {
+      "matchId": "sample_home_sample_away_20260806",
+      "manual": true,
+      "statusLocked": true,
+      "league": "English Premier League (EPL)",
+      "leagueIcon": null,
+      "homeTeam": "Sample Home",
+      "awayTeam": "Sample Away",
+      "homeLogo": null,
+      "awayLogo": null,
+      "date": "2026-08-06",
+      "time": "20:00",
+      "kickoff": "2026-08-06T20:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "pinned": false,
+      "featured": false,
+      "hasStreams": true,
+      "streamCount": 1,
+      "streams": [
+        {
+          "source": "manual",
+          "type": "m3u8",
+          "quality": "HD",
+          "name": "HD",
+          "url": "https://example.com/live/master.m3u8",
+          "headers": {
+            "User-Agent": "",
+            "Referer": ""
+          },
+          "active": true,
+          "priority": 1000
+        }
+      ],
+      "originalNames": {},
+      "sourcePages": {},
+      "streamAttempts": {}
+    }
+  ],
+  "meta": {
+    "feed": "mainlive",
+    "source": "admin",
+    "liveCount": 0,
+    "scheduledCount": 1,
+    "endedCount": 0
+  }
+}

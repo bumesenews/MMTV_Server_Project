@@ -53,6 +53,7 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
       timezone: 'Asia/Yangon',
       adminPanel: '/admin',
       feeds: {
+        mainlive: '/flutter/mainlive.json',
         matches: '/flutter/matches.json',
         soco: '/flutter/soco.json',
         highlight: '/flutter/highlight.json',
@@ -61,6 +62,7 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
       endpoints: [
         'GET /api/health',
         'GET /api/matches',
+        'GET /flutter/mainlive.json',
         'GET /flutter/matches.json',
         'GET /flutter/soco.json',
         'GET /flutter/highlight.json',
@@ -73,6 +75,11 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
   });
 
   // Flutter delivery aliases (same shapes as GitHub raw JSON)
+  app.get('/flutter/mainlive.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    return sendDelivery(res, 'mainlive');
+  });
+
   app.get('/flutter/matches.json', (req, res) => {
     if (!publicJson && !requireApiKey(req, res)) return;
     const delivery = cache.getDelivery('matches');
