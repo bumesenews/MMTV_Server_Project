@@ -107,14 +107,26 @@ const DateTimeCompat = {
 
 /**
  * Soco live — leagues-grouped shape used by Flutter:
- * { leagues: [{ league_name, league_icon, matches: [{ home_team, away_team, month, time, status, links }] }] }
- * status: LIVE | Scheduled | END (from socolivegg.io data-status / live signals)
+ * { leagues: [...], domainStatus, activeDomain, status? }
+ * Domain ERROR (from SocoSource): { status: ERROR, domainStatus: FAILED, message, matches: [] }
+ * status: LIVE | Scheduled | END (from website — never inferred from stream URL)
  */
-function formatSocoLeagues(socoMatches = [], { leagueIcons = {} } = {}) {
+function formatSocoLeagues(socoMatches = [], { leagueIcons = {}, meta = {} } = {}) {
+  // Pass through domain failure payload so Flutter clears cards
+  if (meta.domainFailed || meta.status === 'ERROR' || socoMatches?.domainFailed) {
+    return {
+      status: 'ERROR',
+      domainStatus: 'FAILED',
+      message: meta.message || 'Service Temporarily Unavailable',
+      matches: [],
+    };
+  }
+
   const byLeague = new Map();
   const liveWindowMs = MATCH_LIVE_DURATION_MIN * 60 * 1000;
+  const list = Array.isArray(socoMatches) ? socoMatches : [];
 
-  for (const m of socoMatches || []) {
+  for (const m of list) {
     const leagueName = String(m.league || m.league_name || 'Unknown').trim() || 'Unknown';
     if (!byLeague.has(leagueName)) {
       byLeague.set(leagueName, {
@@ -137,6 +149,13 @@ function formatSocoLeagues(socoMatches = [], { leagueIcons = {} } = {}) {
       status = 'END';
     }
 
+    const streamStatus =
+      status === 'END'
+        ? 'NONE'
+        : status === 'LIVE'
+          ? m.streamStatus || (links.some((l) => l?.url) ? 'AVAILABLE' : 'SEARCHING')
+          : 'NONE';
+
     byLeague.get(leagueName).matches.push({
       home_team: {
         name: m.homeTeam || m.home_team?.name || '',
@@ -149,12 +168,24 @@ function formatSocoLeagues(socoMatches = [], { leagueIcons = {} } = {}) {
       month: m.month || formatMonth(kickoffDate || m.kickoff || m.kickoffUnix),
       time: m.clock || formatClock(kickoffDate || m.kickoff || m.kickoffUnix),
       status,
+      streamStatus,
+      streamUrl: status === 'LIVE' ? m.streamUrl || links.find((l) => l?.url)?.url || null : null,
+      retryCount: Number(m.retryCount) || 0,
+      lastStreamCheck: m.lastStreamCheck || null,
+      nextRetryTime: m.nextRetryTime || null,
       // Streams only for LIVE; keep empty array for Scheduled / END
-      links: status === 'LIVE' ? links : [],
+      links: status === 'LIVE' && streamStatus === 'AVAILABLE' ? links : [],
     });
   }
 
-  return { leagues: [...byLeague.values()] };
+  const payload = {
+    status: 'OK',
+    domainStatus: meta.domainStatus || 'ACTIVE',
+    activeDomain: meta.activeDomain || null,
+    message: null,
+    leagues: [...byLeague.values()],
+  };
+  return payload;
 }
 
 function normalizeSocoStatus(raw, links = []) {
@@ -243,10 +274,10 @@ function formatChannelsDelivery(channels = []) {
 /**
  * Build all four delivery files from pipeline outputs.
  */
-function buildDeliveryBundle({ matchesPayload, socoMatches, highlights, channels }) {
+function buildDeliveryBundle({ matchesPayload, socoMatches, highlights, channels, socoMeta = {} }) {
   return {
     matches: formatMatchesDelivery(matchesPayload),
-    soco: formatSocoLeagues(socoMatches || []),
+    soco: formatSocoLeagues(socoMatches || [], { meta: socoMeta }),
     highlight: formatHighlightsDelivery(highlights || []),
     myanmartv: formatChannelsDelivery(channels || []),
   };

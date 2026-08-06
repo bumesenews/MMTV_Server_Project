@@ -176,6 +176,7 @@ class Pipeline {
       // Highlights + Myanmar TV channels
       const extras = await this._collectExtraContent(config.sources, previous);
       extras.socoMatches = socoResult.socoMatches;
+      extras.socoMeta = socoResult.socoMeta || null;
 
       const sourceNames = [
         ...streamingSources.map((s) => s.name),
@@ -264,6 +265,7 @@ class Pipeline {
         socoMatches: extras.socoMatches || [],
         highlights: extras.highlights || [],
         channels: extras.channels || [],
+        socoMeta: extras.socoMeta || {},
       });
       const { previous: prevDelivery } = this.cache.saveDeliveryBundle(delivery);
       let githubResult = { uploaded: false, reason: 'local_unchanged', feeds: {} };
@@ -425,7 +427,7 @@ class Pipeline {
    * Full soco scrape for Flutter soco.json (leagues format) and merge into main live matches.
    */
   async _scrapeSocoFull(matches, sourcesDoc, scraperMonitor) {
-    const empty = { matches, socoMatches: [] };
+    const empty = { matches, socoMatches: [], socoMeta: null };
     if (!this._isSourceEnabled(sourcesDoc, 'soco')) return empty;
 
     const cfg = this.configLoader.getSourceConfig(sourcesDoc, 'soco') || {
@@ -436,9 +438,35 @@ class Pipeline {
 
     try {
       const soco = new SocoSource({ config: cfg, normalizer: this.normalizer });
-      const full = await soco.scrapeFull({ fetchStreams: false });
+      const full = await soco.scrapeFull();
+      const socoMeta = {
+        domainFailed: Boolean(full.domainFailed),
+        status: full.status || (full.domainFailed ? 'ERROR' : 'OK'),
+        domainStatus: full.domainStatus || (full.domainFailed ? 'FAILED' : 'ACTIVE'),
+        activeDomain: full.activeDomain || null,
+        message: full.message || null,
+        errorPayload: full.errorPayload || null,
+      };
+
+      if (full.domainFailed) {
+        scraperMonitor?.recordSourceResult('soco', {
+          ok: false,
+          url: full.activeDomain || cfg.domains?.[0],
+        });
+        if (this.admin?.sources) {
+          this.admin.sources.recordError('soco', 'Service Temporarily Unavailable');
+        }
+        logger.warn('Soco domain failed — publishing ERROR (no cached matches)', {
+          activeDomain: full.activeDomain,
+        });
+        return { matches, socoMatches: [], socoMeta };
+      }
+
       const socoMatches = full.matches || [];
-      scraperMonitor?.recordSourceResult('soco', { ok: true, url: cfg.domains?.[0] });
+      scraperMonitor?.recordSourceResult('soco', {
+        ok: true,
+        url: full.activeDomain || cfg.domains?.[0],
+      });
 
       // Merge into FotMob fixtures when matchId aligns
       const merger = new MatchMerger();
@@ -480,8 +508,9 @@ class Pipeline {
       logger.info('Soco full scrape merged', {
         socoMatches: socoMatches.length,
         streams: streamCount,
+        activeDomain: full.activeDomain,
       });
-      return { matches: next, socoMatches };
+      return { matches: next, socoMatches, socoMeta };
     } catch (err) {
       logEvent(events.SCRAPER_ERROR, 'Soco full scrape failed', { error: err.message });
       if (this.admin?.sources) this.admin.sources.recordError('soco', err.message);

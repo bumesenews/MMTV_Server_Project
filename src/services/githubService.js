@@ -103,6 +103,10 @@ class GitHubService {
       return !Array.isArray(payload.matches) || payload.matches.length === 0;
     }
     if (feedKey === 'soco') {
+      // Domain ERROR is a valid non-empty signal for Flutter (clear cards)
+      if (payload.status === 'ERROR' || payload.domainStatus === 'FAILED') {
+        return false;
+      }
       const leagues = payload.leagues || [];
       return !leagues.some((l) => Array.isArray(l.matches) && l.matches.length > 0);
     }

@@ -54,12 +54,19 @@ class PublishService {
 
     const previous = this.cache.getCurrent();
     const previousDelivery = this.cache.getDeliveryBundle();
+    const socoMeta = extras.socoMeta || {};
+    const domainFailed = Boolean(socoMeta.domainFailed || socoMeta.status === 'ERROR');
+
     const extrasMerged = {
       highlights: extras.highlights ?? previous?.highlights ?? [],
       channels: extras.channels ?? previous?.channels ?? [],
-      socoMatches: extras.socoMatches?.length
-        ? extras.socoMatches
-        : flattenSocoLeagues(previousDelivery?.soco),
+      // On domain failure: never restore cached/old soco match cards
+      socoMatches: domainFailed
+        ? []
+        : extras.socoMatches?.length
+          ? extras.socoMatches
+          : flattenSocoLeagues(previousDelivery?.soco),
+      socoMeta,
     };
 
     // Do not embed full sources.json (domains/selectors/attrs) into matches.json —
@@ -92,6 +99,7 @@ class PublishService {
       socoMatches: extrasMerged.socoMatches,
       highlights: extrasMerged.highlights,
       channels: extrasMerged.channels,
+      socoMeta: extrasMerged.socoMeta,
     });
 
     const { previous: prevDelivery } = this.cache.saveDeliveryBundle(delivery);
@@ -170,6 +178,7 @@ class PublishService {
 }
 
 function flattenSocoLeagues(socoPayload) {
+  if (!socoPayload || socoPayload.status === 'ERROR') return [];
   if (!socoPayload?.leagues) return [];
   const out = [];
   for (const league of socoPayload.leagues) {
@@ -184,6 +193,11 @@ function flattenSocoLeagues(socoPayload) {
         month: m.month,
         clock: m.time,
         status: m.status || null,
+        streamStatus: m.streamStatus || null,
+        streamUrl: m.streamUrl || null,
+        retryCount: m.retryCount || 0,
+        lastStreamCheck: m.lastStreamCheck || null,
+        nextRetryTime: m.nextRetryTime || null,
         links: m.links || [],
       });
     }
