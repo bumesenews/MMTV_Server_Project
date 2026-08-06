@@ -222,13 +222,15 @@
             <input name="league" list="mainlive-league-list" required placeholder="Type any league name" autocomplete="off" />
             <datalist id="mainlive-league-list">${leagueOpts}</datalist>
           </label>
-          <label>League icon URL<input name="leagueIcon" placeholder="https://.../league.png" /></label>
-          <label>Home team
+          <label>League logo URL<input name="leagueIcon" placeholder="https://.../league.png" /></label>
+          <label>Home team name
             <input name="homeTeam" list="mainlive-team-list" required placeholder="Home team" />
           </label>
-          <label>Away team
+          <label>Home team logo URL<input name="homeLogo" placeholder="https://.../home.png" /></label>
+          <label>Away team name
             <input name="awayTeam" list="mainlive-team-list" required placeholder="Away team" />
           </label>
+          <label>Away team logo URL<input name="awayLogo" placeholder="https://.../away.png" /></label>
           <datalist id="mainlive-team-list">${teamOpts}</datalist>
           <label>Date<input name="date" type="date" required /></label>
           <label>Time<input name="time" type="time" required /></label>
@@ -351,6 +353,8 @@
             leagueIcon: fd.get('leagueIcon'),
             homeTeam: fd.get('homeTeam'),
             awayTeam: fd.get('awayTeam'),
+            homeLogo: fd.get('homeLogo'),
+            awayLogo: fd.get('awayLogo'),
             date: fd.get('date'),
             time: fd.get('time'),
             status: fd.get('status'),

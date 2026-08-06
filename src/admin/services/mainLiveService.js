@@ -101,7 +101,16 @@ class MainLiveService {
       'pinned',
       'featured',
     ]) {
-      if (patch[key] !== undefined) next[key] = patch[key];
+      if (patch[key] !== undefined) {
+        if (
+          (key === 'leagueIcon' || key === 'homeLogo' || key === 'awayLogo') &&
+          String(patch[key] || '').trim() === ''
+        ) {
+          next[key] = null;
+        } else {
+          next[key] = patch[key];
+        }
+      }
     }
 
     if (patch.status !== undefined) {
