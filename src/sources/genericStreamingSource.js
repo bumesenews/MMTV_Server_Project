@@ -155,7 +155,7 @@ class GenericStreamingSource extends BaseStreamingSource {
     return '';
   }
 
-  async extractStreams(matchPageUrl) {
+  async extractStreams(matchPageUrl, options = {}) {
     return this.withRetries(
       async () =>
         extractStreamsAxiosThenPuppeteer({
@@ -165,6 +165,7 @@ class GenericStreamingSource extends BaseStreamingSource {
           browser: this.browser,
           waitUntil: this.discoverOptions.waitUntil || 'domcontentloaded',
           getM3u8Patterns: () => this.getM3u8Patterns(),
+          validateStreams: options.validateStreams,
         }),
       'extractStreams'
     );

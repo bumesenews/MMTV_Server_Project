@@ -6,7 +6,7 @@ const { getCheckIntervalMinutes, nowYangon } = require('../utils/time');
  * Job schedule (Asia/Yangon):
  *
  * Main pipeline (PIPELINE_CRON)
- * └── matches.json + soco.json
+ * └── matches.json
  *
  * Highlight Job (HIGHLIGHT_CRON, default every 3 hr)
  * └── Highlights → highlight.json

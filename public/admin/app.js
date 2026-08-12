@@ -215,7 +215,7 @@
 
     pageEl.innerHTML = `
       <div class="panel">
-        <p class="muted">Admin-only feed published to <code>mainlive.json</code> on GitHub. Separate from scraped <code>matches.json</code> and <code>soco.json</code>.</p>
+        <p class="muted">Admin-only feed published to <code>mainlive.json</code> on GitHub. Separate from scraped <code>matches.json</code>.</p>
         <h3>Add MainLive Match</h3>
         <form id="mainlive-create-form" class="grid-2">
           <label>League

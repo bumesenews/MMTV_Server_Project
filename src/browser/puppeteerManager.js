@@ -170,6 +170,10 @@ class PuppeteerManager {
     );
     this.blockResources =
       options.blockResources ?? process.env.PUPPETEER_BLOCK_RESOURCES !== 'false';
+    this.maxConcurrentPages = Math.max(
+      1,
+      Number(options.maxConcurrentPages || process.env.PUPPETEER_MAX_PAGES || 2)
+    );
     this.executablePath =
       options.executablePath !== undefined
         ? options.executablePath
@@ -180,6 +184,37 @@ class PuppeteerManager {
     this.openPages = 0; // currently open pages
     this.launching = null;
     this.closing = null;
+    this._pageWaitQueue = [];
+  }
+
+  /**
+   * Cap concurrent Puppeteer pages (default 2 on 1GB hosts).
+   * Reserves a slot before the page is created to avoid races.
+   */
+  async acquirePageSlot() {
+    for (;;) {
+      if (this.openPages < this.maxConcurrentPages) {
+        this.openPages += 1;
+        return;
+      }
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((resolve) => {
+        this._pageWaitQueue.push(resolve);
+      });
+    }
+  }
+
+  releasePageSlot() {
+    this.openPages = Math.max(0, this.openPages - 1);
+    const next = this._pageWaitQueue.shift();
+    if (next) next();
+  }
+
+  /** Wake waiters after browser crash/disconnect so queues do not hang. */
+  drainPageWaitQueue() {
+    this.openPages = 0;
+    const waiters = this._pageWaitQueue.splice(0);
+    for (const resolve of waiters) resolve();
   }
 
   isConnected() {
@@ -234,6 +269,7 @@ class PuppeteerManager {
         executablePath: this.executablePath,
         lowMemory: this.lowMemory,
         blockResources: this.blockResources,
+        maxConcurrentPages: this.maxConcurrentPages,
         argCount: args.length,
       });
 
@@ -260,7 +296,7 @@ class PuppeteerManager {
         this.browser = null;
         this.browserPid = null;
         this.pagesOpened = 0;
-        this.openPages = 0;
+        this.drainPageWaitQueue();
         // Best-effort orphan cleanup after unexpected disconnect
         if (pid) this.forceKillPid(pid);
       });
@@ -353,23 +389,31 @@ class PuppeteerManager {
   }
 
   async newPage() {
-    const browser = await this.ensureBrowser();
-    const page = await browser.newPage();
-    this.pagesOpened += 1;
-    this.openPages += 1;
-
-    page.once('close', () => {
-      this.openPages = Math.max(0, this.openPages - 1);
-    });
-
+    await this.acquirePageSlot();
+    let page = null;
     try {
+      const browser = await this.ensureBrowser();
+      page = await browser.newPage();
+      this.pagesOpened += 1;
+      page.__slotHeld = true;
+
+      page.once('close', () => {
+        if (page.__slotHeld) {
+          page.__slotHeld = false;
+          this.releasePageSlot();
+        }
+      });
+
       await this.applyPageDefaults(page);
+      return page;
     } catch (err) {
-      await this.safeClosePage(page);
+      if (page) {
+        await this.safeClosePage(page);
+      } else {
+        this.releasePageSlot();
+      }
       throw err;
     }
-
-    return page;
   }
 
   /**
@@ -458,10 +502,18 @@ class PuppeteerManager {
       // ignore
     }
     try {
-      if (!page.isClosed()) await page.close();
+      if (!page.isClosed()) {
+        await page.close(); // close event releases the slot
+      } else if (page.__slotHeld) {
+        page.__slotHeld = false;
+        this.releasePageSlot();
+      }
     } catch (err) {
       logger.debug('Page close failed', { error: err.message });
-      this.openPages = Math.max(0, this.openPages - 1);
+      if (page.__slotHeld) {
+        page.__slotHeld = false;
+        this.releasePageSlot();
+      }
     }
   }
 
@@ -525,7 +577,7 @@ class PuppeteerManager {
       this.browser = null;
       this.browserPid = null;
       this.pagesOpened = 0;
-      this.openPages = 0;
+      this.drainPageWaitQueue();
 
       if (browser) {
         try {

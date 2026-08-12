@@ -90,35 +90,69 @@ function isKickoffStarted(kickoff) {
   return mins !== null && mins <= 0;
 }
 
-/** Minutes before kickoff to first look for streaming URLs (e.g. 05:00 for 05:30). */
+/** Minutes before kickoff to begin stream search (first slot). */
 const STREAM_FIND_LEAD_MIN = 30;
-/** Second attempt if first find failed. */
+/** Legacy alias — second pre-kickoff checkpoint. */
 const STREAM_RETRY_LEAD_MIN = 15;
+/** Stop all stream searching this many minutes after kickoff. */
+const STREAM_SEARCH_STOP_AFTER_MIN = 15;
 /** Match stays LIVE until this many minutes after kickoff; then END + drop streams. */
 const MATCH_LIVE_DURATION_MIN = 120;
 
 /**
+ * Kickoff-relative search slots (minutes until kickoff).
+ * Search at: -30, -15, -5, 0, +5, +10. Stop at +15.
+ */
+const STREAM_SEARCH_SLOTS = [
+  { id: 't30', minExclusive: 15, maxInclusive: 30, postKickoff: false },
+  { id: 't15', minExclusive: 5, maxInclusive: 15, postKickoff: false },
+  { id: 't5', minExclusive: 0, maxInclusive: 5, postKickoff: false },
+  { id: 't0', minExclusive: -5, maxInclusive: 0, postKickoff: true },
+  { id: 'tP5', minExclusive: -10, maxInclusive: -5, postKickoff: true },
+  { id: 'tP10', minExclusive: -15, maxInclusive: -10, postKickoff: true },
+];
+
+/**
+ * Resolve which search slot the match is currently in (or null if outside window).
+ */
+function resolveStreamSearchSlot(kickoff) {
+  const mins = minutesUntilKickoff(kickoff);
+  if (mins == null) return null;
+  if (mins > STREAM_FIND_LEAD_MIN) return null;
+  if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return null;
+  for (const slot of STREAM_SEARCH_SLOTS) {
+    if (mins <= slot.maxInclusive && mins > slot.minExclusive) return slot;
+  }
+  return null;
+}
+
+function isStreamSearchStopped(kickoff, streamSearch) {
+  if (streamSearch?.stopped) return true;
+  const mins = minutesUntilKickoff(kickoff);
+  return mins != null && mins <= -STREAM_SEARCH_STOP_AFTER_MIN;
+}
+
+/**
  * Dynamic stream-check interval for matches.json (fixture kickoff based).
- * - Far out: every 30m
- * - At −30m window: every 5m
- * - At −15m / near kickoff: every 2m
- * - PREPARING_STREAM: every 2m (keep looking for a valid URL)
- * - LIVE: every 5m
- * - END: stop
- *
- * Note: Scheduled / PREPARING_STREAM / LIVE / END for matches.json is resolved
- * in statusService (kickoff + valid stream). This helper only drives check cadence.
+ * Hits kickoff-relative search slots; does not use fixed clock times.
  */
 function getCheckIntervalMinutes(kickoff, status) {
   if (status === 'END') return null;
-  if (status === 'PREPARING_STREAM') return 2;
-  if (status === 'LIVE') return 5;
 
   const mins = minutesUntilKickoff(kickoff);
   if (mins === null) return 30;
-  if (mins <= STREAM_RETRY_LEAD_MIN) return 2;
-  if (mins <= STREAM_FIND_LEAD_MIN) return 5;
-  return 30;
+
+  // After search stop (+15) but before END (+120): light status refresh only
+  if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) {
+    if (status === 'LIVE' || status === 'PREPARING_STREAM') return 5;
+    return null;
+  }
+
+  // Inside active search window (−30 .. +15): poll often enough to hit each slot
+  if (mins <= STREAM_FIND_LEAD_MIN) return 2;
+
+  // Far from kickoff
+  return 15;
 }
 
 /**
@@ -152,7 +186,11 @@ module.exports = {
   isKickoffStarted,
   getCheckIntervalMinutes,
   resolveFixtureStatus,
+  resolveStreamSearchSlot,
+  isStreamSearchStopped,
   STREAM_FIND_LEAD_MIN,
   STREAM_RETRY_LEAD_MIN,
+  STREAM_SEARCH_STOP_AFTER_MIN,
+  STREAM_SEARCH_SLOTS,
   MATCH_LIVE_DURATION_MIN,
 };

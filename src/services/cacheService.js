@@ -12,7 +12,6 @@ class CacheService {
     this.deliveryFiles = {
       mainlive: path.join(this.deliveryDir, 'mainlive.json'),
       matches: path.join(this.deliveryDir, 'matches.json'),
-      soco: path.join(this.deliveryDir, 'soco.json'),
       highlight: path.join(this.deliveryDir, 'highlight.json'),
       myanmartv: path.join(this.deliveryDir, 'myanmartv.json'),
     };
@@ -56,7 +55,6 @@ class CacheService {
     return {
       mainlive: this.readJson(this.deliveryFiles.mainlive),
       matches: this.readJson(this.deliveryFiles.matches),
-      soco: this.readJson(this.deliveryFiles.soco),
       highlight: this.readJson(this.deliveryFiles.highlight),
       myanmartv: this.readJson(this.deliveryFiles.myanmartv),
     };
@@ -76,7 +74,7 @@ class CacheService {
     this.ensureDir();
     const previous = this.getDeliveryBundle();
     const changed = {};
-    const keys = ['mainlive', 'matches', 'soco', 'highlight', 'myanmartv'];
+    const keys = ['mainlive', 'matches', 'highlight', 'myanmartv'];
 
     for (const key of keys) {
       if (bundle[key] == null) {
@@ -97,7 +95,6 @@ class CacheService {
     logger.info('Delivery cache updated', {
       mainlive: Array.isArray(bundle.mainlive?.matches) ? bundle.mainlive.matches.length : undefined,
       matches: Array.isArray(bundle.matches?.matches) ? bundle.matches.matches.length : 0,
-      socoLeagues: Array.isArray(bundle.soco?.leagues) ? bundle.soco.leagues.length : 0,
       highlights: Array.isArray(bundle.highlight?.highlights)
         ? bundle.highlight.highlights.length
         : 0,

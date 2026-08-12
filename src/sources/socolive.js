@@ -114,7 +114,7 @@ class SocoliveSource extends BaseStreamingSource {
     return out;
   }
 
-  async extractStreams(matchPageUrl) {
+  async extractStreams(matchPageUrl, options = {}) {
     return this.withRetries(
       async () =>
         extractStreamsAxiosThenPuppeteer({
@@ -124,6 +124,7 @@ class SocoliveSource extends BaseStreamingSource {
           browser: this.browser,
           puppeteerSettleMs: 1500,
           getM3u8Patterns: () => this.getM3u8Patterns(),
+          validateStreams: options.validateStreams,
         }),
       'extractStreams'
     );

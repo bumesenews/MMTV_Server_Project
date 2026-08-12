@@ -37,7 +37,7 @@ const ACTIONS = {
     tg.websiteTimeout({ website: 'https://example-stream.test', timeoutSec: 30 }),
   all_sources_failed: async (tg) =>
     tg.allSourcesFailed({
-      sources: ['luongson', 'xoilac', 'soco'],
+      sources: ['luongson', 'xoilac', 'socolive'],
       error: 'Simulated all-sources failure',
     }),
   daily_report: async (tg) =>

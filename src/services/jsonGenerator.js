@@ -51,6 +51,10 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
         ...(s.manualId ? { manualId: s.manualId } : {}),
       })),
     streamAttempts: m.streamAttempts || {},
+    // Kickoff-relative stream-search state (Flutter-safe; optional)
+    ...(m.streamSearch && typeof m.streamSearch === 'object'
+      ? { streamSearch: m.streamSearch }
+      : {}),
     updatedAt: m.updatedAt || new Date().toISOString(),
   };
   });

@@ -36,6 +36,123 @@ class StreamValidator {
     this.timeout = Number(
       options.timeout || process.env.STREAM_VALIDATION_TIMEOUT_MS || 12000
     );
+    this.fastTimeout = Number(
+      options.fastTimeout || process.env.STREAM_FAST_HEALTH_TIMEOUT_MS || 2000
+    );
+  }
+
+  /**
+   * Fast HEAD/GET health check (~1–2s). HTTP 2xx = valid.
+   * Used before marking a stream AVAILABLE and saving matches.json.
+   */
+  async fastHealthCheck(stream) {
+    const result = {
+      ...stream,
+      active: false,
+      validation: {
+        ok: false,
+        statusCode: null,
+        contentType: null,
+        reason: null,
+        mode: 'fast',
+      },
+      checkedAt: new Date().toISOString(),
+    };
+
+    if (!stream?.url) {
+      result.validation.reason = 'empty_url';
+      return result;
+    }
+
+    let parsed;
+    try {
+      parsed = new URL(stream.url);
+    } catch {
+      result.validation.reason = 'invalid_url';
+      return result;
+    }
+
+    if (!/^https?:$/i.test(parsed.protocol)) {
+      result.validation.reason = 'invalid_protocol';
+      return result;
+    }
+
+    const headers = {
+      'User-Agent': stream.headers?.['User-Agent'] || process.env.USER_AGENT || DEFAULT_UA,
+      Referer: stream.headers?.Referer || '',
+      ...(stream.headers?.Cookie ? { Cookie: stream.headers.Cookie } : {}),
+      Accept: '*/*',
+    };
+
+    const tryRequest = async (method) => {
+      const response = await axios.request({
+        url: stream.url,
+        method,
+        timeout: this.fastTimeout,
+        headers,
+        maxRedirects: 5,
+        validateStatus: () => true,
+        // Avoid downloading large playlists on fast check
+        responseType: method === 'HEAD' ? 'text' : 'text',
+        maxContentLength: 64 * 1024,
+        maxBodyLength: 64 * 1024,
+      });
+      return response;
+    };
+
+    try {
+      let response;
+      try {
+        response = await tryRequest('HEAD');
+        // Some CDNs reject HEAD — fall back to GET (403/404 remain failures)
+        if (response.status === 405 || response.status === 501) {
+          response = await tryRequest('GET');
+        }
+      } catch {
+        response = await tryRequest('GET');
+      }
+
+      result.validation.statusCode = response.status;
+      result.validation.contentType = String(
+        response.headers['content-type'] || ''
+      ).toLowerCase();
+
+      // HTTP 200/OK (2xx) = valid; 403, 404, etc. = failed
+      if (response.status >= 200 && response.status < 300) {
+        result.active = true;
+        result.validation.ok = true;
+        result.validation.reason = 'ok';
+        logEvent(events.VALIDATION_RESULT, 'Stream fast health OK', {
+          source: stream.source,
+          status: response.status,
+          url: stream.url,
+        });
+        return result;
+      }
+
+      result.validation.reason = `http_${response.status}`;
+      logEvent(events.VALIDATION_RESULT, 'Stream fast health failed', {
+        status: response.status,
+        url: stream.url,
+      });
+      return result;
+    } catch (err) {
+      result.validation.reason = err.code || err.message || 'timeout';
+      logEvent(events.VALIDATION_RESULT, 'Stream fast health error', {
+        url: stream.url,
+        error: err.message,
+      });
+      return result;
+    }
+  }
+
+  async fastHealthCheckMany(streams) {
+    const results = [];
+    for (const stream of streams || []) {
+      // eslint-disable-next-line no-await-in-loop
+      results.push(await this.fastHealthCheck(stream));
+    }
+    return results;
   }
 
   async validate(stream) {

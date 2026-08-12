@@ -19,7 +19,6 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
       req.method === 'GET' &&
       (req.path === '/matches' ||
         req.path.startsWith('/flutter/') ||
-        req.path === '/soco' ||
         req.path === '/highlights' ||
         req.path === '/channels')
     ) {
@@ -55,7 +54,6 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
       feeds: {
         mainlive: '/flutter/mainlive.json',
         matches: '/flutter/matches.json',
-        soco: '/flutter/soco.json',
         highlight: '/flutter/highlight.json',
         myanmartv: '/flutter/myanmartv.json',
       },
@@ -64,7 +62,6 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         'GET /api/matches',
         'GET /flutter/mainlive.json',
         'GET /flutter/matches.json',
-        'GET /flutter/soco.json',
         'GET /flutter/highlight.json',
         'GET /flutter/myanmartv.json',
         'POST /api/pipeline/run',
@@ -87,11 +84,6 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
     const data = cache.getCurrent();
     if (!data) return res.status(404).json({ ok: false, error: 'No data' });
     return res.json(data);
-  });
-
-  app.get('/flutter/soco.json', (req, res) => {
-    if (!publicJson && !requireApiKey(req, res)) return;
-    return sendDelivery(res, 'soco');
   });
 
   app.get('/flutter/highlight.json', (req, res) => {

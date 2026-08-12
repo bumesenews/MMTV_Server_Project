@@ -12,7 +12,6 @@ const { hasDataChanged, hashPayload } = require('../utils/compare');
  * Feeds (default paths match Flutter raw URLs at repo root):
  * - mainlive.json (admin-managed)
  * - matches.json
- * - soco.json
  * - highlight.json
  * - myanmartv.json
  */
@@ -27,7 +26,6 @@ class GitHubService {
     this.paths = {
       mainlive: env.GITHUB_MAINLIVE_PATH || 'mainlive.json',
       matches: env.GITHUB_MATCHES_PATH || env.GITHUB_DATA_PATH || 'matches.json',
-      soco: env.GITHUB_SOCO_PATH || 'soco.json',
       highlight: env.GITHUB_HIGHLIGHTS_PATH || 'highlight.json',
       myanmartv: env.GITHUB_CHANNELS_PATH || 'myanmartv.json',
     };
@@ -103,14 +101,6 @@ class GitHubService {
     if (payload == null) return true;
     if (feedKey === 'matches' || feedKey === 'mainlive') {
       return !Array.isArray(payload.matches) || payload.matches.length === 0;
-    }
-    if (feedKey === 'soco') {
-      // Domain ERROR is a valid non-empty signal for Flutter (clear cards)
-      if (payload.status === 'ERROR' || payload.domainStatus === 'FAILED') {
-        return false;
-      }
-      const leagues = payload.leagues || [];
-      return !leagues.some((l) => Array.isArray(l.matches) && l.matches.length > 0);
     }
     if (feedKey === 'highlight') {
       return !Array.isArray(payload.highlights) || payload.highlights.length === 0;
@@ -202,7 +192,7 @@ class GitHubService {
   /**
    * Upload Flutter feeds independently (change-only per file).
    * Null keys are skipped — scraper publish omits mainlive so it stays admin-owned.
-   * @param {object} bundle - { mainlive?, matches, soco, highlight, myanmartv }
+   * @param {object} bundle - { mainlive?, matches, highlight, myanmartv }
    * @param {object} previousBundle - previous local delivery files
    * @param {object} options - { allowEmptyFeeds?: string[] }
    */
@@ -216,7 +206,7 @@ class GitHubService {
     const feeds = {};
     let anyUploaded = false;
 
-    for (const key of ['mainlive', 'matches', 'soco', 'highlight', 'myanmartv']) {
+    for (const key of ['mainlive', 'matches', 'highlight', 'myanmartv']) {
       if (bundle[key] == null) {
         feeds[key] = { uploaded: false, reason: 'missing' };
         continue;

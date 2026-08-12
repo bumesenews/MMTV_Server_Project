@@ -90,7 +90,7 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
     const name = String(req.params.name || '').toLowerCase();
     const map = {
       matches: 'matches',
-      soco: 'soco',
+      mainlive: 'mainlive',
       highlight: 'highlight',
       highlights: 'highlight',
       channels: 'myanmartv',

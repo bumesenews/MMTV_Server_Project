@@ -100,7 +100,7 @@ class LuongSonSource extends BaseStreamingSource {
     return out;
   }
 
-  async extractStreams(matchPageUrl) {
+  async extractStreams(matchPageUrl, options = {}) {
     return this.withRetries(
       async () =>
         extractStreamsAxiosThenPuppeteer({
@@ -109,6 +109,7 @@ class LuongSonSource extends BaseStreamingSource {
           config: this.config,
           browser: this.browser,
           getM3u8Patterns: () => this.getM3u8Patterns(),
+          validateStreams: options.validateStreams,
         }),
       'extractStreams'
     );

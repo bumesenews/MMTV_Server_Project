@@ -117,7 +117,6 @@ class OverrideService {
       '90phut': 350,
       yyzb: 300,
       socolive: 250,
-      soco: 200,
       ...(priorityMap || {}),
     };
 

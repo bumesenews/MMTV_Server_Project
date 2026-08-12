@@ -261,6 +261,7 @@ async function extractStreamsViaAxios({
 
 /**
  * Prefer axios HTML scrape; fall back to puppeteer-core network interception.
+ * If axios returns candidates that fail validateStreams, Puppeteer is used next.
  */
 async function extractStreamsAxiosThenPuppeteer({
   matchPageUrl,
@@ -270,18 +271,35 @@ async function extractStreamsAxiosThenPuppeteer({
   waitUntil = 'domcontentloaded',
   puppeteerSettleMs = 0,
   getM3u8Patterns,
+  validateStreams,
 }) {
   logEvent(events.SCRAPER_START, `${sourceName} stream extract start`, {
     source: sourceName,
     url: matchPageUrl,
   });
 
+  const applyValidate = async (streams, method) => {
+    if (!streams?.length) return [];
+    if (typeof validateStreams !== 'function') return streams;
+    const valid = await validateStreams(streams);
+    const kept = (valid || []).filter((s) => s && s.url && s.active !== false);
+    if (!kept.length && streams.length) {
+      logger.info(`${sourceName} ${method} streams failed health check`, {
+        source: sourceName,
+        count: streams.length,
+        method,
+      });
+    }
+    return kept;
+  };
+
   try {
-    const axiosStreams = await extractStreamsViaAxios({
+    let axiosStreams = await extractStreamsViaAxios({
       matchPageUrl,
       sourceName,
       config,
     });
+    axiosStreams = await applyValidate(axiosStreams, 'axios');
     if (axiosStreams.length) {
       logEvent(events.SCRAPER_SUCCESS, `${sourceName} stream extract success (axios)`, {
         source: sourceName,
@@ -290,7 +308,7 @@ async function extractStreamsAxiosThenPuppeteer({
       });
       return axiosStreams;
     }
-    logger.info(`${sourceName} axios found no streams — falling back to puppeteer`, {
+    logger.info(`${sourceName} axios found no valid streams — falling back to puppeteer`, {
       source: sourceName,
       url: matchPageUrl,
     });
@@ -323,13 +341,14 @@ async function extractStreamsAxiosThenPuppeteer({
       timeout: browser.timeout,
     });
     if (puppeteerSettleMs > 0) await sleep(puppeteerSettleMs);
-    const streams = await extractStreamsFromPage({
+    let streams = await extractStreamsFromPage({
       page,
       sourceName,
       config,
       matchPageUrl,
       browserManager: browser,
     });
+    streams = await applyValidate(streams, 'puppeteer');
     logEvent(events.SCRAPER_SUCCESS, `${sourceName} stream extract success (puppeteer)`, {
       source: sourceName,
       count: streams.length,

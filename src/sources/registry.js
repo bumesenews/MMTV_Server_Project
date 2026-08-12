@@ -12,7 +12,6 @@ const { GenericStreamingSource } = require('./genericStreamingSource');
  * 3. Enable the source
  *
  * Sources without a custom parser use GenericStreamingSource (config-driven).
- * HTTP scrapers like `soco` stay outside this registry (handled by Pipeline).
  */
 const PARSER_REGISTRY = {
   luongson: LuongSonSource,
@@ -27,9 +26,6 @@ const PARSER_REGISTRY = {
 /** Sources collected via StreamEngine (Puppeteer multi-source merge). */
 const ENGINE_STREAMING_TYPES = new Set(['streaming']);
 
-/** Handled on separate pipeline paths (not StreamEngine). */
-const NON_ENGINE_STREAMING = new Set(['soco']);
-
 function resolveStreamingParser(config = {}) {
   const parserKey = String(config.parser || config.name || '').toLowerCase();
   return PARSER_REGISTRY[parserKey] || GenericStreamingSource;
@@ -37,10 +33,9 @@ function resolveStreamingParser(config = {}) {
 
 function isEngineStreamingSource(config = {}) {
   if (!config || config.enabled === false) return false;
-  if (!ENGINE_STREAMING_TYPES.has(config.type)) return false;
-  if (NON_ENGINE_STREAMING.has(String(config.name || '').toLowerCase())) return false;
-  const method = String(config.extractionMethod || 'puppeteer').toLowerCase();
-  return method === 'puppeteer' || method === 'browser' || method === 'generic';
+  // type: "streaming" is enough — extractionMethod (axios-first / puppeteer / …)
+  // only controls how extractStreams runs, not whether the source is included.
+  return ENGINE_STREAMING_TYPES.has(config.type);
 }
 
 /**
@@ -75,7 +70,6 @@ function listManageableSourceNames(sourcesDoc) {
     'cakhia',
     '90phut',
     'yyzb',
-    'soco',
     'highlight',
     'myanmartv',
   ];

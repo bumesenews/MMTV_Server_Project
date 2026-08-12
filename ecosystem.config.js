@@ -23,7 +23,6 @@ module.exports = {
         BROWSER_RESTART_EVERY_N_PAGES: '5',
         HIGHLIGHT_LIMIT: '8',
         MAX_STREAM_RETRIES: '1',
-        SOCO_CONCURRENCY: '1',
         MYANMARTV_CONCURRENCY: '1',
         PIPELINE_CRON: '*/15 * * * *',
         HIGHLIGHT_CRON: '0 */6 * * *',
