@@ -208,6 +208,46 @@ class TelegramService {
     );
   }
 
+  /**
+   * Notification only — does not update sources.json.
+   * Admin must change the domain manually in the Admin Panel.
+   */
+  async streamingDomainChanged({ source, oldDomain, newDomain } = {}) {
+    const name = source || 'unknown';
+    const oldHost = oldDomain || 'unknown';
+    const newHost = newDomain || 'unknown';
+    return this.sendAlert(
+      `domain_changed:${name}`,
+      this.lines('🚨 STREAMING DOMAIN CHANGED', {
+        Source: name,
+        'Old Domain': oldHost,
+        'New Domain': newHost,
+        Time: this.formatTime(),
+      }),
+      { fingerprint: `domain_changed:${name}:${oldHost}->${newHost}` }
+    );
+  }
+
+  /**
+   * Site unreachable after repeated checks, with no alternate domain found.
+   */
+  async websiteError({ source, website, error, consecutiveFailures } = {}) {
+    const name = source || 'unknown';
+    const site = website || name;
+    const errMsg = error?.message || String(error || 'unreachable');
+    return this.sendAlert(
+      `website_error:${name}`,
+      this.lines('⚠️ Streaming Website Error', {
+        Source: name,
+        Website: site,
+        Error: errMsg.slice(0, 1000),
+        Failures: String(consecutiveFailures ?? ''),
+        Time: this.formatTime(),
+      }),
+      { fingerprint: `website_error:${name}:${site}:${errMsg.slice(0, 120)}` }
+    );
+  }
+
   async dailyReport(stats = {}) {
     const scraperOk = stats.scraperOk !== false;
     return this.sendAlert(

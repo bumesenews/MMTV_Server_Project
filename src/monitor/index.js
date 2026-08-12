@@ -6,9 +6,11 @@ const { SystemMonitor } = require('./system.monitor');
 const { ScraperMonitor, getScraperMonitor } = require('./scraper.monitor');
 const { GithubMonitor, getGithubMonitor } = require('./github.monitor');
 const { Pm2Monitor } = require('./pm2.monitor');
+const { DomainMonitor } = require('./domain.monitor');
 
 /**
  * Boots Telegram monitors + process crash hooks + optional daily report.
+ * Domain checks are scheduled via Scheduler (DOMAIN_CHECK_CRON).
  */
 function startMonitoring({ pipeline, env = process.env } = {}) {
   const telegram = getTelegramService(env);
@@ -16,6 +18,7 @@ function startMonitoring({ pipeline, env = process.env } = {}) {
   const githubMonitor = getGithubMonitor({ telegram, env });
   const systemMonitor = new SystemMonitor({ telegram, env });
   const pm2Monitor = new Pm2Monitor({ telegram, env });
+  const domainMonitor = new DomainMonitor({ pipeline, telegram, env });
 
   systemMonitor.start();
   pm2Monitor.start();
@@ -74,6 +77,7 @@ function startMonitoring({ pipeline, env = process.env } = {}) {
     githubMonitor,
     systemMonitor,
     pm2Monitor,
+    domainMonitor,
     stop() {
       systemMonitor.stop();
       pm2Monitor.stop();
@@ -91,4 +95,5 @@ module.exports = {
   ScraperMonitor,
   GithubMonitor,
   Pm2Monitor,
+  DomainMonitor,
 };

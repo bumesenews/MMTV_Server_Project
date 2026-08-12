@@ -40,6 +40,19 @@ const ACTIONS = {
       sources: ['luongson', 'xoilac', 'socolive'],
       error: 'Simulated all-sources failure',
     }),
+  domain_changed: async (tg) =>
+    tg.streamingDomainChanged({
+      source: 'sourceA',
+      oldDomain: 'old-domain.com',
+      newDomain: 'new-domain.com',
+    }),
+  website_error: async (tg) =>
+    tg.websiteError({
+      source: 'sourceA',
+      website: 'old-domain.com',
+      error: 'ENOTFOUND',
+      consecutiveFailures: 3,
+    }),
   daily_report: async (tg) =>
     tg.dailyReport({
       date: new Date().toISOString().slice(0, 10),
@@ -85,6 +98,8 @@ async function main() {
       delete tg.state.alerts.high_memory;
       delete tg.state.alerts['website_timeout:https://example-stream.test'];
       delete tg.state.alerts.all_sources_failed;
+      delete tg.state.alerts['domain_changed:sourceA'];
+      delete tg.state.alerts['website_error:sourceA'];
       delete tg.state.alerts.daily_report;
       tg._saveState();
     }
