@@ -1,6 +1,7 @@
 require('dotenv').config();
 
 const { logger } = require('./utils/logger');
+const { assertProductionEnv } = require('./utils/productionChecks');
 const { Pipeline } = require('./services/pipeline');
 const { Scheduler } = require('./services/scheduler');
 const { createApp } = require('./app');
@@ -8,6 +9,8 @@ const { createAdminContext } = require('./admin/services/adminContext');
 const { startMonitoring } = require('./monitor');
 
 async function main() {
+  assertProductionEnv(process.env);
+
   const pipeline = new Pipeline(process.env);
   const { cache, github } = pipeline;
 

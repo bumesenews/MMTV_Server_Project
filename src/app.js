@@ -7,6 +7,10 @@ const { logger } = require('./utils/logger');
 
 function createApp({ pipeline, cache, admin, env = process.env }) {
   const app = express();
+  // Behind nginx/ALB set TRUST_PROXY=1 so req.ip / rate limits stay accurate.
+  if (env.TRUST_PROXY === '1' || env.TRUST_PROXY === 'true') {
+    app.set('trust proxy', 1);
+  }
   app.use(cors());
   app.use(express.json({ limit: '2mb' }));
 

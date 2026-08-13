@@ -179,7 +179,8 @@ class StreamEngine {
     const list = fixtures || [];
     if (!list.length) return [];
 
-    const discovery = await this.discoverAll();
+    // One list-page fetch per source; match 15–20 due FotMob fixtures via URL helper
+    const discovery = await this.discoverAll(list);
     const urlBySourceMatch = {};
     for (const [sourceName, matches] of Object.entries(discovery)) {
       urlBySourceMatch[sourceName] = new Map();
@@ -445,12 +446,30 @@ class StreamEngine {
     return results;
   }
 
-  async discoverAll() {
+  /**
+   * Discover match pages once per source.
+   * Prefers multi-match Axios list + FotMob URL matching when available.
+   */
+  async discoverAll(fixtures = []) {
     const bySource = {};
     for (const source of this.sources) {
       try {
-        logger.info('Discovering matches once', { source: source.name });
-        bySource[source.name] = await source.discoverMatches();
+        logger.info('Discovering matches once', {
+          source: source.name,
+          fixtures: (fixtures || []).length,
+        });
+
+        let found = [];
+        if (
+          typeof source.discoverMatchesForFixtures === 'function' &&
+          (fixtures || []).length
+        ) {
+          found = await source.discoverMatchesForFixtures(fixtures);
+        } else {
+          found = await source.discoverMatches();
+        }
+
+        bySource[source.name] = found || [];
         this.scraperMonitor?.recordSourceResult(source.name, {
           ok: true,
           url: source.baseUrl || source.config?.domains?.[0],

@@ -18,13 +18,17 @@ const { HighlightManager } = require('./highlightManager');
 const { getScraperMonitor, isTimeoutError } = require('../monitor/scraper.monitor');
 const { getGithubMonitor } = require('../monitor/github.monitor');
 const { getTelegramService } = require('./telegram.service');
+const {
+  syncMatchesForDelivery,
+  readExistingMatches,
+} = require('./matchesSyncService');
 
 /**
  * Main AWS processing pipeline (matches.json):
  * Load config → FotMob fixtures once/day (today+tomorrow) →
  * kickoff-relative stream search (−30/−15/−5/0/+5/+10; stop +15) →
  * status from fixture kickoff (LIVE until +120m, then END + drop streams) →
- * Flutter JSON → GitHub
+ * sync matches.json (expire kickoff+2h, merge streams) → GitHub PUT if changed
  *
  * Separate jobs:
  * - Highlights every 3 hours (runHighlights)
@@ -236,9 +240,10 @@ class Pipeline {
         };
       }
 
-      // Fallback without admin context
+      // Fallback without admin context — same expire/merge sync as publish
+      const sync = syncMatchesForDelivery(readExistingMatches(this.cache), matches);
       const payload = generateFlutterJson(
-        matches,
+        sync.matches,
         {
           configOrigin: config.origin,
           sources: sourceNames,
@@ -246,7 +251,13 @@ class Pipeline {
         extras
       );
       const previousCache = this.cache.getCurrent();
-      if (this.cache.isEmptyPayload(payload) && previousCache?.matches?.length) {
+      const intentionalEmptyCleanup =
+        sync.removedExpired > 0 && sync.matches.length === 0;
+      if (
+        this.cache.isEmptyPayload(payload) &&
+        previousCache?.matches?.length &&
+        !intentionalEmptyCleanup
+      ) {
         logger.warn('Generated empty payload — keeping previous valid data');
         logEvent(events.GITHUB_SKIPPED, 'Skip upload — empty generation');
         this.lastRun = {
@@ -403,10 +414,8 @@ class Pipeline {
     if (!match?.matchId) return;
 
     const current = this.cache.getCurrent();
-    const matches = Array.isArray(current?.matches) ? [...current.matches] : [];
-    const idx = matches.findIndex((m) => m.matchId === match.matchId);
-    if (idx >= 0) matches[idx] = match;
-    else matches.push(match);
+    // Publish path runs full sync (expire + merge streams) against matches.json
+    const incoming = [match];
 
     const extras = {
       highlights: current?.highlights || [],
@@ -415,7 +424,7 @@ class Pipeline {
 
     if (this.admin?.publish) {
       await this.admin.publish.publish(
-        matches,
+        incoming,
         {
           configOrigin: meta.configOrigin || 'runtime',
           sources: meta.sources || [],
@@ -426,8 +435,11 @@ class Pipeline {
       return;
     }
 
+    const existing = readExistingMatches(this.cache);
+    const sync = syncMatchesForDelivery(existing, incoming);
+
     const payload = generateFlutterJson(
-      matches,
+      sync.matches,
       {
         configOrigin: meta.configOrigin || 'runtime',
         sources: meta.sources || [],
@@ -442,6 +454,7 @@ class Pipeline {
     });
     const { previous: prevDelivery } = this.cache.saveDeliveryBundle(delivery);
     try {
+      // uploadJsonIfChanged → PUT only when content changed
       await this.github.uploadDeliveryBundle(delivery, prevDelivery);
     } catch (err) {
       logger.warn('Immediate GitHub sync failed', { error: err.message });

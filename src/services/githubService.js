@@ -139,6 +139,7 @@ class GitHubService {
     const remote = remoteEarly;
     const baseline = remote.content ?? previousLocal;
 
+    // Only PUT when there are actual content changes (new streams, expired removed, etc.)
     if (!this.payloadChanged(baseline, payload)) {
       logEvent(events.GITHUB_SKIPPED, 'GitHub upload skipped — unchanged', {
         path: filePath,
@@ -148,7 +149,7 @@ class GitHubService {
     }
 
     const body = {
-      message: `chore: update ${feedKey} JSON ${new Date().toISOString()}`,
+      message: `chore: sync ${feedKey}.json ${new Date().toISOString()}`,
       content: Buffer.from(JSON.stringify(payload, null, 2), 'utf8').toString('base64'),
       branch: this.branch,
       ...(remote.sha ? { sha: remote.sha } : {}),

@@ -15,6 +15,7 @@ data/admin/manual-matches.json
 data/admin/mainlive-matches.json
 data/admin/team-settings.json
 data/telegram-alert-state.json
+data/domain-check-state.json
 secrets/*
 !secrets/.gitkeep
 !secrets/README.md

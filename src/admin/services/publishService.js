@@ -3,11 +3,21 @@ const { buildDeliveryBundle } = require('../../services/deliveryFormats');
 const { priorityMapFromSourcesDoc } = require('../../sources/registry');
 const { getGithubMonitor } = require('../../monitor/github.monitor');
 const { enrichMatchState } = require('../../services/statusService');
+const {
+  syncMatchesForDelivery,
+  readExistingMatches,
+} = require('../../services/matchesSyncService');
 
 /**
  * Applies admin overrides + league filters, writes local cache, uploads GitHub if changed.
  * Publishes Flutter feeds: matches, highlight, myanmartv.
  * mainlive.json is published separately via publishMainLive().
+ *
+ * matches.json sync before save/GitHub:
+ * - read existing delivery matches
+ * - drop expired (kickoff + 2h)
+ * - merge newly found valid stream URLs
+ * - GitHub PUT only when content actually changed
  */
 class PublishService {
   constructor({
@@ -114,6 +124,10 @@ class PublishService {
     const withOverrides = this.overrides.applyToMatches(statusFixed, priorityMap);
 
     const previous = this.cache.getCurrent();
+    const existingMatches = readExistingMatches(this.cache);
+
+    // Sync vs matches.json: expire kickoff+2h, merge new valid streams
+    const sync = syncMatchesForDelivery(existingMatches, withOverrides);
 
     const extrasMerged = {
       highlights: extras.highlights ?? previous?.highlights ?? [],
@@ -125,15 +139,27 @@ class PublishService {
     const { sourcesDoc: _omitSourcesDoc, ...publicMeta } = meta || {};
 
     const payload = generateFlutterJson(
-      withOverrides,
+      sync.matches,
       {
         ...publicMeta,
         adminApplied: true,
+        sync: {
+          removedExpired: sync.removedExpired,
+          streamsAdded: sync.streamsAdded,
+          matchesAdded: sync.matchesAdded,
+        },
       },
       extrasMerged
     );
 
-    if (this.cache.isEmptyPayload(payload) && previous?.matches?.length) {
+    // Refuse accidental empty scrape overwrite — allow intentional expiry cleanup
+    const intentionalEmptyCleanup =
+      sync.removedExpired > 0 && sync.matches.length === 0;
+    if (
+      this.cache.isEmptyPayload(payload) &&
+      previous?.matches?.length &&
+      !intentionalEmptyCleanup
+    ) {
       return {
         ok: false,
         reason: 'refuse_empty',
@@ -153,6 +179,7 @@ class PublishService {
 
     const { previous: prevDelivery } = this.cache.saveDeliveryBundle(delivery);
 
+    // GitHub REST PUT only when matches (or other feeds) actually changed
     let github = { uploaded: false, reason: 'local_unchanged', feeds: {} };
     try {
       github = await this.github.uploadDeliveryBundle(delivery, prevDelivery);

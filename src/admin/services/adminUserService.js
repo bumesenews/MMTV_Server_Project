@@ -33,10 +33,14 @@ class AdminUserService {
     if (users.length) return sanitizeUser(users[0]);
 
     const username = this.env.ADMIN_USERNAME || 'admin';
-    const password = this.env.ADMIN_PASSWORD || 'admin123';
+    const isProd = String(this.env.NODE_ENV || '').toLowerCase() === 'production';
+    const password = this.env.ADMIN_PASSWORD || (isProd ? '' : 'admin123');
+    if (isProd && (!password || password === 'admin123' || password === 'YOUR_ADMIN_PASSWORD')) {
+      throw new Error('ADMIN_PASSWORD must be a strong non-default value in production');
+    }
     const user = await this.createUser({
       username,
-      password,
+      password: password || 'admin123',
       role: ROLES.SUPER_ADMIN,
       displayName: 'Administrator',
     });

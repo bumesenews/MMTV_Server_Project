@@ -36,15 +36,24 @@ class ConfigLoader {
     }
 
     const local = this.loadFromLocal();
+    // USE_LOCAL_CONFIG=true (default for EC2 deploys): prefer on-disk config so a
+    // stale GitHub sources.json cannot re-enable removed scrapers / old domains.
+    const preferLocal = String(this.env.USE_LOCAL_CONFIG || 'true').toLowerCase() !== 'false';
+    const sources = preferLocalSources(local.sources, remote?.sources, preferLocal);
     const merged = {
       // Prefer local leagues over remote so deployed config/leagues.json
       // (ASEAN, Friendlies, Summer Series, etc.) is not wiped by a stale GitHub copy.
       // Remote still fills in if local is missing.
       leagues: mergeLeaguesDoc(local.leagues, remote?.leagues),
       teams: mergeTeamsDoc(local.teams, remote?.teams),
-      sources: remote?.sources || local.sources,
-      origin: remote ? 'github' : 'local',
+      sources,
+      origin: remote ? (preferLocal && hasSources(local.sources) ? 'local+github' : 'github') : 'local',
       loadedAt: new Date().toISOString(),
+      sourcesOrigin: hasSources(local.sources) && (preferLocal || !hasSources(remote?.sources))
+        ? 'local'
+        : hasSources(remote?.sources)
+          ? 'github'
+          : 'local',
       leaguesOrigin: local.leagues?.allowedLeagues?.length
         ? remote?.leagues?.allowedLeagues?.length
           ? 'merged'
@@ -148,4 +157,15 @@ function mergeTeamsDoc(local, remote) {
   return remote || local || {};
 }
 
-module.exports = { ConfigLoader, githubHeaders };
+function hasSources(doc) {
+  return Array.isArray(doc?.sources) && doc.sources.length > 0;
+}
+
+/** Prefer local sources when present so production domains stay under deploy control. */
+function preferLocalSources(local, remote, preferLocal) {
+  if (preferLocal && hasSources(local)) return local;
+  if (hasSources(remote)) return remote;
+  return local || remote || { sources: [] };
+}
+
+module.exports = { ConfigLoader, githubHeaders, preferLocalSources };

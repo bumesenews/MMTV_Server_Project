@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-07-19T00:00:00.000Z",
+  "updatedAt": "2026-08-13T00:00:00.000Z",
   "sources": [
     {
       "name": "fotmob",
@@ -17,50 +17,12 @@
       }
     },
     {
-      "name": "luongson",
-      "enabled": true,
-      "type": "streaming",
-      "priority": 500,
-      "extractionMethod": "axios-first",
-      "parser": "luongson",
-      "domains": ["https://luongsontvv.org"],
-      "mirrorDomains": [],
-      "paths": {
-        "home": "/",
-        "schedule": "/lich-thi-dau"
-      },
-      "attrs": {
-        "href": ["href", "data-href", "data-url"],
-        "src": ["src", "data-src", "data-lazy-src"]
-      },
-      "selectors": {
-        "matchCard": [".match-item", ".match-card", ".event-card", ".list-match .item", "a.match"],
-        "league": [".league-name", ".competition", ".tour-title", ".league"],
-        "homeTeam": [".home-team", ".team-home", ".team.home", ".home .name"],
-        "awayTeam": [".away-team", ".team-away", ".team.away", ".away .name"],
-        "time": [".match-time", ".time", ".kickoff", ".hour"],
-        "matchLink": ["a", "a.match-link", "a[href*='/truc-tiep']", "a[href*='/live']"],
-        "qualityButton": [".quality-btn", ".server-btn", ".stream-option", ".btn-quality", ".list-server button", ".server-list a"],
-        "iframe": ["iframe", "iframe.player", "iframe#player", ".player-container iframe"],
-        "video": ["video", "video source", "#player video"]
-      },
-      "streamDetection": {
-        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8"],
-        "waitAfterLoadMs": 4000,
-        "waitAfterClickMs": 2000
-      },
-      "playerRules": {
-        "autoPlay": true,
-        "clickPlaySelectors": [".vjs-big-play-button", ".play-btn", "#play", ".btn-play"]
-      }
-    },
-    {
       "name": "cakhia",
       "enabled": true,
       "type": "streaming",
       "priority": 450,
       "extractionMethod": "axios-first",
-      "domains": ["https://cakhiazvl.tv"],
+      "domains": ["https://cakhiazvm.tv"],
       "mirrorDomains": [],
       "paths": {
         "home": "/",
@@ -96,7 +58,7 @@
         "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-btn", "#play", ".btn-play", ".play-button"]
       },
-      "notes": "Primary: https://cakhiazvk.tv/"
+      "notes": "https://cakhiazvm.tv/"
     },
     {
       "name": "xoilac",
@@ -105,8 +67,8 @@
       "priority": 400,
       "extractionMethod": "axios-first",
       "parser": "xoilac",
-      "domains": ["https://xoilacxtu.tv"],
-      "mirrorDomains": ["https://xoilacxtu.tv"],
+      "domains": ["https://xoilacxtn.tv"],
+      "mirrorDomains": [],
       "paths": {
         "home": "/",
         "schedule": "/lich-thi-dau"
@@ -134,15 +96,16 @@
       "playerRules": {
         "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-button", ".btn-play"]
-      }
+      },
+      "notes": "https://xoilacxtn.tv/"
     },
     {
-      "name": "90phut",
-      "enabled": false,
+      "name": "colatv",
+      "enabled": true,
       "type": "streaming",
       "priority": 350,
       "extractionMethod": "axios-first",
-      "domains": ["https://90phutzk.tv"],
+      "domains": ["https://colatv65.live"],
       "mirrorDomains": [],
       "paths": {
         "home": "/",
@@ -152,20 +115,20 @@
         "waitUntil": "domcontentloaded",
         "waitMs": 2800,
         "scroll": true,
-        "scrollY": 1200
+        "scrollY": 1400
       },
       "attrs": {
-        "href": ["href", "data-href", "data-url"],
+        "href": ["href", "data-href", "data-url", "data-link"],
         "src": ["src", "data-src", "data-lazy-src"]
       },
       "selectors": {
-        "matchCard": [".match-item", ".match-card", ".fixture-item", ".event-card", ".list-match .item", ".schedule-item"],
-        "league": [".league-name", ".competition", ".tour-title", ".league"],
+        "matchCard": [".match-item", ".match-card", ".fixture-item", ".event-card", ".list-match .item", "a.match"],
+        "league": [".league-name", ".competition", ".tour-title", ".league", ".tour-name"],
         "homeTeam": [".home-team", ".team-home", ".team.home", ".home .name", ".team1"],
         "awayTeam": [".away-team", ".team-away", ".team.away", ".away .name", ".team2"],
-        "time": [".match-time", ".time", ".kickoff", ".hour"],
+        "time": [".match-time", ".time", ".kickoff", ".hour", ".start-time"],
         "matchLink": ["a", "a.match-link", "a[href*='/truc-tiep']", "a[href*='/live']", "a[href*='/watch']"],
-        "qualityButton": [".quality-btn", ".server-btn", ".stream-option", ".btn-quality", ".list-server button", ".server-list a"],
+        "qualityButton": [".quality-btn", ".server-btn", ".stream-option", ".btn-quality", ".list-server button", ".server-list a", ".cdn-list button"],
         "iframe": ["iframe", "iframe.player", "iframe#player", ".player-container iframe", ".embed iframe"],
         "video": ["video", "video source", "#player video"]
       },
@@ -176,63 +139,19 @@
       },
       "playerRules": {
         "autoPlay": true,
-        "clickPlaySelectors": [".vjs-big-play-button", ".play-btn", "#play", ".btn-play"]
-      },
-      "notes": "Primary: https://90phutzk.tv"
-    },
-    {
-      "name": "yyzb",
-      "enabled": false,
-      "type": "streaming",
-      "priority": 300,
-      "extractionMethod": "axios-first",
-      "domains": ["https://m.yyzbtv6.com"],
-      "mirrorDomains": [],
-      "paths": {
-        "home": "/",
-        "schedule": "/schedule"
-      },
-      "discover": {
-        "waitUntil": "domcontentloaded",
-        "waitMs": 3000,
-        "scroll": true,
-        "scrollY": 1200
-      },
-      "attrs": {
-        "href": ["href", "data-href", "data-url"],
-        "src": ["src", "data-src", "data-lazy-src"]
-      },
-      "selectors": {
-        "matchCard": [".match-item", ".match-card", ".fixture-item", ".event-card", ".list-match .item", ".game-item"],
-        "league": [".league-name", ".competition", ".tour-title", ".league"],
-        "homeTeam": [".home-team", ".team-home", ".team.home", ".home .name", ".team1"],
-        "awayTeam": [".away-team", ".team-away", ".team.away", ".away .name", ".team2"],
-        "time": [".match-time", ".time", ".kickoff", ".hour"],
-        "matchLink": ["a", "a.match-link", "a[href*='/live']", "a[href*='/watch']", "a[href*='/play']"],
-        "qualityButton": [".quality-btn", ".server-btn", ".stream-option", ".btn-quality", ".list-server button", ".server-list a"],
-        "iframe": ["iframe", "iframe.player", "iframe#player", ".player-container iframe", ".embed iframe"],
-        "video": ["video", "video source", "#player video"]
-      },
-      "streamDetection": {
-        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8"],
-        "waitAfterLoadMs": 4500,
-        "waitAfterClickMs": 2500
-      },
-      "playerRules": {
-        "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-btn", "#play", ".btn-play", ".play-button"]
       },
-      "notes": "Primary: https://m.yyzbtv6.com"
+      "notes": "https://colatv65.live/"
     },
     {
       "name": "socolive",
-      "enabled": false,
+      "enabled": true,
       "type": "streaming",
-      "priority": 250,
+      "priority": 300,
       "extractionMethod": "axios-first",
       "parser": "socolive",
-      "domains": ["https://socolivekz.cc/"],
-      "mirrorDomains": ["https://socolivekz.cc/"],
+      "domains": ["https://socoliveoo.tv"],
+      "mirrorDomains": [],
       "paths": {
         "home": "/",
         "schedule": "/lich-thi-dau"
@@ -260,7 +179,8 @@
       "playerRules": {
         "autoPlay": true,
         "clickPlaySelectors": [".play", ".vjs-big-play-button", ".btn-play"]
-      }
+      },
+      "notes": "https://socoliveoo.tv/"
     },
     {
       "name": "highlight",

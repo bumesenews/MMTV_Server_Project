@@ -1,18 +1,24 @@
 const { BaseStreamingSource, sleep } = require('./baseStreamingSource');
 const { extractStreamsAxiosThenPuppeteer } = require('./httpStreamExtractor');
+const { MultiMatchScraper } = require('../services/multiMatchScraper');
 const { logger, logEvent, events } = require('../utils/logger');
 const { formatDate, nowYangon } = require('../utils/time');
 
 /**
  * Config-driven streaming source.
+ * List discovery: Axios once → extract truc-tiep URLs → match FotMob fixtures;
+ * Puppeteer fallback for Cloudflare/empty HTML (memory-optimized browser).
  * Stream URLs: axios HTML first, puppeteer-core fallback.
- * Uses sources.json domains/paths/selectors/attrs/streamDetection/playerRules.
- * Site-specific parsers can extend this when discovery quirks differ.
  */
 class GenericStreamingSource extends BaseStreamingSource {
   constructor(deps = {}) {
     const name = deps.name || deps.config?.name || 'streaming';
     super({ ...deps, name });
+    this.multiMatch = new MultiMatchScraper({
+      browser: this.browser,
+      sourceName: name,
+      linkPattern: /truc-tiep\/[^\s"'<>#?]+/gi,
+    });
   }
 
   get attrs() {
@@ -35,9 +41,55 @@ class GenericStreamingSource extends BaseStreamingSource {
     return [...new Set(urls)];
   }
 
+  /**
+   * Efficient path for 15–20 FotMob fixtures: one list fetch, URL extract, 3-layer match.
+   */
+  async discoverMatchesForFixtures(fixtures = []) {
+    return this.withRetries(async () => {
+      logEvent(events.SCRAPER_START, `${this.name} multi-match discover start`, {
+        source: this.name,
+        fixtures: (fixtures || []).length,
+      });
+      return this.multiMatch.discoverForFixtures({
+        listUrls: this.scheduleUrls(),
+        fixtures,
+        config: this.config,
+      });
+    }, 'discoverMatchesForFixtures');
+  }
+
   async discoverMatches() {
     return this.withRetries(async () => {
       logEvent(events.SCRAPER_START, `${this.name} discover start`, { source: this.name });
+
+      // Axios-first list fetch (same multi-match extractor, no FotMob filter)
+      try {
+        const entries = await this.multiMatch.fetchListEntriesAxios(
+          this.scheduleUrls(),
+          this.config
+        );
+        if (entries.length) {
+          const cards = entries
+            .map((e) => this._entryToDiscoveredCard(e))
+            .filter(Boolean);
+          const unique = dedupeByMatchId(cards);
+          logEvent(events.SCRAPER_SUCCESS, `${this.name} discover success (axios)`, {
+            source: this.name,
+            count: unique.length,
+            method: 'axios',
+          });
+          return unique;
+        }
+        logger.info(`${this.name} axios list empty — Puppeteer fallback`, {
+          source: this.name,
+        });
+      } catch (err) {
+        logger.warn(`${this.name} axios list failed — Puppeteer fallback`, {
+          source: this.name,
+          error: err.message,
+        });
+      }
+
       const page = await this.browser.newPage();
       const discovered = [];
       const opts = this.discoverOptions;
@@ -59,23 +111,53 @@ class GenericStreamingSource extends BaseStreamingSource {
               await sleep(Number(opts.scrollWaitMs || 1000));
             }
 
-            const cards = await this.extractCardsFromPage(page, url);
-            discovered.push(...cards);
+            const html = await page.content();
+            const entries = this.multiMatch.extractMatchEntries(
+              html,
+              url,
+              this.config
+            );
+            if (entries.length) {
+              discovered.push(
+                ...entries.map((e) => this._entryToDiscoveredCard(e)).filter(Boolean)
+              );
+            } else {
+              const cards = await this.extractCardsFromPage(page, url);
+              discovered.push(...cards);
+            }
           } catch (err) {
             logger.warn(`${this.name} page failed`, { url, error: err.message });
           }
         }
 
         const unique = dedupeByMatchId(discovered);
-        logEvent(events.SCRAPER_SUCCESS, `${this.name} discover success`, {
+        logEvent(events.SCRAPER_SUCCESS, `${this.name} discover success (puppeteer)`, {
           source: this.name,
           count: unique.length,
+          method: 'puppeteer',
         });
         return unique;
       } finally {
         await this.browser.safeClosePage(page);
       }
     }, 'discoverMatches');
+  }
+
+  _entryToDiscoveredCard(entry) {
+    if (!entry?.url || !entry.ok || !entry.league) return null;
+    return this.buildMatchFromCard({
+      league: entry.league,
+      homeTeam: entry.homeTeam,
+      awayTeam: entry.awayTeam,
+      date: entry.date,
+      time: entry.time,
+      matchUrl: entry.url,
+      raw: {
+        league: entry.league,
+        homeTeam: entry.homeTeam,
+        awayTeam: entry.awayTeam,
+      },
+    });
   }
 
   async extractCardsFromPage(page, pageUrl) {

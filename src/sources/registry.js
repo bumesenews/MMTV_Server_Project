@@ -64,12 +64,10 @@ function listManageableSourceNames(sourcesDoc) {
     .filter((s) => ['streaming', 'highlights', 'channels'].includes(s.type))
     .map((s) => s.name);
   const defaults = [
-    'luongson',
-    'socolive',
-    'xoilac',
     'cakhia',
-    '90phut',
-    'yyzb',
+    'xoilac',
+    'colatv',
+    'socolive',
     'highlight',
     'myanmartv',
   ];

@@ -1,112 +1,213 @@
 # How this project works
 
-Football live-streaming backend for Flutter. It scrapes fixtures and stream URLs, builds JSON feeds, serves them over HTTP, and optionally uploads to GitHub when data changes.
+Football live-streaming backend for a Flutter app. It scrapes fixtures and stream URLs, builds JSON feeds, serves them over HTTP, and uploads to GitHub when content changes.
 
-**Timezone:** Asia/Yangon  
-**Production target:** AWS EC2 `t3.micro` (1GB RAM) + PM2 + 1GB swap  
+| | |
+|---|---|
+| **Timezone** | `Asia/Yangon` (stream URL date slugs often use ICT / Asia/Bangkok) |
+| **Production host** | AWS EC2 `t3.micro` (1GB RAM) + PM2 + 1GB swap |
+| **Runtime** | Node.js ≥ 18 |
+| **Entry** | `src/index.js` (PM2: `ecosystem.config.js`) |
 
-GitHub is **delivery / backup / remote config only**. It is not the database. Local `data/` is the working store.
-
----
-
-## What it produces
-
-| Feed | Local file | HTTP URL | Source of truth |
-|------|------------|----------|-----------------|
-| MainLive | `data/delivery/mainlive.json` | `/flutter/mainlive.json` | Admin panel only |
-| Matches | `data/delivery/matches.json` | `/flutter/matches.json` | Scraper (+ optional admin manual / overrides) |
-| Highlights | `data/delivery/highlight.json` | `/flutter/highlight.json` | Highlight scraper (own cron) |
-| Myanmar TV | `data/delivery/myanmartv.json` | `/flutter/myanmartv.json` | MyanmarTV scraper (own cron) |
-
-`mainlive.json` uses the same match JSON shape as `matches.json`, but is managed only from the admin **MainLive** page. The scraper **never** overwrites it.
-
-Flutter (or any client) can read from this server or from GitHub raw URLs after upload.
+**GitHub is delivery + remote config only — not a database.**  
+Working store = local `data/`. Flutter can read this server (`/flutter/*.json`) or GitHub raw URLs after upload.
 
 ---
 
-## Mental model
+## 1. What the system produces
 
-1. **FotMob** → which matches exist (today + tomorrow) and their kickoff time (UTC/ISO).
-2. **Stream sites** → find m3u8 URLs near each match’s kickoff using a kickoff-relative schedule.
-3. **Status** → from FotMob kickoff + whether a validated stream exists (`Scheduled` → `PREPARING_STREAM` / `LIVE` → `END`).
-4. **Publish** → write local delivery JSON; upload to GitHub only when content changed.
-5. **Highlights / Myanmar TV** → separate slower jobs; not re-scraped on every matches tick.
+| Feed | Local file | HTTP | Who owns it |
+|------|------------|------|-------------|
+| **MainLive** | `data/delivery/mainlive.json` | `/flutter/mainlive.json` | Admin panel only |
+| **Matches** (SecondLive) | `data/delivery/matches.json` | `/flutter/matches.json` | Scraper (+ admin overrides / manual) |
+| **Highlights** | `data/delivery/highlight.json` | `/flutter/highlight.json` | Highlight job (own cron) |
+| **Myanmar TV** | `data/delivery/myanmartv.json` | `/flutter/myanmartv.json` | MyanmarTV job (own cron) |
+
+`mainlive.json` uses the **same match JSON shape** as `matches.json`, but the scraper **never** overwrites it. Admin MainLive page is the only writer.
+
+Also useful:
+
+| Path | Role |
+|------|------|
+| `data/current.json` | Combined local cache (matches + last highlights/channels snapshot) |
+| `GET /api/health` | Liveness |
+| `GET /` | Index of feeds/endpoints |
+| `/admin` | Admin UI |
+| `/api/admin/*` | Admin JWT API |
 
 ---
 
-## Job schedule
-
-Defaults below match production `.env.example` / `ecosystem.config.js`. Code fallbacks differ if env vars are unset (`PIPELINE_CRON` → every 1 min, `HIGHLIGHT_CRON` → every 3 hours).
+## 2. Mental model (end-to-end)
 
 ```
-Main pipeline (PIPELINE_CRON = */15 * * * *)
-└── matches.json  (fixtures cache + kickoff stream search + status + publish)
+FotMob (fixtures, today + tomorrow)
+        │
+        ▼
+Stream sites (cakhia / xoilac / colatv / socolive)
+   · discover match pages near kickoff
+   · Axios first → Puppeteer fallback
+   · validate m3u8 before AVAILABLE
+        │
+        ▼
+matchesSync (expire kickoff+2h, merge streams)
+        │
+        ▼
+Status: Scheduled → PREPARING_STREAM / LIVE → END
+        │
+        ├──► data/delivery/matches.json  (always)
+        └──► GitHub matches.json         (only if changed + auth OK)
 
-Highlight Job (HIGHLIGHT_CRON = 0 */6 * * *)
-└── highlight.json
-
-MyanmarTV Job (MYANMARTV_CRON = 0 */12 * * *)
-└── myanmartv.json
+Highlights (Hoofoot) and MyanmarTV run on slower separate crons.
+Telegram alerts ops events (never auto-edits domains).
 ```
-
-Jobs skip if another heavy job is already running (avoids OOM on 1GB).
-
-**Boot sequence** (one at a time): wait 10s → pipeline (`forceStreamCheck: false`) → wait 15s → highlights → wait 15s → MyanmarTV.
 
 ---
 
-## Config: GitHub first, local fallback
+## 3. Boot sequence
 
-When `GITHUB_TOKEN` + `GITHUB_OWNER` + `GITHUB_REPO` are set, the server loads:
+`src/index.js`:
 
-- `config/sources.json`
-- `config/leagues.json`
-- `config/teams.json`
+1. Load `.env` (`dotenv`)
+2. **`assertProductionEnv`** — in `NODE_ENV=production`, refuse weak/placeholder `ADMIN_JWT_SECRET` and `ADMIN_PASSWORD`
+3. Create `Pipeline` → admin context → seed admin if none → attach admin
+4. Start monitoring (Telegram, memory, PM2 helpers, domain monitor object)
+5. Express listen on `HOST`/`PORT` (defaults `0.0.0.0:3000`)
+6. Start cron `Scheduler`
+7. Staggered boot jobs (**1GB-safe**, no deep scrape):
+   - **+10s** → `pipeline.run({ forceStreamCheck: false })`
+   - **+15s** → `runHighlights({ force: false })`
+   - **+15s** → `runMyanmarTv({ force: false })`
+8. On SIGINT/SIGTERM → stop scheduler/monitoring, close HTTP + Puppeteer browser
 
-from GitHub (`GITHUB_CONFIG_PATH`, default `config/`).
-
-If GitHub fails or is not configured → uses local `./config/` (`LOCAL_CONFIG_DIR`).
-
-Edit remote config via:
-
-1. Admin → **Remote Config** → Save  
-2. Or edit the files on GitHub directly  
-
-Leagues are often merged so a stale remote file does not wipe local league settings.
+`forceStreamCheck: false` on boot avoids OOM from deep-scraping every fixture at startup.
 
 ---
 
-## Matches pipeline (`matches.json`)
+## 4. Job schedule
+
+Production defaults (`.env.example` / `ecosystem.config.js`):
 
 ```
-ConfigLoader (GitHub → local fallback)
-  → FotMob fixtures once per Yangon calendar day (today + tomorrow)
-  → Merge previous streams / streamSearch / streamAttempts from cache
-  → Build enabled streaming sources from sources.json (+ admin toggles)
+Main pipeline     PIPELINE_CRON      = */15 * * * *
+  └── matches.json  (fixtures cache + kickoff stream search + status + publish)
+
+Highlight job     HIGHLIGHT_CRON     = 0 */6 * * *
+  └── highlight.json
+
+MyanmarTV job     MYANMARTV_CRON     = 0 */12 * * *
+
+Domain health     DOMAIN_CHECK_CRON  = */30 * * * *
+  └── Telegram only (never edits sources.json)
+```
+
+**Code fallbacks if env vars are unset** (important on misconfigured hosts):
+
+| Job | Fallback in code |
+|-----|------------------|
+| Pipeline | every **1** minute |
+| Highlights | every **3** hours |
+| MyanmarTV | every **12** hours |
+| Domain check | every **30** minutes |
+
+Heavy jobs **skip** if another heavy job is already running (pipeline ↔ highlights ↔ MyanmarTV) to avoid OOM on 1GB.
+
+---
+
+## 5. Configuration
+
+### Files
+
+| File | Purpose |
+|------|---------|
+| `config/sources.json` | Scrapers, domains, priorities, selectors |
+| `config/leagues.json` | Allowed leagues / aliases |
+| `config/teams.json` | Team catalog / logos helpers |
+| `.env` | Secrets, crons, Chromium path, GitHub |
+
+### How config is loaded (`ConfigLoader`)
+
+1. If GitHub credentials exist → try load remote `GITHUB_CONFIG_PATH` (default `config/`)
+2. Always load local `LOCAL_CONFIG_DIR` (default `./config`)
+3. Merge rules:
+   - **`USE_LOCAL_CONFIG=true` (default):** prefer **local `sources.json`** so a stale GitHub copy cannot re-enable removed scrapers / old domains
+   - **Leagues:** merge by `standardName`; **local wins** on conflict; drop legacy `AFF Cup` if `ASEAN Championship` exists
+   - **Teams:** local list wins if non-empty
+4. If GitHub fails → local only
+
+Admin can still edit remote config (Remote Config page / GitHub), but **deployed `config/sources.json` is authoritative** when `USE_LOCAL_CONFIG` is true.
+
+---
+
+## 6. Streaming sources (current allowlist)
+
+From `config/sources.json`:
+
+| Name | Type | Priority | Domain | Notes |
+|------|------|----------|--------|-------|
+| `fotmob` | fixtures | — | `https://www.fotmob.com` | API fixtures (today + tomorrow) |
+| `cakhia` | streaming | 450 | `https://cakhiazvm.tv` | axios-first, generic |
+| `xoilac` | streaming | 400 | `https://xoilacxtn.tv` | custom parser `xoilac` |
+| `colatv` | streaming | 350 | `https://colatv65.live` | generic |
+| `socolive` | streaming | 300 | `https://socoliveoo.tv` | custom parser `socolive` |
+| `highlight` | highlights | — | `https://hoofoot.com/` | own cron |
+| `myanmartv` | channels | — | `https://www.myanmartvchannels.com/` | own cron |
+
+Removed from production config (must not come back via stale GitHub): `luongson`, `90phut`, `yyzb`.
+
+Sources without a custom parser use `GenericStreamingSource`. Registry may still contain old parser names; if they are not listed/enabled in `sources.json`, they are unused.
+
+### Adding a streaming site
+
+1. Add entry in `config/sources.json` (`type: "streaming"`, domains, paths, `extractionMethod`)
+2. Optionally register a parser in `PARSER_REGISTRY`
+3. Enable via config and/or admin source toggle
+4. Redeploy / restart so `USE_LOCAL_CONFIG` picks it up
+
+---
+
+## 7. Matches pipeline (`matches.json`)
+
+Orchestrated by `src/services/pipeline.js` → `StreamEngine` → publish/sync → GitHub.
+
+```
+ConfigLoader.load(true)
+  → FotMob fixtures (once per Yangon calendar day; force refreshes)
+  → Merge previous streams / streamSearch / pins from cache
+  → Build enabled streaming sources (priority desc)
   → StreamEngine.collectForFixtures
-       · discover match pages once per source
+       · discover match pages once per source (MultiMatchScraper)
        · process matches sequentially (Match 1 → 2 → …)
        · for each due match, check ALL enabled sources
        · Axios first → Puppeteer fallback → fast health check
-       · on first valid stream → save matches.json + GitHub immediately
+       · on first valid stream for a match → persist + GitHub immediately
   → Status enrich (Scheduled / PREPARING_STREAM / LIVE / END)
-  → PublishService (manual matches, league filter, logos, overrides)
-       or generateFlutterJson fallback
+  → PublishService (overrides, league filter, logos)
+       · matchesSyncService (expire + merge)
+       · generateFlutterJson
   → data/delivery/matches.json
-  → GitHub upload if changed
+  → GitHub upload if content changed
 ```
 
-On fixture failure: **keep previous** data. Never upload an empty overwrite over a previously populated feed.
+On fixture failure: **keep previous** data. Never empty-overwrite a previously populated GitHub feed (except intentional expiry cleanup or admin MainLive clear).
 
-The main tick does **not** re-scrape highlights / Myanmar TV; it reuses the last delivery stores for the combined cache payload.
+The main tick does **not** re-scrape highlights / Myanmar TV; it reuses the last delivery stores for the combined cache.
 
 ---
 
-## Stream search (kickoff-relative)
+## 8. Stream search (kickoff-relative)
 
 Defined in `src/utils/time.js` and `src/services/streamEngine.js`.
 
 Search is driven by each match’s **existing `kickoff` (UTC/ISO)**. There are **no fixed daily wall-clock search times**.
+
+### Constants
+
+| Constant | Value | Meaning |
+|----------|-------|---------|
+| `STREAM_FIND_LEAD_MIN` | 30 | Start searching 30 min before kickoff |
+| `STREAM_SEARCH_STOP_AFTER_MIN` | 15 | Hard stop searching 15 min after kickoff |
+| `MATCH_LIVE_DURATION_MIN` | 120 | Match considered ended; streams stripped |
+| `MAX_POST_KICKOFF_ATTEMPTS` | 3 | Cap per source after kickoff |
 
 ### Search slots
 
@@ -120,22 +221,29 @@ Search is driven by each match’s **existing `kickoff` (UTC/ISO)**. There are *
 | Kickoff + 10 min | `tP10` | Post-kickoff attempt |
 | Kickoff + 15 min | — | **Stop all stream searching** for that match |
 
-At stop: keep already-found valid streams; never search that match again for new streams. Match status can still refresh until END (+120 min).
+At stop: keep already-found valid streams; do not search that match again for new streams. Status can still refresh until END (+120 min).
 
-Inside the active search window (−30 … +15), the pipeline polls about every **2 minutes** so each slot is hit. After +15 until END, light status refresh only (~5 min). Far from kickoff, slower polling (~15 min).
+### Poll cadence (`getCheckIntervalMinutes`)
+
+| Situation | Interval |
+|-----------|----------|
+| Far from kickoff | ~15 min |
+| Inside search window (−30 … +15) | ~2 min |
+| After +15 while still LIVE/PREPARING | ~5 min |
+| END | no stream checks |
 
 ### Match-by-match processing
 
 When several matches are due together:
 
-- Do **not** launch all matches in parallel.
+- Do **not** launch all matches in parallel
 - Process **Match 1 → Match 2 → Match 3 → …**
-- For each match, check **all** enabled sources.
-- If one source succeeds, **continue** the remaining sources (do not stop early).
+- For each match, check **all** enabled sources
+- If one source succeeds, **continue** remaining sources (do not stop early)
 
 ### Per-source state (`streamSearch`)
 
-Optional field on each match (Flutter-safe to ignore). Example:
+Optional field on each match (Flutter may ignore). Example:
 
 ```json
 {
@@ -145,63 +253,99 @@ Optional field on each match (Flutter-safe to ignore). Example:
     "stopTime": null,
     "slotsDone": { "t30": true, "t15": true },
     "sources": {
-      "luongson": { "status": "AVAILABLE", "attempts": 1, "postKickoffAttempts": 0 },
-      "xoilac": { "status": "FAILED", "attempts": 2, "postKickoffAttempts": 0, "lastError": "no_valid_stream" }
+      "cakhia": { "status": "AVAILABLE", "attempts": 1, "postKickoffAttempts": 0 },
+      "xoilac": {
+        "status": "FAILED",
+        "attempts": 2,
+        "postKickoffAttempts": 0,
+        "lastError": "no_valid_stream"
+      }
     }
   }
 }
 ```
 
-Rules:
-
 | Rule | Detail |
 |------|--------|
-| Skip `AVAILABLE` | Once a source is AVAILABLE, do not search it again in later rounds |
+| Skip `AVAILABLE` | Once AVAILABLE, do not search that source again |
 | Retry failures | Failed sources may retry on later slots |
-| Post-kickoff cap | At most **3** post-kickoff attempts per source (`t0`, `tP5`, `tP10`) |
-| Hydration | Sources that already have a valid stream on the match are treated as AVAILABLE |
-| Legacy flags | `streamAttempts` (`t30`, `t15`, …) is still synced for backward compatibility |
+| Post-kickoff cap | At most **3** post-kickoff attempts per source |
+| Hydration | Sources that already have a valid stream are treated as AVAILABLE |
+| Legacy flags | `streamAttempts` (`t30`, `t15`, …) still synced for older clients |
 
-`SCHEDULED` / `LIVE` / `END` (and `PREPARING_STREAM`) remain the match-status system — `streamSearch` does not replace them.
+`streamSearch` does **not** replace match status (`Scheduled` / `PREPARING_STREAM` / `LIVE` / `END`).
 
-### Axios → Puppeteer fallback
+---
 
-For every enabled streaming source (`httpStreamExtractor.extractStreamsAxiosThenPuppeteer`):
+## 9. Discovering streams (MultiMatch + URL matching)
 
-1. Try **Axios + Cheerio** HTML scrape first (`list_stream`, embeds, m3u8 patterns, flv→m3u8).
-2. Run a **fast HEAD/GET health check** (~1–2s). HTTP **2xx** = valid; **403 / 404 / timeout / connection failure** = invalid.
-3. If Axios fails **or** returns no valid stream → **Puppeteer** network interception.
-4. Validate Puppeteer results the same way before marking the source **AVAILABLE**.
+### MultiMatchScraper (`src/services/multiMatchScraper.js`)
 
-Axios should handle most searches; Puppeteer is only the fallback.
+Used by generic streaming sources to map FotMob fixtures → site match pages:
 
-Match-page **discovery** (finding the fixture URL on a site) may still use Puppeteer.
+1. Filter fixtures in the search window (−30 … +15) for today/tomorrow
+2. Axios GET list pages (`home` + `schedule` from source config)
+3. Extract `truc-tiep/...` style links (Cheerio + regex)
+4. If list empty / Cloudflare → **Puppeteer** fallback for the list page
+5. For each fixture, `matchStreamToFotmob(...)` picks the best URL
+6. Soft retry with `skipLeagueCheck` if league tags were too strict
 
-### Puppeteer on 1GB RAM
+### URL ↔ FotMob matching (`src/utils/streamUrlHelper.js`)
+
+Three layers (all should agree for a confident match):
+
+1. **Time** — kickoffs within ±30 minutes (UTC)
+2. **League / country tags** — optional; can be skipped on soft retry
+3. **Teams** — both home and away core keywords appear in the URL slug
+
+Typical slug shape:
+
+`{home}-vs-{away}-luc-{HHMM}-ngay-{DD}-{MM}-{YYYY}` (ICT)
+
+Helpers: `parseStreamUrl`, `cleanTeamName`, `isMatchWithinWindow`, `matchStreamToFotmob`.
+
+### Extract playable URL
+
+`httpStreamExtractor.extractStreamsAxiosThenPuppeteer`:
+
+1. **Axios + Cheerio** HTML scrape (`list_stream`, embeds, m3u8 patterns, flv→m3u8)
+2. **Fast health check** (HEAD/GET, ~1–2s / `STREAM_FAST_HEALTH_TIMEOUT_MS`) — 2xx = valid; 403/404/timeout = invalid
+3. If Axios fails or yields no valid stream → **Puppeteer** network interception
+4. Validate Puppeteer results the same way before marking source **AVAILABLE**
+
+Axios should handle most searches; Puppeteer is the fallback.
+
+---
+
+## 10. Puppeteer on 1GB RAM
 
 `src/browser/puppeteerManager.js`:
 
 - Reuse **one** browser instance
-- Maximum **2** concurrent pages (`PUPPETEER_MAX_PAGES`, default 2) via a page-slot queue
-- Block images, stylesheets, fonts, media (and related heavy types)
-- Low-memory Chromium flags (`--single-process`, `--disable-dev-shm-usage`, small JS heap, etc.)
-- Recycle browser after N idle pages
+- Max **2** concurrent pages (`PUPPETEER_MAX_PAGES`, default 2) via a queue
+- Block images, stylesheets, fonts, media
+- Low-memory Chromium flags (`--single-process`, `--disable-dev-shm-usage`, small heap, etc.)
+- Recycle browser after N pages (`BROWSER_RESTART_EVERY_N_PAGES`, default 5)
+- Production: set `PUPPETEER_EXECUTABLE_PATH` to system Chromium (e.g. `/usr/bin/chromium-browser` or `/snap/bin/chromium`)
 
-Because matches are processed sequentially and pages are capped at 2, the server does not launch unlimited browser tasks when many matches are due.
+Because matches are sequential and pages are capped, the server does not open unlimited Chromium tabs when many kickoffs align.
 
-### Immediate save on valid stream
+---
+
+## 11. Immediate save on valid stream
 
 As soon as any source returns a **validated** stream for a match:
 
-1. Update that match in memory  
-2. Save `matches.json` immediately (`CacheService` / delivery)  
-3. Trigger the existing GitHub upload/sync path  
+1. Update that match in memory
+2. Run expire/merge sync for delivery
+3. Save `matches.json` immediately
+4. Trigger GitHub upload if content changed
 
 Do not wait for all sources or all matches in the cycle. End-of-cycle publish still runs for the full fixture set.
 
 ---
 
-## Match status system
+## 12. Match status system
 
 `src/services/statusService.js` — status is **not** taken from streaming websites’ “live” badges.
 
@@ -212,197 +356,324 @@ Do not wait for all sources or all matches in the cycle. End-of-cycle publish st
 | Kickoff → +120 min, **valid** stream | `LIVE` | Kept |
 | After +120 min | `END` | Removed |
 
-- **`LIVE` never from kickoff alone** — requires a playable/validated stream URL  
-- Admin / `statusLocked` can freeze status  
-- Live window length: `MATCH_LIVE_DURATION_MIN = 120`
+- **`LIVE` never from kickoff alone** — requires a playable/validated stream URL
+- Admin / `statusLocked` can freeze status
+- Live window: `MATCH_LIVE_DURATION_MIN = 120`
 
 ---
 
-## Source / plugin system
+## 13. Expire & merge (`matchesSyncService`)
 
-Configured in `config/sources.json`. Engine sources are built by `src/sources/registry.js`.
+Before every save / GitHub push for matches:
 
-| Source | Type | Role |
-|--------|------|------|
-| `fotmob` | fixtures | Today + tomorrow fixtures (API), cached once per Yangon day |
-| `luongson`, `xoilac` | streaming | Custom parsers + shared axios→Puppeteer extract |
-| `cakhia` (and similar) | streaming | `GenericStreamingSource` (config-driven selectors) |
-| `90phut`, `yyzb`, `socolive` | streaming | Present in config; often disabled |
-| `highlight` | highlights | Dedicated cron → `highlight.json` |
-| `myanmartv` | channels | Dedicated cron → `myanmartv.json` |
-
-**MainLive** is not a scraper source — admin-owned feed only.
-
-To add a streaming site:
-
-1. Add an entry in `sources.json` (`type: "streaming"`, `enabled`, domains, selectors, `extractionMethod`)  
-2. Optionally register a custom parser in `PARSER_REGISTRY`  
-3. Enable the source (admin toggle and/or config)  
-
-Sources without a custom parser use `GenericStreamingSource`.
+1. Drop matches whose kickoff is older than **kickoff + 2 hours** (`MATCH_EXPIRE_AFTER_SEC`, default `7200`)
+2. Merge by `matchId`:
+   - Append new valid stream URLs
+   - Skip streams marked `active: false` or `validation.ok: false`
+   - Preserve admin flags: `manual`, `statusLocked`, `pinned`, `featured`
+   - Merge `streamAttempts` / `sourcePages` / names; prefer incoming `streamSearch`
+3. Append brand-new `matchId`s
+4. Change detection decides whether GitHub PUT is needed
+5. Intentional empty file is allowed only when expiry cleaned everything; otherwise refuse empty overwrite
 
 ---
 
-## Admin panel
+## 14. GitHub delivery
 
-- UI: `http://<host>:3000/admin` (`public/admin/`)
-- Auth: JWT (`ADMIN_JWT_*`; seed with `npm run admin:seed`)
+`src/services/githubService.js`
 
-Capabilities:
-
-- **Overrides** — hide / pin / feature, status lock, kickoff edits, manual streams (manual beats auto sources)
-- **Manual matches** — merged into scraper matches on publish
-- **MainLive** — separate CRUD → `publishMainLive()` only
-- **Leagues / teams / sources** — filters, icons, enable/disable
-- **Remote config** — edit GitHub `sources.json` / related config
-- **Publish / pipeline trigger**, notifications (FCM), logs, dashboard
-
-`PublishService.publish`: merge manuals → league filter → enrich status → apply overrides → `generateFlutterJson` → local cache/delivery → GitHub.
-
----
-
-## Delivery files and GitHub sync
-
-| Feed | Local | GitHub path (env default) |
-|------|-------|---------------------------|
-| MainLive | `data/delivery/mainlive.json` | `GITHUB_MAINLIVE_PATH` → `mainlive.json` |
-| Matches | `data/delivery/matches.json` | `GITHUB_MATCHES_PATH` / `GITHUB_DATA_PATH` |
-| Highlights | `data/delivery/highlight.json` | `GITHUB_HIGHLIGHTS_PATH` |
-| Myanmar TV | `data/delivery/myanmartv.json` | `GITHUB_CHANNELS_PATH` |
+| Env | Role |
+|-----|------|
+| `GITHUB_TOKEN` | PAT (classic `repo` or fine-grained **Contents: Read and write**) |
+| `GITHUB_OWNER` / `GITHUB_REPO` / `GITHUB_BRANCH` | Target repo |
+| `GITHUB_*_PATH` | File paths (defaults: `matches.json`, `highlight.json`, `myanmartv.json`, `mainlive.json` at repo root) |
 
 Rules:
 
-- Upload only when content changed (volatile timestamps ignored in compare)
-- Refuse empty overwrite if the previous feed had data
-- Scraper publish omits MainLive from its bundle so admin ownership stays intact
-
-Delivery shapes (`deliveryFormats.js`):
-
-- `matches` / `mainlive`: `{ version, generatedAt, timezone, matchCount, matches, meta }`
-- `highlight`: `{ source, scraped_at, count, highlights }`
-- `myanmartv`: array of `{ title, img, streamUrl, … }`
+- Upload **only when content changed** (volatile fields stripped for compare)
+- **Refuse empty overwrite** if previous local/remote feed was populated
+- Scraper publish **omits** `mainlive` so admin owns it
+- `401 Bad credentials` = wrong/missing token or placeholder `YOUR_GITHUB_*` in `.env` — not a scraper bug
+- Config path on GitHub is separate from Flutter JSON delivery path
 
 ---
 
-## Flutter compatibility
+## 15. Highlights & Myanmar TV
 
-`generateFlutterJson` match fields:
+| Job | Method | Production cron | Behaviour |
+|-----|--------|-----------------|-----------|
+| Highlights | `runHighlights` | every 6 hours | Hoofoot scrape → merge/dedupe → retention (~7 days) → `highlight.json` |
+| MyanmarTV | `runMyanmarTv` | every 12 hours | Channel list → `myanmartv.json` array |
 
-- Identity / display: `matchId`, league/teams/logos, `date`, `time`, `kickoff`, `timezone`
-- Status flags: `status`, `manual`, `statusLocked`, `pinned`, `featured`, `hasStreams`, `streamCount`
-- `originalNames`, `sourcePages`
-- `streams[]`: `source`, `type`, `quality` / `name`, `url`, `headers` (User-Agent / Referer / Cookie), `active`, `checkedAt`, optional `manualId`
-- `streamAttempts` (legacy slot flags)
-- **`streamSearch` (optional)** — only included when present; clients may ignore it
+Shared safety:
 
-Statuses to handle: `Scheduled` | `PREPARING_STREAM` | `LIVE` | `END`.
-
----
-
-## Low-memory production (1GB)
-
-| Setting | Typical value |
-|---------|----------------|
-| `LOW_MEMORY_MODE` | `true` |
-| Node heap | `--max-old-space-size=256 --expose-gc` |
-| PM2 `max_memory_restart` | `350M` |
-| Pipeline cron | every **15 min** |
-| Highlights | every **6 hours** |
-| MyanmarTV | every **12 hours** |
-| Puppeteer max pages | **2** |
-| Puppeteer timeout | `25000` ms |
-| Browser restart | every **5** pages (idle) |
-| `PUPPETEER_HEADLESS` | `new` |
-| Chromium | `--single-process`, block images/CSS/fonts/media, small JS heap |
-
-Also recommended on Ubuntu EC2: **1GB swap** + `vm.swappiness=10`.
-
-See `.env.example` and `ecosystem.config.js` for the full tuned values.
+- Mutual exclusion with the main pipeline
+- On scrape failure → keep previous file
+- GitHub only if changed; refuse empty wipe of a populated feed
+- Main pipeline only **reuses** last stores (does not re-scrape these)
 
 ---
 
-## Monitoring (optional Telegram)
+## 16. Domain health monitor
 
-When `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` are set (`src/monitor/`, `telegram.service.js`):
+`src/monitor/domain.monitor.js` + scheduler cron:
 
-- Scraper failures / timeouts  
-- GitHub upload failures  
-- Memory / PM2 health  
-- Daily report (default 09:00 Yangon)  
-- Crash hooks on fatal errors  
+- Probes enabled **streaming** primary domains
+- After `DOMAIN_CHECK_FAIL_THRESHOLD` (default **3**) consecutive failures → follow redirects / mirrors / www variants
+- Sends Telegram: domain changed vs site down
+- State file: `data/domain-check-state.json`
+- **Never auto-edits `sources.json`** — humans update domains after the alert
 
-Test with `npm run telegram:test`.
+Disable with `DOMAIN_CHECK_ENABLED=false`.
 
 ---
 
-## Main modules
+## 17. Admin panel
+
+- UI: `http://<host>:3000/admin` (`public/admin/`)
+- Auth: JWT (`ADMIN_JWT_SECRET`, `ADMIN_JWT_EXPIRES`)
+- Seed: first boot creates user from `ADMIN_USERNAME` / `ADMIN_PASSWORD` (production forbids `admin123` / placeholders)
+- Roles: `viewer` < `editor` < `admin` < `super_admin`
+
+Typical capabilities:
+
+| Area | What it does |
+|------|----------------|
+| Dashboard | High-level status |
+| MainLive | CRUD matches/streams → `mainlive.json` only |
+| Matches | View scraped matches, pin, status lock, stream edits, manual matches |
+| Leagues / teams | Catalog + sync helpers |
+| Sources | Enable/disable scrapers; edit config (admin) |
+| Notifications | FCM send / templates / history |
+| Logs | Admin action log |
+| Pipeline run | Manual `POST` with optional `force` |
+
+Publish path applies overrides, league filters, logos/icons, then sync + GitHub.
+
+---
+
+## 18. Flutter JSON shapes
+
+### `matches.json` / `mainlive.json`
+
+```json
+{
+  "version": 1,
+  "generatedAt": "2026-08-13T15:00:00.000Z",
+  "timezone": "Asia/Yangon",
+  "matchCount": 23,
+  "matches": [
+    {
+      "matchId": "...",
+      "league": "...",
+      "home": "...",
+      "away": "...",
+      "homeLogo": null,
+      "awayLogo": null,
+      "date": "2026-08-13",
+      "time": "19:30",
+      "kickoff": "2026-08-13T12:30:00.000Z",
+      "status": "LIVE",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "streams": [
+        {
+          "source": "cakhia",
+          "type": "hls",
+          "quality": "auto",
+          "url": "https://.../index.m3u8",
+          "headers": {},
+          "active": true
+        }
+      ],
+      "streamSearch": {},
+      "streamAttempts": {}
+    }
+  ],
+  "meta": {
+    "feed": "matches",
+    "liveCount": 1,
+    "scheduledCount": 10,
+    "endedCount": 0,
+    "checksum": "..."
+  }
+}
+```
+
+MainLive sets `meta.feed = "mainlive"` and `meta.source = "admin"`.
+
+### `highlight.json`
+
+```json
+{
+  "source": "https://hoofoot.com/",
+  "scraped_at": "...",
+  "count": 8,
+  "highlights": [
+    {
+      "id": "...",
+      "title": "...",
+      "img": "...",
+      "url": "...",
+      "match_date": "...",
+      "embed_url": "...",
+      "m3u8": "...",
+      "headers": {},
+      "source": "hoofoot"
+    }
+  ]
+}
+```
+
+### `myanmartv.json`
+
+Plain array:
+
+```json
+[
+  { "title": "Channel", "img": "...", "streamUrl": "https://..." }
+]
+```
+
+---
+
+## 19. HTTP API (public surface)
+
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/flutter/mainlive.json` | Admin MainLive |
+| GET | `/flutter/matches.json` | Scraped matches |
+| GET | `/flutter/highlight.json` | Highlights |
+| GET | `/flutter/myanmartv.json` | Channels |
+| GET | `/api/health` | Health |
+| GET | `/api/matches` | API-shaped matches (may require `x-api-key`) |
+| POST | `/api/pipeline/run` | Trigger pipeline (API key) |
+| POST | `/api/admin/auth/login` | Admin JWT |
+| * | `/api/admin/*` | Admin APIs |
+
+`ENABLE_PUBLIC_JSON=true` allows unauthenticated GET of Flutter feed paths. Otherwise send `x-api-key` / `apiKey` matching `API_KEY`.
+
+Optional: `TRUST_PROXY=true` when behind nginx/ALB.
+
+---
+
+## 20. Production safety rules
+
+| Rule | Why |
+|------|-----|
+| Refuse empty GitHub overwrite | Prevent wipe of Flutter feeds on scrape failure |
+| Keep previous on fixture/highlight/TV failure | Continuity for the app |
+| `forceStreamCheck: false` on boot/schedule | Avoid OOM deep scrape on t3.micro |
+| Jobs never overlap | 1GB RAM |
+| Strong admin JWT + password required in production | `productionChecks.js` |
+| Local sources preferred (`USE_LOCAL_CONFIG`) | Stale remote config cannot revive dead scrapers |
+| Domain monitor = Telegram only | No silent domain rewrites |
+| Puppeteer max 2 pages | Memory cap |
+| Sequential match processing | Predictable load |
+
+---
+
+## 21. Key environment variables (1GB EC2)
+
+```env
+NODE_ENV=production
+TZ=Asia/Yangon
+HOST=0.0.0.0
+PORT=3000
+LOW_MEMORY_MODE=true
+NODE_OPTIONS=--max-old-space-size=256 --expose-gc
+USE_LOCAL_CONFIG=true
+
+GITHUB_TOKEN=...
+GITHUB_OWNER=...
+GITHUB_REPO=...
+GITHUB_BRANCH=main
+
+PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser   # or /snap/bin/chromium
+PUPPETEER_MAX_PAGES=2
+PUPPETEER_TIMEOUT_MS=25000
+BROWSER_RESTART_EVERY_N_PAGES=5
+STREAM_FAST_HEALTH_TIMEOUT_MS=8000
+
+PIPELINE_CRON=*/15 * * * *
+HIGHLIGHT_CRON=0 */6 * * *
+MYANMARTV_CRON=0 */12 * * *
+DOMAIN_CHECK_CRON=*/30 * * * *
+
+ADMIN_JWT_SECRET=...          # strong, not a placeholder
+ADMIN_PASSWORD=...            # strong, not admin123
+API_KEY=...
+ENABLE_PUBLIC_JSON=true
+
+TELEGRAM_BOT_TOKEN=...        # optional
+TELEGRAM_CHAT_ID=...
+```
+
+PM2 (`ecosystem.config.js`): 1 fork instance, `max_memory_restart: 350M`, Node heap 256MB, autorestart.
+
+---
+
+## 22. Important source files
 
 | Path | Role |
 |------|------|
-| `src/index.js` | Boot API, admin, scheduler, staggered initial jobs, shutdown |
-| `src/app.js` | Express app, `/flutter/*`, API key gate, admin static |
-| `src/routes/api.js` | Health, matches, pipeline triggers, cache/feeds |
-| `src/cli/runPipeline.js` | One-shot scrape CLI |
-| `ecosystem.config.js` | PM2 process + low-mem env |
-| `src/services/pipeline.js` | Matches pipeline + highlight + MyanmarTV jobs; immediate stream persist |
-| `src/services/streamEngine.js` | Kickoff slots, `streamSearch`, sequential multi-source extract |
-| `src/services/scheduler.js` | Three Yangon-timezone cron jobs |
-| `src/utils/time.js` | Yangon time, search slots, check intervals, LIVE duration |
-| `src/services/statusService.js` | Scheduled / PREPARING_STREAM / LIVE / END |
-| `src/services/jsonGenerator.js` | Flutter payload shape (+ optional `streamSearch`) |
-| `src/services/deliveryFormats.js` | Split delivery files for HTTP/GitHub |
-| `src/services/githubService.js` | Change-only GitHub JSON upload |
-| `src/services/cacheService.js` | Local `current` / `previous` + `data/delivery/*` |
-| `src/services/configLoader.js` | GitHub or local config load |
-| `src/services/fixtureService.js` | FotMob fixture collection |
-| `src/services/streamValidator.js` | Fast health check + full validate / rank |
-| `src/services/matchMerger.js` | Merge multi-source streams onto a match |
-| `src/sources/registry.js` | Parser registry + build engine sources |
-| `src/sources/httpStreamExtractor.js` | Shared Axios-first → Puppeteer extract |
-| `src/sources/genericStreamingSource.js` | Config-driven discover + extract |
-| `src/sources/fotmob.js` | Fixture source |
-| `src/sources/luongson.js` / `xoilac.js` / `socolive.js` | Site-specific streaming parsers |
-| `src/sources/highlight.js` / `myanmartv.js` | Highlight & channel scrapers |
-| `src/browser/puppeteerManager.js` | Shared Chromium, max 2 pages, resource blocking |
-| `src/admin/services/publishService.js` | Overrides + publish matches / MainLive |
-| `src/admin/services/mainLiveService.js` | Admin-owned MainLive store |
-| `src/admin/services/overrideService.js` | Persistent match/stream overrides |
-| `src/monitor/` + `telegram.service.js` | Optional ops alerts |
+| `src/index.js` | Boot, listen, staggered jobs, shutdown |
+| `src/app.js` | Express routes + Flutter aliases |
+| `src/services/pipeline.js` | Orchestration |
+| `src/services/streamEngine.js` | Kickoff-slot stream search |
+| `src/services/multiMatchScraper.js` | List pages → FotMob match pages |
+| `src/utils/streamUrlHelper.js` | URL parse + team/league/time match |
+| `src/services/matchesSyncService.js` | Expire + merge before save/GitHub |
+| `src/services/githubService.js` | Change-only PUT, refuse empty |
+| `src/services/configLoader.js` | Local/GitHub config merge |
+| `src/services/scheduler.js` | Crons |
+| `src/services/jsonGenerator.js` | Flutter match payload |
+| `src/services/statusService.js` | Scheduled / LIVE / END |
+| `src/browser/puppeteerManager.js` | Low-memory browser |
+| `src/monitor/domain.monitor.js` | Domain Telegram alerts |
+| `src/utils/productionChecks.js` | Production boot guards |
+| `src/admin/**` | Admin API + services |
+| `config/sources.json` | Live scraper allowlist |
+| `data/delivery/*.json` | Served / uploaded feeds |
+| `ecosystem.config.js` | PM2 process definition |
 
 ---
 
-## How to run
+## 23. CLI / npm scripts
 
-```bash
-cp .env.example .env    # fill secrets
-npm install
-npm start               # or: pm2 start ecosystem.config.js
-
-npm run scrape                     # matches
-npm run scrape -- --highlights     # highlights only
-npm run scrape -- --channels       # MyanmarTV only
-npm run scrape -- --force          # force fixture refresh / stream check
-
-pm2 restart football-streaming --update-env
-pm2 logs football-streaming
-```
-
-Admin UI: `http://<host>:3000/admin`  
-Health: `http://<host>:3000/api/health`
+| Command | Purpose |
+|---------|---------|
+| `npm start` | Run server (`src/index.js`) |
+| `npm run dev` | Watch mode |
+| `npm run scrape` | CLI pipeline (`--force`, `--highlights`, `--myanmartv`) |
+| `npm run admin:seed` | Seed admin user |
+| `npm run telegram:test` | Smoke Telegram alerts |
+| `npm run pm2:start` | `pm2 start ecosystem.config.js` |
+| `npm run pm2:logs` | Tail PM2 logs |
 
 ---
 
-## Safety behaviour / architecture constraints
+## 24. Deploy checklist (EC2)
 
-1. **GitHub is not a DB** — local `data/` is source of truth  
-2. **Never upload empty JSON** over a previously populated feed on scrape failure  
-3. **`mainlive.json` is admin-only** — scraper must not overwrite it  
-4. **Status from FotMob kickoff + stream validity** — not from stream-site live badges; `LIVE` requires a valid stream  
-5. **Stream search is kickoff-relative** (−30 / −15 / −5 / 0 / +5 / +10; hard stop +15) — not fixed wall-clock times  
-6. **Fixtures: today + tomorrow only**, scraped **once per Yangon day** (unless `--force`)  
-7. **1GB safety** — no overlapping heavy jobs; cap Puppeteer pages (default 2); do not share Chromium across heavy jobs; avoid boot `forceStreamCheck: true`  
-8. **Per-source failures continue** — one source down must not abort the whole run  
-9. **Preserve streams / `streamSearch`** across fixture refreshes via merge-from-previous  
-10. **Flutter contract** — keep matches.json field shape stable; `streamSearch` stays optional  
-11. **Compare-before-upload** (ignore volatile timestamps)  
-12. **Timezone Asia/Yangon** for scheduling, kickoff math, and generated timestamps  
+1. Copy `.env.production.example` → `.env` and fill **real** secrets (never leave `YOUR_*`)
+2. Confirm `GITHUB_TOKEN` works (`api.github.com/user` must not return 401)
+3. Confirm Chromium path + `LOW_MEMORY_MODE=true`
+4. Ensure `config/sources.json` has only the intended streaming sites
+5. `npm ci` (or `npm install`) → `npm run pm2:start`
+6. Open `/api/health` and `/admin`
+7. Watch PM2 logs for first pipeline + GitHub upload (`reason: changed` or `unchanged`, not `401`)
+8. Rotate any token that was ever committed or pasted into chat
+
+---
+
+## 25. Design constraints (do not break)
+
+- Keep Flutter match JSON shape stable (`matchId`, kickoff, status, `streams[]`)
+- Keep plugin/source registry pattern
+- Keep `Scheduled` / `PREPARING_STREAM` / `LIVE` / `END` semantics
+- GitHub is not a DB — local `data/` is source of working truth
+- Never empty-overwrite populated feeds on scrape failure
+- Telegram notifies only — never auto-rewrite domains
+- Prefer smallest safe changes over rewrites when extending scrapers

@@ -15,7 +15,12 @@ const ROLE_RANK = {
 };
 
 function getJwtSecret(env = process.env) {
-  return env.ADMIN_JWT_SECRET || env.API_KEY || 'change-me-admin-jwt-secret';
+  const secret = env.ADMIN_JWT_SECRET || env.API_KEY || '';
+  if (secret) return secret;
+  if (String(env.NODE_ENV || '').toLowerCase() === 'production') {
+    throw new Error('ADMIN_JWT_SECRET is required in production');
+  }
+  return 'change-me-admin-jwt-secret';
 }
 
 function signToken(user, env = process.env) {
