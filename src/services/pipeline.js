@@ -105,6 +105,16 @@ class Pipeline {
       }
       const teams = config.teams?.teams || [];
       this.normalizer.reload({ leagues, teams });
+      const leaguesFingerprint = leagues
+        .map((l) => `${l.standardName}:${(l.fotmobIds || []).join(',')}`)
+        .sort()
+        .join('|');
+      if (this._leaguesFingerprint !== leaguesFingerprint) {
+        // Allow-list / aliases changed — drop once-per-day fixture cache so labels re-map.
+        this.fixtureCache = { dayKey: null, fixtures: [] };
+        this._leaguesFingerprint = leaguesFingerprint;
+        logger.info('League config changed — cleared FotMob fixture cache');
+      }
 
       const fotmobConfig = this.configLoader.getSourceConfig(config.sources, 'fotmob') || {
         name: 'fotmob',
@@ -347,11 +357,13 @@ class Pipeline {
         dayKey,
         count: this.fixtureCache.fixtures.length,
       });
-      return this.fixtureCache.fixtures.map((f) => ({
-        ...f,
-        streams: [],
-        streamAttempts: f.streamAttempts || {},
-      }));
+      return this.fixtureCache.fixtures.map((f) =>
+        this.normalizer.repairMatchLeague({
+          ...f,
+          streams: [],
+          streamAttempts: f.streamAttempts || {},
+        })
+      );
     }
 
     const fixtureService = new FixtureService({
@@ -375,7 +387,9 @@ class Pipeline {
       count: this.fixtureCache.fixtures.length,
     });
 
-    return this.fixtureCache.fixtures.map((f) => ({ ...f }));
+    return this.fixtureCache.fixtures.map((f) =>
+      this.normalizer.repairMatchLeague({ ...f })
+    );
   }
 
   /**
@@ -388,20 +402,31 @@ class Pipeline {
 
     return (fixtures || []).map((f) => {
       const prev = byId.get(f.matchId);
-      if (!prev) return enrichMatchState(f);
+      const repaired = this.normalizer.repairMatchLeague(f);
+      if (!prev) return enrichMatchState(repaired);
 
       return enrichMatchState({
-        ...f,
+        ...repaired,
         streams: Array.isArray(prev.streams) ? prev.streams : [],
-        sourcePages: { ...(prev.sourcePages || {}), ...(f.sourcePages || {}) },
-        originalNames: { ...(prev.originalNames || {}), ...(f.originalNames || {}) },
-        streamAttempts: { ...(prev.streamAttempts || {}), ...(f.streamAttempts || {}) },
+        sourcePages: { ...(prev.sourcePages || {}), ...(repaired.sourcePages || {}) },
+        originalNames: {
+          ...(prev.originalNames || {}),
+          ...(repaired.originalNames || {}),
+        },
+        streamAttempts: {
+          ...(prev.streamAttempts || {}),
+          ...(repaired.streamAttempts || {}),
+        },
         streamSearch:
-          prev.streamSearch && typeof prev.streamSearch === 'object'
-            ? prev.streamSearch
-            : f.streamSearch,
-        pinned: prev.pinned || f.pinned,
-        featured: prev.featured || f.featured,
+          repaired.streamSearch && typeof repaired.streamSearch === 'object'
+            ? repaired.streamSearch
+            : prev.streamSearch && typeof prev.streamSearch === 'object'
+              ? prev.streamSearch
+              : repaired.streamSearch,
+        statusLocked: Boolean(prev.statusLocked),
+        manual: Boolean(prev.manual || repaired.manual),
+        pinned: Boolean(prev.pinned || repaired.pinned),
+        featured: Boolean(prev.featured || repaired.featured),
       });
     });
   }

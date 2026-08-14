@@ -47,7 +47,7 @@
         "ENG Premier League",
         "PL"
       ],
-      "notes": "Bare 'Premier League' / EPL / PL require England context — many countries use that name (e.g. Armenia id 118)"
+      "notes": "Bare 'Premier League' / EPL / PL require England context — many countries use that name (e.g. Armenia 118, Tanzania 9066)"
     },
     {
       "standardName": "Armenian Premier League",
@@ -58,6 +58,18 @@
         "ARM Premier League",
         "Premier League Armenia",
         "Armenian Premier League (ARM)"
+      ]
+    },
+    {
+      "standardName": "Tanzanian Premier League",
+      "fotmobIds": [9066],
+      "aliases": [
+        "Tanzanian Premier League",
+        "Tanzania Premier League",
+        "TAN Premier League",
+        "Premier League Tanzania",
+        "Tanzanian Premier League (TAN)",
+        "Ligi Kuu Bara"
       ]
     },
     {

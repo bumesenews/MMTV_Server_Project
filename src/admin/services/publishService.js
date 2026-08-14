@@ -29,6 +29,7 @@ class PublishService {
     mainLiveService = null,
     teamAdminService = null,
     logService = null,
+    normalizer = null,
   }) {
     this.cache = cache;
     this.github = github;
@@ -38,6 +39,7 @@ class PublishService {
     this.mainLive = mainLiveService;
     this.teams = teamAdminService;
     this.logService = logService;
+    this.normalizer = normalizer;
     this.lastGithub = null;
   }
 
@@ -111,10 +113,16 @@ class PublishService {
 
     // Fill league icons / team logos from admin catalogs when missing
     merged = merged.map((m) => {
-      const leagueIcon = m.leagueIcon || this.leagues.getIcon?.(m.league) || null;
-      const homeLogo = m.homeLogo || this.teams?.findLogo?.(m.homeTeam) || null;
-      const awayLogo = m.awayLogo || this.teams?.findLogo?.(m.awayTeam) || null;
-      return { ...m, leagueIcon, homeLogo, awayLogo };
+      const repaired = this.normalizer?.repairMatchLeague
+        ? this.normalizer.repairMatchLeague(m)
+        : m;
+      const leagueIcon =
+        repaired.leagueIcon || this.leagues.getIcon?.(repaired.league) || null;
+      const homeLogo =
+        repaired.homeLogo || this.teams?.findLogo?.(repaired.homeTeam) || null;
+      const awayLogo =
+        repaired.awayLogo || this.teams?.findLogo?.(repaired.awayTeam) || null;
+      return { ...repaired, leagueIcon, homeLogo, awayLogo };
     });
 
     const filteredLeagues = this.leagues.filterMatches(merged);

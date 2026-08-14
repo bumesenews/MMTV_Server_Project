@@ -139,7 +139,7 @@ class Normalizer {
     // ARM Premier League). Strip a short leading token and retry — still gated for
     // ambiguous names so ARM/ECU cannot collapse into EPL/Serie A.
     const strippedKey = key.replace(
-      /^(int|eng|esp|ita|ger|fra|ned|por|bra|kor|usa|arm|ecu|uefa|fifa|conmebol|afc)\s+/,
+      /^(int|eng|esp|ita|ger|fra|ned|por|bra|kor|usa|arm|ecu|tan|uefa|fifa|conmebol|afc)\s+/,
       ''
     );
     if (strippedKey && strippedKey !== key) {
@@ -160,7 +160,7 @@ class Normalizer {
 
     // Fuzzy: longest alias where the raw name STARTS with the alias
     // (optionally after a known competition prefix). No mid-string includes.
-    const leadPrefixes = ['', 'uefa ', 'fifa ', 'english ', 'england ', 'spanish ', 'spain ', 'italian ', 'italy ', 'german ', 'germany ', 'french ', 'france ', 'armenian ', 'armenia '];
+    const leadPrefixes = ['', 'uefa ', 'fifa ', 'english ', 'england ', 'spanish ', 'spain ', 'italian ', 'italy ', 'german ', 'germany ', 'french ', 'france ', 'armenian ', 'armenia ', 'tanzanian ', 'tanzania '];
     let best = null;
     let bestLen = 0;
     for (const [aliasKey, standard] of this.leagueIndex.entries()) {
@@ -236,6 +236,49 @@ class Normalizer {
       });
     }
     return allowed ? standard : null;
+  }
+
+  /**
+   * Fix mislabeled matches (e.g. TAN/ARM Premier League → EPL) using FotMob
+   * originalNames / country / fotmob league id. Safe no-op when unchanged.
+   */
+  repairMatchLeague(match) {
+    if (!match || typeof match !== 'object') return match;
+
+    const fotmob = match.originalNames?.fotmob || {};
+    const rawLeague =
+      cleanText(fotmob.league) ||
+      cleanText(match.rawLeague) ||
+      cleanText(match.league);
+    const country =
+      cleanText(fotmob.country) ||
+      cleanText(match.country) ||
+      '';
+    const fotmobId =
+      match.leagueFotmobId ||
+      match.tournamentId ||
+      fotmob.leagueId ||
+      null;
+
+    if (!rawLeague && fotmobId == null) return match;
+
+    const fixed = this.filterAllowedLeague(rawLeague, { country, fotmobId });
+    if (!fixed || fixed === match.league) return match;
+
+    logEvent(events.LEAGUE_FILTERED, 'League label repaired', {
+      matchId: match.matchId,
+      from: match.league,
+      to: fixed,
+      rawLeague,
+      country: country || null,
+      fotmobId: fotmobId || null,
+    });
+
+    return { ...match, league: fixed };
+  }
+
+  repairMatchLeagues(matches = []) {
+    return (matches || []).map((m) => this.repairMatchLeague(m));
   }
 }
 

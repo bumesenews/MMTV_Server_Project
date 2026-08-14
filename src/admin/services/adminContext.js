@@ -33,6 +33,7 @@ function createAdminContext({ pipeline, cache, github, env = process.env }) {
     mainLiveService: mainLive,
     teamAdminService: teams,
     logService,
+    normalizer: pipeline.normalizer,
   });
   const dashboard = new DashboardService({
     pipeline,
