@@ -251,7 +251,9 @@ class Pipeline {
       }
 
       // Fallback without admin context — same expire/merge sync as publish
-      const sync = syncMatchesForDelivery(readExistingMatches(this.cache), matches);
+      const sync = syncMatchesForDelivery(readExistingMatches(this.cache), matches, {
+        normalizer: this.normalizer,
+      });
       const payload = generateFlutterJson(
         sync.matches,
         {
@@ -461,7 +463,9 @@ class Pipeline {
     }
 
     const existing = readExistingMatches(this.cache);
-    const sync = syncMatchesForDelivery(existing, incoming);
+    const sync = syncMatchesForDelivery(existing, incoming, {
+      normalizer: this.normalizer,
+    });
 
     const payload = generateFlutterJson(
       sync.matches,

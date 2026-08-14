@@ -135,7 +135,9 @@ class PublishService {
     const existingMatches = readExistingMatches(this.cache);
 
     // Sync vs matches.json: expire kickoff+2h, merge new valid streams
-    const sync = syncMatchesForDelivery(existingMatches, withOverrides);
+    const sync = syncMatchesForDelivery(existingMatches, withOverrides, {
+      normalizer: this.normalizer,
+    });
 
     const extrasMerged = {
       highlights: extras.highlights ?? previous?.highlights ?? [],

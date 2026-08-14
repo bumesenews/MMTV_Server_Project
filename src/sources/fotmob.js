@@ -120,7 +120,8 @@ class FotMobSource {
           standardLeague,
           withCountry || bareName,
           dateKey,
-          country
+          country,
+          fotmobId
         );
         if (parsed) fixtures.push(parsed);
       }
@@ -151,7 +152,8 @@ class FotMobSource {
           standardLeague,
           withCountry || bareName,
           dateKey,
-          country
+          country,
+          fotmobId
         );
         if (parsed) fixtures.push(parsed);
       }
@@ -160,7 +162,7 @@ class FotMobSource {
     return fixtures;
   }
 
-  parseMatch(match, standardLeague, rawLeague, dateKey, country = '') {
+  parseMatch(match, standardLeague, rawLeague, dateKey, country = '', leagueFotmobId = null) {
     const homeRaw =
       match?.home?.name ||
       match?.home?.longName ||
@@ -211,6 +213,7 @@ class FotMobSource {
       matchId,
       league: standardLeague,
       country: countryClean || null,
+      leagueFotmobId: leagueFotmobId != null ? Number(leagueFotmobId) || leagueFotmobId : null,
       homeTeam,
       awayTeam,
       homeTeamId,
@@ -227,6 +230,7 @@ class FotMobSource {
         fotmob: {
           league: cleanText(rawLeague),
           country: countryClean || null,
+          leagueId: leagueFotmobId != null ? Number(leagueFotmobId) || leagueFotmobId : null,
           homeTeam: cleanText(homeRaw),
           awayTeam: cleanText(awayRaw),
         },

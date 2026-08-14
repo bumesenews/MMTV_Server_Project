@@ -45,7 +45,13 @@ function buildFotmobIdIndex(entries) {
 }
 
 /** Bare names used by multiple countries — never map without country/id context. */
-const AMBIGUOUS_LEAGUE_KEYS = new Set(['serie a', 'premier league', 'epl', 'pl']);
+const AMBIGUOUS_LEAGUE_KEYS = new Set([
+  'serie a',
+  'premier league',
+  'premier division',
+  'epl',
+  'pl',
+]);
 
 function isEnglandCountry(countryFold) {
   return Boolean(
@@ -64,6 +70,66 @@ function isItalyCountry(countryFold) {
   );
 }
 
+/** Pull leading FotMob country code from names like "RUS Premier League". */
+function inferCountryCodeFromLeagueName(rawName) {
+  const m = String(rawName || '')
+    .trim()
+    .match(/^([A-Za-z]{3})\s+/);
+  return m ? m[1].toUpperCase() : '';
+}
+
+/**
+ * Display labels for FotMob country-coded "XXX Premier League" names.
+ * Used so we never invent EPL when the country code is not ENG.
+ * Keep in sync with leagues.json entries when those comps are allow-listed.
+ */
+const COUNTRY_PREMIER_LEAGUE_LABELS = {
+  ARM: 'Armenian Premier League',
+  AZE: 'Azerbaijani Premier League',
+  BIH: 'Bosnian Premier League',
+  BLR: 'Belarusian Premier League',
+  CAN: 'Canadian Premier League',
+  EGY: 'Egyptian Premier League',
+  ENG: 'English Premier League (EPL)',
+  FRO: 'Faroe Islands Premier League',
+  GHA: 'Ghanaian Premier League',
+  JOR: 'Jordanian Premier League',
+  KAZ: 'Kazakh Premier League',
+  RUS: 'Russian Premier League',
+  SIN: 'Singapore Premier League',
+  TAN: 'Tanzanian Premier League',
+  THA: 'Thai Premier League',
+  UKR: 'Ukrainian Premier League',
+  WAL: 'Welsh Premier League',
+};
+
+function countryPremierLeagueLabel(countryCode) {
+  const code = String(countryCode || '')
+    .trim()
+    .toUpperCase();
+  if (!code) return null;
+  return COUNTRY_PREMIER_LEAGUE_LABELS[code] || `${code} Premier League`;
+}
+
+/**
+ * True when FotMob evidence shows this is NOT English Premier League.
+ * (Team identity is irrelevant — only league/country fields matter.)
+ */
+function isFalseEnglishPremierLabel(match) {
+  const league = cleanText(match?.league);
+  if (league !== 'English Premier League (EPL)') return false;
+
+  const fotmob = match?.originalNames?.fotmob || {};
+  const raw = cleanText(fotmob.league || match?.rawLeague || '');
+  const country = cleanText(fotmob.country || match?.country || '');
+  const inferred = inferCountryCodeFromLeagueName(raw);
+  const evidence = foldKey(`${country} ${inferred} ${raw}`);
+  if (!raw && !country && !inferred) return false; // no evidence — don't touch real/manual EPL
+  if (/\b(eng|england|english)\b/.test(evidence)) return false;
+  if (inferred === 'ENG') return false;
+  return true;
+}
+
 /**
  * True when an ambiguous alias may be accepted for this raw key + country.
  * "ENG Premier League" / "English Premier League" carry England in the name itself.
@@ -74,6 +140,15 @@ function ambiguousLeagueAllowed(aliasKey, rawKey, countryFold) {
   }
   if (aliasKey === 'premier league' || aliasKey === 'epl' || aliasKey === 'pl') {
     return isEnglandCountry(countryFold) || /\b(eng|england|english)\b/.test(rawKey);
+  }
+  if (aliasKey === 'premier division') {
+    // Bare "Premier Division" is used by multiple countries (e.g. Belarus).
+    return (
+      Boolean(countryFold) &&
+      (countryFold.includes('belarus') ||
+        countryFold === 'blr' ||
+        /\b(blr|belarus|belarusian)\b/.test(rawKey))
+    );
   }
   return true;
 }
@@ -130,16 +205,42 @@ class Normalizer {
       // Only accept with matching country context or via fotmobIds above.
       if (AMBIGUOUS_LEAGUE_KEYS.has(key)) {
         if (ambiguousLeagueAllowed(key, key, countryFold)) return mapped;
+        // Non-England "Premier League" with a country code → country label, never EPL.
+        if (key === 'premier league' || key === 'epl' || key === 'pl') {
+          const code =
+            String(countryClean || '').toUpperCase() ||
+            inferCountryCodeFromLeagueName(cleaned);
+          if (code && code !== 'ENG') {
+            return countryPremierLeagueLabel(code);
+          }
+        }
         return null;
       }
       return mapped;
+    }
+
+    // "RUS Premier League" / "TAN Premier League" — resolve by code before stripping
+    // collapses them onto bare EPL aliases.
+    const codedPremier = key.match(
+      /^([a-z]{3})\s+premier\s+league(?:\s+qualification)?$/
+    );
+    if (codedPremier) {
+      const code = codedPremier[1].toUpperCase();
+      const labeled = countryPremierLeagueLabel(code);
+      const labeledKey = foldKey(labeled);
+      const fromLabel = this.leagueIndex.get(labeledKey);
+      if (fromLabel) return fromLabel;
+      const fromCoded = this.leagueIndex.get(key);
+      if (fromCoded) return fromCoded;
+      if (code === 'ENG') return 'English Premier League (EPL)';
+      return labeled;
     }
 
     // FotMob often prefixes with country codes (INT Club Friendlies, ENG Premier League,
     // ARM Premier League). Strip a short leading token and retry — still gated for
     // ambiguous names so ARM/ECU cannot collapse into EPL/Serie A.
     const strippedKey = key.replace(
-      /^(int|eng|esp|ita|ger|fra|ned|por|bra|kor|usa|arm|ecu|tan|uefa|fifa|conmebol|afc)\s+/,
+      /^(int|eng|esp|ita|ger|fra|ned|por|bra|kor|usa|arm|aze|bih|ecu|tan|rus|blr|ukr|egy|gha|jor|kaz|tha|wal|can|fro|sin|uefa|fifa|conmebol|afc)\s+/,
       ''
     );
     if (strippedKey && strippedKey !== key) {
@@ -160,7 +261,7 @@ class Normalizer {
 
     // Fuzzy: longest alias where the raw name STARTS with the alias
     // (optionally after a known competition prefix). No mid-string includes.
-    const leadPrefixes = ['', 'uefa ', 'fifa ', 'english ', 'england ', 'spanish ', 'spain ', 'italian ', 'italy ', 'german ', 'germany ', 'french ', 'france ', 'armenian ', 'armenia ', 'tanzanian ', 'tanzania '];
+    const leadPrefixes = ['', 'uefa ', 'fifa ', 'english ', 'england ', 'spanish ', 'spain ', 'italian ', 'italy ', 'german ', 'germany ', 'french ', 'france ', 'armenian ', 'armenia ', 'tanzanian ', 'tanzania ', 'russian ', 'russia ', 'belarusian ', 'belarus ', 'ukrainian ', 'ukraine '];
     let best = null;
     let bestLen = 0;
     for (const [aliasKey, standard] of this.leagueIndex.entries()) {
@@ -239,8 +340,9 @@ class Normalizer {
   }
 
   /**
-   * Fix mislabeled matches (e.g. TAN/ARM Premier League → EPL) using FotMob
-   * originalNames / country / fotmob league id. Safe no-op when unchanged.
+   * Fix mislabeled matches (e.g. RUS/TAN/ARM Premier League → EPL) using FotMob
+   * originalNames / country / fotmob league id.
+   * Never leaves a false EPL label when FotMob clearly named another country.
    */
   repairMatchLeague(match) {
     if (!match || typeof match !== 'object') return match;
@@ -249,10 +351,12 @@ class Normalizer {
     const rawLeague =
       cleanText(fotmob.league) ||
       cleanText(match.rawLeague) ||
-      cleanText(match.league);
+      '';
+    const inferredCountry = inferCountryCodeFromLeagueName(rawLeague);
     const country =
       cleanText(fotmob.country) ||
       cleanText(match.country) ||
+      inferredCountry ||
       '';
     const fotmobId =
       match.leagueFotmobId ||
@@ -262,19 +366,55 @@ class Normalizer {
 
     if (!rawLeague && fotmobId == null) return match;
 
-    const fixed = this.filterAllowedLeague(rawLeague, { country, fotmobId });
-    if (!fixed || fixed === match.league) return match;
+    const opts = { country, fotmobId };
+    const fixed = this.filterAllowedLeague(rawLeague, opts);
+    if (fixed && fixed !== match.league) {
+      logEvent(events.LEAGUE_FILTERED, 'League label repaired', {
+        matchId: match.matchId,
+        from: match.league,
+        to: fixed,
+        rawLeague,
+        country: country || null,
+        fotmobId: fotmobId || null,
+      });
+      return {
+        ...match,
+        league: fixed,
+        country: country || match.country || null,
+      };
+    }
 
-    logEvent(events.LEAGUE_FILTERED, 'League label repaired', {
-      matchId: match.matchId,
-      from: match.league,
-      to: fixed,
-      rawLeague,
-      country: country || null,
-      fotmobId: fotmobId || null,
-    });
+    // Stale rows: league stuck as EPL while FotMob original is another country.
+    const current = cleanText(match.league);
+    const rawFold = foldKey(rawLeague);
+    const falseEpl =
+      current === 'English Premier League (EPL)' &&
+      rawFold &&
+      !/\b(eng|england|english)\b/.test(rawFold) &&
+      !isEnglandCountry(foldKey(country));
+    if (falseEpl) {
+      const display =
+        this.normalizeLeague(rawLeague, opts) ||
+        (country && !rawFold.includes(foldKey(country))
+          ? `${country} ${rawLeague}`
+          : rawLeague);
+      if (display && display !== current) {
+        logEvent(events.LEAGUE_FILTERED, 'League label repaired (false EPL)', {
+          matchId: match.matchId,
+          from: current,
+          to: display,
+          rawLeague,
+          country: country || null,
+        });
+        return {
+          ...match,
+          league: display,
+          country: country || match.country || null,
+        };
+      }
+    }
 
-    return { ...match, league: fixed };
+    return match;
   }
 
   repairMatchLeagues(matches = []) {
@@ -288,4 +428,8 @@ module.exports = {
   buildAliasIndex,
   buildFotmobIdIndex,
   Normalizer,
+  inferCountryCodeFromLeagueName,
+  countryPremierLeagueLabel,
+  isFalseEnglishPremierLabel,
+  COUNTRY_PREMIER_LEAGUE_LABELS,
 };

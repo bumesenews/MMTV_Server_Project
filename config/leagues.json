@@ -47,7 +47,7 @@
         "ENG Premier League",
         "PL"
       ],
-      "notes": "Bare 'Premier League' / EPL / PL require England context — many countries use that name (e.g. Armenia 118, Tanzania 9066)"
+      "notes": "Bare 'Premier League' / EPL / PL require England context — many countries use that name (ARM/TAN/RUS/BLR/UKR/…)"
     },
     {
       "standardName": "Armenian Premier League",
@@ -70,6 +70,42 @@
         "Premier League Tanzania",
         "Tanzanian Premier League (TAN)",
         "Ligi Kuu Bara"
+      ]
+    },
+    {
+      "standardName": "Russian Premier League",
+      "fotmobIds": [63],
+      "aliases": [
+        "Russian Premier League",
+        "Russia Premier League",
+        "RUS Premier League",
+        "Premier League Russia",
+        "Russian Premier League (RUS)"
+      ]
+    },
+    {
+      "standardName": "Belarusian Premier League",
+      "fotmobIds": [263],
+      "aliases": [
+        "Belarusian Premier League",
+        "Belarus Premier League",
+        "BLR Premier League",
+        "Premier League Belarus",
+        "Belarusian Premier Division",
+        "Belarus Premier Division",
+        "BLR Premier Division"
+      ],
+      "notes": "FotMob id 263 is often labeled Premier Division; match lists may still say BLR Premier League"
+    },
+    {
+      "standardName": "Ukrainian Premier League",
+      "fotmobIds": [441],
+      "aliases": [
+        "Ukrainian Premier League",
+        "Ukraine Premier League",
+        "UKR Premier League",
+        "Premier League Ukraine",
+        "Ukrainian Premier League (UKR)"
       ]
     },
     {

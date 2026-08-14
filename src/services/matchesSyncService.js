@@ -2,6 +2,7 @@ const { logger } = require('../utils/logger');
 const { toUtcUnixSeconds, MATCH_LIVE_DURATION_MIN } = require('../utils/time');
 const { hasDataChanged, normalizeStreamUrl } = require('../utils/compare');
 const { enrichMatchState } = require('./statusService');
+const { isFalseEnglishPremierLabel } = require('../utils/normalize');
 
 /** Seconds after kickoff before a match is removed from matches.json (2 hours). */
 const MATCH_EXPIRE_AFTER_SEC = Number(
@@ -155,15 +156,65 @@ function mergeIncomingMatches(existingMatches, incomingMatches) {
 }
 
 /**
+ * Repair league labels and drop rows still falsely tagged as EPL
+ * (or repaired off EPL onto a non-allowlisted country league).
+ * Stale matches.json kept wrong EPL rows even after FotMob stopped emitting them.
+ */
+function sanitizeLeagueLabels(matches, normalizer = null) {
+  const list = Array.isArray(matches) ? matches : [];
+  const out = [];
+  let repaired = 0;
+  let droppedFalseEpl = 0;
+
+  for (const raw of list) {
+    let m = raw;
+    const wasFalseEpl = isFalseEnglishPremierLabel(m);
+    if (normalizer?.repairMatchLeague) {
+      const next = normalizer.repairMatchLeague(m);
+      if (next?.league && next.league !== m.league) repaired += 1;
+      m = next;
+    }
+
+    if (m.manual || m.statusLocked) {
+      out.push(m);
+      continue;
+    }
+
+    // Irreparable or still false EPL → drop
+    if (isFalseEnglishPremierLabel(m)) {
+      droppedFalseEpl += 1;
+      continue;
+    }
+
+    // Was false EPL, repaired to a country PL that is not on the allow-list → drop
+    // (do not keep AZE/EGY/… rows just because the label is no longer EPL).
+    if (
+      wasFalseEpl &&
+      normalizer?.allowedLeagues &&
+      m.league &&
+      !normalizer.allowedLeagues.has(m.league)
+    ) {
+      droppedFalseEpl += 1;
+      continue;
+    }
+
+    out.push(m);
+  }
+
+  return { matches: out, repaired, droppedFalseEpl };
+}
+
+/**
  * Full matches.json sync step (before local save + GitHub PUT):
  * 1) Read existing matches
  * 2) Remove expired (kickoff + 2h)
  * 3) Merge newly found valid streams / matches
- * 4) Report whether content actually changed
+ * 4) Repair false EPL league labels / drop irreparable ones
+ * 5) Report whether content actually changed
  *
  * @param {object[]} existingMatches - from data/delivery/matches.json (or cache)
  * @param {object[]} incomingMatches - scraper / publish candidate list
- * @param {{ nowSec?: number }} [options]
+ * @param {{ nowSec?: number, normalizer?: object }} [options]
  */
 function syncMatchesForDelivery(existingMatches, incomingMatches, options = {}) {
   const nowSec =
@@ -174,10 +225,11 @@ function syncMatchesForDelivery(existingMatches, incomingMatches, options = {}) 
   const incomingClean = filterExpiredMatches(incomingMatches, nowSec);
 
   const merged = mergeIncomingMatches(cleaned.matches, incomingClean.matches);
+  const sanitized = sanitizeLeagueLabels(merged.matches, options.normalizer || null);
 
   // Final pass: enrich + drop anything that expired during merge edge cases
   const finalFiltered = filterExpiredMatches(
-    (merged.matches || []).map((m) => enrichMatchState(m)),
+    (sanitized.matches || []).map((m) => enrichMatchState(m)),
     nowSec
   );
 
@@ -187,12 +239,14 @@ function syncMatchesForDelivery(existingMatches, incomingMatches, options = {}) 
     { matches: finalFiltered.matches }
   );
 
-  const removed = cleaned.removed + incomingClean.removed;
+  const removed = cleaned.removed + incomingClean.removed + sanitized.droppedFalseEpl;
 
   logger.info('matches.json sync prepared', {
     existing: (existingMatches || []).length,
     incoming: (incomingMatches || []).length,
     removedExpired: removed,
+    leaguesRepaired: sanitized.repaired,
+    droppedFalseEpl: sanitized.droppedFalseEpl,
     matchesAdded: merged.matchesAdded,
     matchesUpdated: merged.matchesUpdated,
     streamsAdded: merged.streamsAdded,
@@ -207,6 +261,8 @@ function syncMatchesForDelivery(existingMatches, incomingMatches, options = {}) 
     streamsAdded: merged.streamsAdded,
     matchesAdded: merged.matchesAdded,
     matchesUpdated: merged.matchesUpdated,
+    leaguesRepaired: sanitized.repaired,
+    droppedFalseEpl: sanitized.droppedFalseEpl,
   };
 }
 
@@ -232,6 +288,7 @@ module.exports = {
   filterExpiredMatches,
   mergeStreamLists,
   mergeIncomingMatches,
+  sanitizeLeagueLabels,
   syncMatchesForDelivery,
   readExistingMatches,
 };
