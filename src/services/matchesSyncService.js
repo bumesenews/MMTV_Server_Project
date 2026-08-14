@@ -1,5 +1,5 @@
 const { logger } = require('../utils/logger');
-const { toYangon, MATCH_LIVE_DURATION_MIN } = require('../utils/time');
+const { toUtcUnixSeconds, MATCH_LIVE_DURATION_MIN } = require('../utils/time');
 const { hasDataChanged, normalizeStreamUrl } = require('../utils/compare');
 const { enrichMatchState } = require('./statusService');
 
@@ -12,9 +12,7 @@ const MATCH_EXPIRE_AFTER_SEC = Number(
  * Kickoff → UTC epoch seconds (null if unparseable).
  */
 function kickoffUnixSeconds(match) {
-  const kickoff = toYangon(match?.kickoff);
-  if (!kickoff || !kickoff.isValid) return null;
-  return Math.floor(kickoff.toUTC().toSeconds());
+  return toUtcUnixSeconds(match?.kickoff);
 }
 
 /**

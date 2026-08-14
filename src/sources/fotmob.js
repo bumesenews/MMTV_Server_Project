@@ -101,14 +101,16 @@ class FotMobSource {
           ? `${cleanText(country)} ${bareName}`.trim()
           : null;
 
+      // Prefer "Country + league" before bare name so "Premier League" under ARM/ECU
+      // cannot collapse into English Premier League / Serie A.
       const standardLeague =
-        this.normalizer.filterAllowedLeague(bareName, { fotmobId, country }) ||
         (withCountry
           ? this.normalizer.filterAllowedLeague(withCountry, {
               fotmobId,
               country,
             })
-          : null);
+          : null) ||
+        this.normalizer.filterAllowedLeague(bareName, { fotmobId, country });
       if (!standardLeague) continue;
 
       const matches = leagueBlock?.matches || leagueBlock?.allMatches || [];
@@ -117,7 +119,8 @@ class FotMobSource {
           match,
           standardLeague,
           withCountry || bareName,
-          dateKey
+          dateKey,
+          country
         );
         if (parsed) fixtures.push(parsed);
       }
@@ -135,19 +138,20 @@ class FotMobSource {
             ? `${cleanText(country)} ${bareName}`.trim()
             : null;
         const standardLeague =
-          this.normalizer.filterAllowedLeague(bareName, { fotmobId, country }) ||
           (withCountry
             ? this.normalizer.filterAllowedLeague(withCountry, {
                 fotmobId,
                 country,
               })
-            : null);
+            : null) ||
+          this.normalizer.filterAllowedLeague(bareName, { fotmobId, country });
         if (!standardLeague) continue;
         const parsed = this.parseMatch(
           match,
           standardLeague,
           withCountry || bareName,
-          dateKey
+          dateKey,
+          country
         );
         if (parsed) fixtures.push(parsed);
       }
@@ -156,7 +160,7 @@ class FotMobSource {
     return fixtures;
   }
 
-  parseMatch(match, standardLeague, rawLeague, dateKey) {
+  parseMatch(match, standardLeague, rawLeague, dateKey, country = '') {
     const homeRaw =
       match?.home?.name ||
       match?.home?.longName ||
@@ -176,6 +180,7 @@ class FotMobSource {
 
     let kickoff = null;
     if (match?.status?.utcTime) {
+      // FotMob utcTime is always a UTC instant — parse as UTC, then convert.
       kickoff = toYangon(match.status.utcTime);
     } else if (match?.time) {
       kickoff = toYangon(match.time);
@@ -200,10 +205,12 @@ class FotMobSource {
     const matchId = generateMatchId(homeTeam, awayTeam, kickoff);
     const homeTeamId = match?.home?.id || match?.homeTeam?.id || null;
     const awayTeamId = match?.away?.id || match?.awayTeam?.id || null;
+    const countryClean = cleanText(country);
 
     return {
       matchId,
       league: standardLeague,
+      country: countryClean || null,
       homeTeam,
       awayTeam,
       homeTeamId,
@@ -219,6 +226,7 @@ class FotMobSource {
       originalNames: {
         fotmob: {
           league: cleanText(rawLeague),
+          country: countryClean || null,
           homeTeam: cleanText(homeRaw),
           awayTeam: cleanText(awayRaw),
         },

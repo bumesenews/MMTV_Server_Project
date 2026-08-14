@@ -6,6 +6,15 @@ function nowYangon() {
   return DateTime.now().setZone(ZONE);
 }
 
+function nowUtcUnixSeconds() {
+  return Math.floor(DateTime.utc().toSeconds());
+}
+
+/**
+ * Parse kickoff into Asia/Yangon DateTime.
+ * ISO strings with Z / explicit offsets are treated as absolute instants (UTC-safe).
+ * Naive date/time strings are interpreted as Yangon wall clock.
+ */
 function toYangon(input) {
   if (!input) return null;
   if (DateTime.isDateTime(input)) return input.setZone(ZONE);
@@ -16,6 +25,14 @@ function toYangon(input) {
   }
 
   const raw = String(input).trim();
+
+  // Prefer true ISO / RFC3339 parsing first so "...Z" and offsets stay absolute UTC
+  // instants (avoids mis-reading a UTC timestamp as Yangon wall time).
+  if (/^\d{4}-\d{2}-\d{2}T/.test(raw) && /(?:Z|[+-]\d{2}:?\d{2})$/i.test(raw)) {
+    const isoInstant = DateTime.fromISO(raw, { setZone: true });
+    if (isoInstant.isValid) return isoInstant.setZone(ZONE);
+  }
+
   const formats = [
     "yyyy-MM-dd'T'HH:mm:ss.SSSZZ",
     "yyyy-MM-dd'T'HH:mm:ssZZ",
@@ -35,8 +52,22 @@ function toYangon(input) {
   const iso = DateTime.fromISO(raw, { setZone: true });
   if (iso.isValid) return iso.setZone(ZONE);
 
-  const js = DateTime.fromJSDate(new Date(raw), { zone: ZONE });
-  return js.isValid ? js : null;
+  const js = DateTime.fromJSDate(new Date(raw));
+  return js.isValid ? js.setZone(ZONE) : null;
+}
+
+/**
+ * Kickoff → UTC unix seconds (null if unparseable).
+ * Use this for all currentTime vs kickoffTime comparisons.
+ */
+function toUtcUnixSeconds(input) {
+  if (input == null || input === '') return null;
+  if (typeof input === 'number' && Number.isFinite(input)) {
+    return input < 1e12 ? Math.floor(input) : Math.floor(input / 1000);
+  }
+  const dt = toYangon(input);
+  if (!dt || !dt.isValid) return null;
+  return Math.floor(dt.toUTC().toSeconds());
 }
 
 function combineDateAndTime(dateStr, timeStr) {
@@ -79,14 +110,14 @@ function isTodayOrTomorrow(dt) {
   return day.equals(todayYangon()) || day.equals(tomorrowYangon());
 }
 
-function minutesUntilKickoff(kickoff) {
-  const k = toYangon(kickoff);
-  if (!k) return null;
-  return Math.round(k.diff(nowYangon(), 'minutes').minutes);
+function minutesUntilKickoff(kickoff, nowSec = nowUtcUnixSeconds()) {
+  const kickSec = toUtcUnixSeconds(kickoff);
+  if (kickSec == null) return null;
+  return Math.round((kickSec - nowSec) / 60);
 }
 
-function isKickoffStarted(kickoff) {
-  const mins = minutesUntilKickoff(kickoff);
+function isKickoffStarted(kickoff, nowSec = nowUtcUnixSeconds()) {
+  const mins = minutesUntilKickoff(kickoff, nowSec);
   return mins !== null && mins <= 0;
 }
 
@@ -115,8 +146,8 @@ const STREAM_SEARCH_SLOTS = [
 /**
  * Resolve which search slot the match is currently in (or null if outside window).
  */
-function resolveStreamSearchSlot(kickoff) {
-  const mins = minutesUntilKickoff(kickoff);
+function resolveStreamSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
+  const mins = minutesUntilKickoff(kickoff, nowSec);
   if (mins == null) return null;
   if (mins > STREAM_FIND_LEAD_MIN) return null;
   if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return null;
@@ -126,9 +157,9 @@ function resolveStreamSearchSlot(kickoff) {
   return null;
 }
 
-function isStreamSearchStopped(kickoff, streamSearch) {
+function isStreamSearchStopped(kickoff, streamSearch, nowSec = nowUtcUnixSeconds()) {
   if (streamSearch?.stopped) return true;
-  const mins = minutesUntilKickoff(kickoff);
+  const mins = minutesUntilKickoff(kickoff, nowSec);
   return mins != null && mins <= -STREAM_SEARCH_STOP_AFTER_MIN;
 }
 
@@ -136,10 +167,10 @@ function isStreamSearchStopped(kickoff, streamSearch) {
  * Dynamic stream-check interval for matches.json (fixture kickoff based).
  * Hits kickoff-relative search slots; does not use fixed clock times.
  */
-function getCheckIntervalMinutes(kickoff, status) {
+function getCheckIntervalMinutes(kickoff, status, nowSec = nowUtcUnixSeconds()) {
   if (status === 'END') return null;
 
-  const mins = minutesUntilKickoff(kickoff);
+  const mins = minutesUntilKickoff(kickoff, nowSec);
   if (mins === null) return 30;
 
   // After search stop (+15) but before END (+120): light status refresh only
@@ -159,22 +190,29 @@ function getCheckIntervalMinutes(kickoff, status) {
  * Time-only phase helper (no stream knowledge).
  * Full match status (incl. PREPARING_STREAM / LIVE) lives in statusService.
  *
- * Scheduled → before kickoff
- * POST_KICKOFF → kickoff .. kickoff+120m
+ * Scheduled → more than 30m before kickoff
+ * PREPARING → kickoff−30m .. kickoff
+ * POST_KICKOFF / LIVE window → kickoff .. kickoff+120m
  * END → after +120m
  */
-function resolveFixtureStatus(kickoff) {
-  const mins = minutesUntilKickoff(kickoff);
-  if (mins == null) return 'Scheduled';
-  if (mins > 0) return 'Scheduled';
-  if (mins > -MATCH_LIVE_DURATION_MIN) return 'POST_KICKOFF';
+function resolveFixtureStatus(kickoff, nowSec = nowUtcUnixSeconds()) {
+  const kickSec = toUtcUnixSeconds(kickoff);
+  if (kickSec == null) return 'Scheduled';
+  const preparingFrom = kickSec - STREAM_FIND_LEAD_MIN * 60;
+  const liveUntil = kickSec + MATCH_LIVE_DURATION_MIN * 60;
+
+  if (nowSec < preparingFrom) return 'Scheduled';
+  if (nowSec < kickSec) return 'PREPARING';
+  if (nowSec < liveUntil) return 'POST_KICKOFF';
   return 'END';
 }
 
 module.exports = {
   ZONE,
   nowYangon,
+  nowUtcUnixSeconds,
   toYangon,
+  toUtcUnixSeconds,
   combineDateAndTime,
   formatDate,
   formatTime,

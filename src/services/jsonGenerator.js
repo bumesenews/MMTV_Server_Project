@@ -8,7 +8,7 @@ const { enrichMatchState } = require('./statusService');
  */
 function generateFlutterJson(matches, meta = {}, extras = {}) {
   const cleanedMatches = (matches || []).map((raw) => {
-    // Status from kickoff + valid stream (Scheduled / PREPARING_STREAM / LIVE / END)
+    // Status from kickoff windows (Scheduled / PREPARING_STREAM / LIVE / END)
     const m = enrichMatchState(raw);
     return {
     matchId: m.matchId,

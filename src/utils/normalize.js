@@ -44,6 +44,40 @@ function buildFotmobIdIndex(entries) {
   return index;
 }
 
+/** Bare names used by multiple countries — never map without country/id context. */
+const AMBIGUOUS_LEAGUE_KEYS = new Set(['serie a', 'premier league', 'epl', 'pl']);
+
+function isEnglandCountry(countryFold) {
+  return Boolean(
+    countryFold &&
+      (countryFold === 'eng' ||
+        countryFold === 'gb' ||
+        countryFold === 'gbr' ||
+        countryFold.includes('england') ||
+        countryFold.includes('english'))
+  );
+}
+
+function isItalyCountry(countryFold) {
+  return Boolean(
+    countryFold && (countryFold.includes('ital') || countryFold === 'ita')
+  );
+}
+
+/**
+ * True when an ambiguous alias may be accepted for this raw key + country.
+ * "ENG Premier League" / "English Premier League" carry England in the name itself.
+ */
+function ambiguousLeagueAllowed(aliasKey, rawKey, countryFold) {
+  if (aliasKey === 'serie a') {
+    return isItalyCountry(countryFold) || /\b(ita|italy|italian)\b/.test(rawKey);
+  }
+  if (aliasKey === 'premier league' || aliasKey === 'epl' || aliasKey === 'pl') {
+    return isEnglandCountry(countryFold) || /\b(eng|england|english)\b/.test(rawKey);
+  }
+  return true;
+}
+
 class Normalizer {
   constructor({ leagues = [], teams = [] } = {}) {
     this.leagues = leagues || [];
@@ -66,10 +100,12 @@ class Normalizer {
   }
 
   /**
-   * Prefer FotMob league id when present (avoids Ecuador Serie A → Italy Serie A).
+   * Prefer FotMob league id when present (avoids Ecuador Serie A → Italy Serie A,
+   * Armenia Premier League → English Premier League).
    * Then try "Country + name", exact alias, then safe prefix match
    * (e.g. "Europa League Qualification", "ASEAN Championship Grp. A").
    * Never map Women's / INT women's comps onto men's UEFA CL via substring.
+   * Never default bare "Premier League" to EPL without England context.
    */
   normalizeLeague(rawName, { fotmobId = null, country = '' } = {}) {
     const id = Number(fotmobId);
@@ -81,6 +117,7 @@ class Normalizer {
     if (!cleaned) return null;
 
     const countryClean = cleanText(country);
+    const countryFold = foldKey(countryClean);
     if (countryClean) {
       const withCountry = this.leagueIndex.get(foldKey(`${countryClean} ${cleaned}`));
       if (withCountry) return withCountry;
@@ -89,30 +126,27 @@ class Normalizer {
     const key = foldKey(cleaned);
     const mapped = this.leagueIndex.get(key);
     if (mapped) {
-      // Bare "Serie A" is ambiguous (Italy id 55 vs Ecuador id 246 on FotMob).
-      // Only accept with Italy context or via fotmobIds above.
-      if (key === 'serie a') {
-        const countryFold = foldKey(countryClean);
-        if (countryFold && (countryFold.includes('ital') || countryFold === 'ita')) {
-          return mapped;
-        }
+      // Bare "Serie A" / "Premier League" are used by multiple countries on FotMob.
+      // Only accept with matching country context or via fotmobIds above.
+      if (AMBIGUOUS_LEAGUE_KEYS.has(key)) {
+        if (ambiguousLeagueAllowed(key, key, countryFold)) return mapped;
         return null;
       }
       return mapped;
     }
 
-    // FotMob often prefixes with country codes (INT Club Friendlies, ENG Premier League).
-    // Strip a short leading country/org token and retry alias lookup.
+    // FotMob often prefixes with country codes (INT Club Friendlies, ENG Premier League,
+    // ARM Premier League). Strip a short leading token and retry — still gated for
+    // ambiguous names so ARM/ECU cannot collapse into EPL/Serie A.
     const strippedKey = key.replace(
-      /^(int|eng|esp|ita|ger|fra|ned|por|bra|kor|usa|uefa|fifa|conmebol|afc)\s+/,
+      /^(int|eng|esp|ita|ger|fra|ned|por|bra|kor|usa|arm|ecu|uefa|fifa|conmebol|afc)\s+/,
       ''
     );
     if (strippedKey && strippedKey !== key) {
       const strippedMapped = this.leagueIndex.get(strippedKey);
       if (strippedMapped) {
-        if (strippedKey === 'serie a') {
-          const countryFold = foldKey(countryClean);
-          if (countryFold && (countryFold.includes('ital') || countryFold === 'ita')) {
+        if (AMBIGUOUS_LEAGUE_KEYS.has(strippedKey)) {
+          if (ambiguousLeagueAllowed(strippedKey, key, countryFold)) {
             return strippedMapped;
           }
         } else {
@@ -126,12 +160,14 @@ class Normalizer {
 
     // Fuzzy: longest alias where the raw name STARTS with the alias
     // (optionally after a known competition prefix). No mid-string includes.
-    const leadPrefixes = ['', 'uefa ', 'fifa ', 'english ', 'england ', 'spanish ', 'spain ', 'italian ', 'italy ', 'german ', 'germany ', 'french ', 'france '];
+    const leadPrefixes = ['', 'uefa ', 'fifa ', 'english ', 'england ', 'spanish ', 'spain ', 'italian ', 'italy ', 'german ', 'germany ', 'french ', 'france ', 'armenian ', 'armenia '];
     let best = null;
     let bestLen = 0;
     for (const [aliasKey, standard] of this.leagueIndex.entries()) {
       if (!aliasKey || aliasKey.length < 5) continue;
-      if (key === 'serie a' || aliasKey === 'serie a') continue;
+      if (AMBIGUOUS_LEAGUE_KEYS.has(key) || AMBIGUOUS_LEAGUE_KEYS.has(aliasKey)) {
+        if (!ambiguousLeagueAllowed(aliasKey, key, countryFold)) continue;
+      }
       // Do not map Summer Series / friendlies onto EPL via "Premier League" prefix
       if (
         (aliasKey === 'premier league' || aliasKey === 'english premier league' || aliasKey === 'epl') &&
@@ -157,6 +193,10 @@ class Normalizer {
     }
     if (best) return best;
 
+    // Prefer country + league.name when nothing mapped (never invent EPL).
+    if (countryClean && !foldKey(cleaned).includes(countryFold)) {
+      return `${countryClean} ${cleaned}`.trim();
+    }
     return cleaned;
   }
 

@@ -35,6 +35,7 @@
     },
     {
       "standardName": "English Premier League (EPL)",
+      "fotmobIds": [47],
       "aliases": [
         "English Premier League (EPL)",
         "English Premier League",
@@ -43,7 +44,20 @@
         "英超",
         "England Premier League",
         "Premier League England",
+        "ENG Premier League",
         "PL"
+      ],
+      "notes": "Bare 'Premier League' / EPL / PL require England context — many countries use that name (e.g. Armenia id 118)"
+    },
+    {
+      "standardName": "Armenian Premier League",
+      "fotmobIds": [118],
+      "aliases": [
+        "Armenian Premier League",
+        "Armenia Premier League",
+        "ARM Premier League",
+        "Premier League Armenia",
+        "Armenian Premier League (ARM)"
       ]
     },
     {

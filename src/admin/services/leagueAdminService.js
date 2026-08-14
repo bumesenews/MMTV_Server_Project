@@ -5,6 +5,7 @@ const DEFAULT_LEAGUES = [
   'UEFA Champions League',
   'UEFA Europa League',
   'English Premier League (EPL)',
+  'Armenian Premier League',
   'La Liga',
   'Serie A',
   'Bundesliga',

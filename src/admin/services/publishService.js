@@ -118,7 +118,7 @@ class PublishService {
     });
 
     const filteredLeagues = this.leagues.filterMatches(merged);
-    // LIVE only with stream URLs — fix FotMob/kickoff LIVE before overrides/JSON
+    // Kickoff-window status (Scheduled / PREPARING_STREAM / LIVE / END)
     const statusFixed = (filteredLeagues || []).map((m) => enrichMatchState(m));
     const priorityMap = priorityMapFromSourcesDoc(meta.sourcesDoc || null);
     const withOverrides = this.overrides.applyToMatches(statusFixed, priorityMap);
