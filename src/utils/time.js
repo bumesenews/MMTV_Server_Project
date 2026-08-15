@@ -1,4 +1,12 @@
 const { DateTime } = require('luxon');
+const {
+  STREAM_FIND_LEAD_MIN,
+  STREAM_SEARCH_STOP_AFTER_MIN,
+  STREAM_SEARCH_INTERVAL_MINUTES,
+  MATCH_URL_MAX_ATTEMPTS,
+  MATCH_URL_SEARCH_SLOTS,
+  STREAM_SEARCH_SLOTS,
+} = require('./scraperConfig');
 
 const ZONE = 'Asia/Yangon';
 
@@ -121,35 +129,42 @@ function isKickoffStarted(kickoff, nowSec = nowUtcUnixSeconds()) {
   return mins !== null && mins <= 0;
 }
 
-/** Minutes before kickoff to begin stream search (first slot). */
-const STREAM_FIND_LEAD_MIN = 30;
-/** Legacy alias — second pre-kickoff checkpoint. */
-const STREAM_RETRY_LEAD_MIN = 15;
-/** Stop all stream searching this many minutes after kickoff. */
-const STREAM_SEARCH_STOP_AFTER_MIN = 15;
+/** Legacy alias — second pre-kickoff Match URL checkpoint. */
+const STREAM_RETRY_LEAD_MIN = MATCH_URL_SEARCH_SLOTS[1]?.maxInclusive || 15;
 /** Match stays LIVE until this many minutes after kickoff; then END + drop streams. */
 const MATCH_LIVE_DURATION_MIN = 120;
-
 /**
- * Kickoff-relative search slots (minutes until kickoff).
- * Search at: -30, -15, -5, 0, +5, +10. Stop at +15.
+ * Max |FotMob kickoff − streaming URL kickoff| (minutes) after both are in
+ * the canonical timezone (Asia/Yangon). Configurable via MATCH_TIME_TOLERANCE_MIN.
  */
-const STREAM_SEARCH_SLOTS = [
-  { id: 't30', minExclusive: 15, maxInclusive: 30, postKickoff: false },
-  { id: 't15', minExclusive: 5, maxInclusive: 15, postKickoff: false },
-  { id: 't5', minExclusive: 0, maxInclusive: 5, postKickoff: false },
-  { id: 't0', minExclusive: -5, maxInclusive: 0, postKickoff: true },
-  { id: 'tP5', minExclusive: -10, maxInclusive: -5, postKickoff: true },
-  { id: 'tP10', minExclusive: -15, maxInclusive: -10, postKickoff: true },
-];
+const MATCH_TIME_TOLERANCE_MIN = Math.max(
+  0,
+  Number(process.env.MATCH_TIME_TOLERANCE_MIN || 10)
+);
 
 /**
- * Resolve which search slot the match is currently in (or null if outside window).
+ * Resolve which Match URL discovery slot the fixture is in.
+ * Returns null outside −30m .. 0 (kickoff). Does not include post-kickoff.
+ */
+function resolveMatchUrlSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
+  const mins = minutesUntilKickoff(kickoff, nowSec);
+  if (mins == null) return null;
+  if (mins > STREAM_FIND_LEAD_MIN) return null;
+  if (mins <= 0) return null;
+  for (const slot of MATCH_URL_SEARCH_SLOTS) {
+    if (mins <= slot.maxInclusive && mins > slot.minExclusive) return slot;
+  }
+  return null;
+}
+
+/**
+ * Resolve the post-kickoff m3u8 extract slot (kickoff / +5 / +10 by default).
+ * Returns null before kickoff and at/after the +15 stop.
  */
 function resolveStreamSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
   const mins = minutesUntilKickoff(kickoff, nowSec);
   if (mins == null) return null;
-  if (mins > STREAM_FIND_LEAD_MIN) return null;
+  if (mins > 0) return null;
   if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return null;
   for (const slot of STREAM_SEARCH_SLOTS) {
     if (mins <= slot.maxInclusive && mins > slot.minExclusive) return slot;
@@ -179,8 +194,8 @@ function getCheckIntervalMinutes(kickoff, status, nowSec = nowUtcUnixSeconds()) 
     return null;
   }
 
-  // Inside active search window (−30 .. +15): poll often enough to hit each slot
-  if (mins <= STREAM_FIND_LEAD_MIN) return 2;
+  // Inside Match URL / stream-search window (−30 .. +15)
+  if (mins <= STREAM_FIND_LEAD_MIN) return STREAM_SEARCH_INTERVAL_MINUTES;
 
   // Far from kickoff
   return 15;
@@ -225,10 +240,15 @@ module.exports = {
   getCheckIntervalMinutes,
   resolveFixtureStatus,
   resolveStreamSearchSlot,
+  resolveMatchUrlSearchSlot,
   isStreamSearchStopped,
   STREAM_FIND_LEAD_MIN,
   STREAM_RETRY_LEAD_MIN,
   STREAM_SEARCH_STOP_AFTER_MIN,
   STREAM_SEARCH_SLOTS,
+  MATCH_URL_SEARCH_SLOTS,
+  STREAM_SEARCH_INTERVAL_MINUTES,
+  MATCH_TIME_TOLERANCE_MIN,
+  MATCH_URL_MAX_ATTEMPTS,
   MATCH_LIVE_DURATION_MIN,
 };

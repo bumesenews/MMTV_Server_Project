@@ -32,6 +32,27 @@ function sanitizeForCompare(payload) {
     for (const match of clone.matches) {
       if (!match || typeof match !== 'object') continue;
       delete match.updatedAt;
+      delete match.lastMatchUrlAttemptAt;
+      delete match.lastAttemptAt;
+      if (match.streamSearch && typeof match.streamSearch === 'object') {
+        const sources = match.streamSearch.sources;
+        if (sources && typeof sources === 'object') {
+          for (const src of Object.values(sources)) {
+            if (src && typeof src === 'object') {
+              delete src.lastAttemptAt;
+              delete src.updatedAt;
+            }
+          }
+        }
+      }
+      if (match.matchUrlSearch && typeof match.matchUrlSearch === 'object') {
+        const sources = match.matchUrlSearch.sources;
+        if (sources && typeof sources === 'object') {
+          for (const src of Object.values(sources)) {
+            if (src && typeof src === 'object') delete src.lastAttemptAt;
+          }
+        }
+      }
       if (Array.isArray(match.streams)) {
         for (const stream of match.streams) {
           if (stream && typeof stream === 'object') delete stream.checkedAt;

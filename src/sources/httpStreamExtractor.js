@@ -2,6 +2,7 @@ const axios = require('axios');
 const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
 const { DEFAULT_UA } = require('../browser/puppeteerManager');
+const { mergePlaybackHeaders, playbackHeadersForClient } = require('../utils/streamHeaders');
 const { extractStreamsFromPage, dedupeStreams } = require('./streamExtractor');
 const { sleep } = require('./baseStreamingSource');
 const { cleanText } = require('../utils/normalize');
@@ -190,10 +191,14 @@ async function extractStreamsViaAxios({
       type: 'm3u8',
       quality: cleanText(quality) || 'HD',
       url: normalized,
-      headers: {
-        'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
-        Referer: matchPageUrl,
-      },
+      headers: playbackHeadersForClient(
+        mergePlaybackHeaders({
+          streamHeaders: { Referer: matchPageUrl },
+          sourceConfig: config,
+          matchPageUrl,
+        })
+      ),
+      matchPageUrl,
       active: true,
       priority: sourcePriority,
       checkedAt: new Date().toISOString(),
@@ -259,9 +264,110 @@ async function extractStreamsViaAxios({
   return dedupeStreams(streams);
 }
 
+function tagExtractionMethod(streams, method) {
+  return (streams || []).map((s) => ({
+    ...s,
+    extractionMethod: method,
+  }));
+}
+
+/**
+ * Axios first, Puppeteer only if Axios produced no *validated* stream.
+ * Do not launch Puppeteer when Axios already succeeded.
+ */
+async function runAxiosThenPuppeteer({
+  axiosExtract,
+  puppeteerExtract,
+  validate,
+  shouldAbort,
+} = {}) {
+  const applyValidate = async (streams) => {
+    if (!streams?.length) return [];
+    if (typeof validate !== 'function') {
+      return (streams || []).filter((s) => s && s.url && s.active !== false);
+    }
+    const valid = await validate(streams);
+    return (valid || []).filter(
+      (s) => s && s.url && s.active !== false && (s.validation == null || s.validation.ok !== false)
+    );
+  };
+
+  if (typeof shouldAbort === 'function' && shouldAbort()) {
+    return {
+      streams: [],
+      method: null,
+      puppeteerLaunched: false,
+      aborted: true,
+    };
+  }
+
+  try {
+    const raw = await axiosExtract();
+    const axiosStreams = await applyValidate(raw);
+    if (axiosStreams.length) {
+      return {
+        streams: tagExtractionMethod(axiosStreams, 'axios'),
+        method: 'axios',
+        puppeteerLaunched: false,
+        aborted: false,
+      };
+    }
+  } catch (err) {
+    return puppeteerFallback({
+      puppeteerExtract,
+      applyValidate,
+      shouldAbort,
+      axiosError: err,
+    });
+  }
+
+  return puppeteerFallback({
+    puppeteerExtract,
+    applyValidate,
+    shouldAbort,
+    axiosError: null,
+  });
+}
+
+async function puppeteerFallback({
+  puppeteerExtract,
+  applyValidate,
+  shouldAbort,
+  axiosError,
+}) {
+  if (typeof shouldAbort === 'function' && shouldAbort()) {
+    return {
+      streams: [],
+      method: 'axios',
+      puppeteerLaunched: false,
+      aborted: true,
+      axiosError,
+    };
+  }
+  if (typeof puppeteerExtract !== 'function') {
+    return {
+      streams: [],
+      method: 'axios',
+      puppeteerLaunched: false,
+      aborted: false,
+      axiosError,
+    };
+  }
+  const raw = await puppeteerExtract();
+  const streams = await applyValidate(raw);
+  return {
+    streams: tagExtractionMethod(streams, 'puppeteer'),
+    method: 'puppeteer',
+    puppeteerLaunched: true,
+    aborted: false,
+    axiosError,
+  };
+}
+
 /**
  * Prefer axios HTML scrape; fall back to puppeteer-core network interception.
  * If axios returns candidates that fail validateStreams, Puppeteer is used next.
+ * Never launches Puppeteer when Axios already returned a validated stream.
  */
 async function extractStreamsAxiosThenPuppeteer({
   matchPageUrl,
@@ -272,92 +378,99 @@ async function extractStreamsAxiosThenPuppeteer({
   puppeteerSettleMs = 0,
   getM3u8Patterns,
   validateStreams,
+  shouldAbort,
 }) {
   logEvent(events.SCRAPER_START, `${sourceName} stream extract start`, {
     source: sourceName,
     url: matchPageUrl,
   });
 
-  const applyValidate = async (streams, method) => {
-    if (!streams?.length) return [];
-    if (typeof validateStreams !== 'function') return streams;
-    const valid = await validateStreams(streams);
-    const kept = (valid || []).filter((s) => s && s.url && s.active !== false);
-    if (!kept.length && streams.length) {
-      logger.info(`${sourceName} ${method} streams failed health check`, {
-        source: sourceName,
-        count: streams.length,
-        method,
+  const result = await runAxiosThenPuppeteer({
+    shouldAbort,
+    validate: validateStreams,
+    axiosExtract: async () => {
+      const axiosStreams = await extractStreamsViaAxios({
+        matchPageUrl,
+        sourceName,
+        config,
       });
-    }
-    return kept;
-  };
-
-  try {
-    let axiosStreams = await extractStreamsViaAxios({
-      matchPageUrl,
-      sourceName,
-      config,
-    });
-    axiosStreams = await applyValidate(axiosStreams, 'axios');
-    if (axiosStreams.length) {
-      logEvent(events.SCRAPER_SUCCESS, `${sourceName} stream extract success (axios)`, {
-        source: sourceName,
-        count: axiosStreams.length,
-        method: 'axios',
-      });
+      if (!axiosStreams.length) {
+        logger.info(`${sourceName} axios found no streams — falling back to puppeteer`, {
+          source: sourceName,
+          url: matchPageUrl,
+        });
+      }
       return axiosStreams;
-    }
-    logger.info(`${sourceName} axios found no valid streams — falling back to puppeteer`, {
+    },
+    puppeteerExtract: browser
+      ? async () => {
+          logger.info(`${sourceName} axios found no valid streams — falling back to puppeteer`, {
+            source: sourceName,
+            url: matchPageUrl,
+          });
+          const patterns =
+            typeof getM3u8Patterns === 'function'
+              ? getM3u8Patterns()
+              : (config.streamDetection?.m3u8Patterns || ['\\.m3u8']).map(
+                  (p) => new RegExp(p, 'i')
+                );
+          const page = await browser.newInterceptPage(patterns);
+          try {
+            await page.goto(matchPageUrl, {
+              waitUntil,
+              timeout: browser.timeout,
+            });
+            if (puppeteerSettleMs > 0) await sleep(puppeteerSettleMs);
+            return extractStreamsFromPage({
+              page,
+              sourceName,
+              config,
+              matchPageUrl,
+              browserManager: browser,
+            });
+          } finally {
+            await browser.safeClosePage(page);
+          }
+        }
+      : null,
+  });
+
+  if (result.aborted) {
+    logger.info(`${sourceName} stream extract aborted (stop window)`, {
       source: sourceName,
       url: matchPageUrl,
     });
-  } catch (err) {
-    logger.warn(`${sourceName} axios stream extract failed — falling back to puppeteer`, {
-      source: sourceName,
-      url: matchPageUrl,
-      error: err.message,
-    });
+    return [];
   }
 
-  if (!browser) {
+  if (result.method === 'axios' && result.streams.length) {
+    logEvent(events.SCRAPER_SUCCESS, `${sourceName} stream extract success (axios)`, {
+      source: sourceName,
+      count: result.streams.length,
+      method: 'axios',
+      puppeteerLaunched: false,
+    });
+    return result.streams;
+  }
+
+  if (!browser && !result.puppeteerLaunched) {
     logEvent(events.SCRAPER_SUCCESS, `${sourceName} stream extract success`, {
       source: sourceName,
       count: 0,
       method: 'axios-empty-no-browser',
     });
-    return [];
+    return result.streams || [];
   }
 
-  const patterns =
-    typeof getM3u8Patterns === 'function'
-      ? getM3u8Patterns()
-      : (config.streamDetection?.m3u8Patterns || ['\\.m3u8']).map((p) => new RegExp(p, 'i'));
-
-  const page = await browser.newInterceptPage(patterns);
-  try {
-    await page.goto(matchPageUrl, {
-      waitUntil,
-      timeout: browser.timeout,
-    });
-    if (puppeteerSettleMs > 0) await sleep(puppeteerSettleMs);
-    let streams = await extractStreamsFromPage({
-      page,
-      sourceName,
-      config,
-      matchPageUrl,
-      browserManager: browser,
-    });
-    streams = await applyValidate(streams, 'puppeteer');
+  if (result.puppeteerLaunched) {
     logEvent(events.SCRAPER_SUCCESS, `${sourceName} stream extract success (puppeteer)`, {
       source: sourceName,
-      count: streams.length,
+      count: result.streams.length,
       method: 'puppeteer',
     });
-    return streams;
-  } finally {
-    await browser.safeClosePage(page);
   }
+
+  return result.streams || [];
 }
 
 function asList(value) {
@@ -375,4 +488,5 @@ module.exports = {
   extractUrlFromEmbed,
   extractStreamsViaAxios,
   extractStreamsAxiosThenPuppeteer,
+  runAxiosThenPuppeteer,
 };

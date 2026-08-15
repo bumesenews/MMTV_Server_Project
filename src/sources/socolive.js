@@ -1,15 +1,36 @@
 const { BaseStreamingSource, sleep } = require('./baseStreamingSource');
 const { extractStreamsAxiosThenPuppeteer } = require('./httpStreamExtractor');
+const { MultiMatchScraper } = require('../services/multiMatchScraper');
 const { logger, logEvent, events } = require('../utils/logger');
 const { formatDate, nowYangon } = require('../utils/time');
 
 /**
- * Source B — https://socoliveku.cc/
+ * Source B — https://socolivepp.tv/
  * Independent scraper module.
  */
 class SocoliveSource extends BaseStreamingSource {
   constructor(deps) {
     super({ name: 'socolive', ...deps });
+    this.multiMatch = new MultiMatchScraper({
+      browser: this.browser,
+      sourceName: this.name,
+      linkPattern: /truc-tiep\/[^\s"'<>#?]+/gi,
+      normalizer: this.normalizer,
+    });
+  }
+
+  async discoverMatchesForFixtures(fixtures = []) {
+    return this.withRetries(async () => {
+      logEvent(events.SCRAPER_START, `${this.name} multi-match discover start`, {
+        source: this.name,
+        fixtures: (fixtures || []).length,
+      });
+      return this.multiMatch.discoverForFixtures({
+        listUrls: this.scheduleUrls(),
+        fixtures,
+        config: this.config,
+      });
+    }, 'discoverMatchesForFixtures');
   }
 
   scheduleUrls() {
@@ -125,6 +146,7 @@ class SocoliveSource extends BaseStreamingSource {
           puppeteerSettleMs: 1500,
           getM3u8Patterns: () => this.getM3u8Patterns(),
           validateStreams: options.validateStreams,
+          shouldAbort: options.shouldAbort,
         }),
       'extractStreams'
     );

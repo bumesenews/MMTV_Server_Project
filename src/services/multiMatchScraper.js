@@ -4,14 +4,15 @@ const { axiosGetHtml } = require('../sources/httpStreamExtractor');
 const { sleep } = require('../sources/baseStreamingSource');
 const {
   parseStreamUrl,
-  matchStreamToFotmob,
+  scoreStreamMatch,
+  MATCH_URL_STATUS,
 } = require('../utils/streamUrlHelper');
 const {
-  minutesUntilKickoff,
   STREAM_FIND_LEAD_MIN,
-  STREAM_SEARCH_STOP_AFTER_MIN,
   isTodayOrTomorrow,
   toYangon,
+  MATCH_TIME_TOLERANCE_MIN,
+  resolveMatchUrlSearchSlot,
 } = require('../utils/time');
 const { cleanText } = require('../utils/normalize');
 
@@ -25,7 +26,7 @@ const CLOUDFLARE_MARKERS =
  * Efficient multi-match discovery for 15–20 FotMob fixtures:
  * 1) One Axios GET of the live list HTML
  * 2) Extract all `truc-tiep/...` detail URLs
- * 3) Match only fixtures in the kickoff−30m window via matchStreamToFotmob
+ * 3) Match only fixtures in Match URL slots (−30/−15/−5) via scoreStreamMatch
  * 4) Puppeteer fallback (memory-optimized browser) if Axios/Cloudflare/empty
  */
 class MultiMatchScraper {
@@ -34,15 +35,17 @@ class MultiMatchScraper {
     sourceName = 'streaming',
     linkPattern = DEFAULT_LINK_PATTERN,
     windowLeadMinutes = STREAM_FIND_LEAD_MIN,
-    windowStopMinutes = STREAM_SEARCH_STOP_AFTER_MIN,
-    requireLeague = true,
+    timeToleranceMinutes = MATCH_TIME_TOLERANCE_MIN,
+    requireLeague = false,
+    normalizer = null,
   } = {}) {
     this.browser = browser;
     this.sourceName = sourceName;
     this.linkPattern = linkPattern;
     this.windowLeadMinutes = windowLeadMinutes;
-    this.windowStopMinutes = windowStopMinutes;
+    this.timeToleranceMinutes = timeToleranceMinutes;
     this.requireLeague = requireLeague;
+    this.normalizer = normalizer;
   }
 
   /**
@@ -101,18 +104,13 @@ class MultiMatchScraper {
   }
 
   /**
-   * currentTime >= kickoff − 30m, and still inside search window (before +15m).
+   * Match URL discovery window: Today-page slots −30 / −15 / −5 only.
    */
   isFixtureDue(fixture) {
     if (!fixture?.kickoff) return false;
     const kickoff = toYangon(fixture.kickoff);
     if (!kickoff || !isTodayOrTomorrow(kickoff)) return false;
-
-    const mins = minutesUntilKickoff(fixture.kickoff);
-    if (mins == null) return false;
-    if (mins > this.windowLeadMinutes) return false; // too early
-    if (mins <= -this.windowStopMinutes) return false; // past stop
-    return true;
+    return Boolean(resolveMatchUrlSearchSlot(fixture.kickoff));
   }
 
   async fetchListEntriesAxios(listUrls, config) {
@@ -340,17 +338,17 @@ class MultiMatchScraper {
   }
 
   /**
-   * Map due FotMob fixtures → stream list entries via 3-layer matcher.
+   * Map FotMob fixtures → stream list entries.
+   * Identity: home + away + date + kickoff. Both teams required.
+   * Ambiguous (two close scores, or one URL claimed by two fixtures) → reject.
    */
   matchFixturesToEntries(fixtures, entries) {
-    const usedUrls = new Set();
-    const out = [];
+    const scoredRows = [];
 
     for (const fixture of fixtures || []) {
-      let hit = null;
+      const candidates = [];
       for (const entry of entries || []) {
-        if (!entry?.url || usedUrls.has(entry.url)) continue;
-
+        if (!entry?.url) continue;
         const streamData = {
           ...entry,
           url: entry.url,
@@ -360,39 +358,63 @@ class MultiMatchScraper {
           utcTimestamp: entry.utcTimestamp,
           utcDate: entry.utcDate,
           utcIso: entry.utcIso,
+          yangonDate: entry.yangonDate,
+          homeTeam: entry.homeTeam,
+          awayTeam: entry.awayTeam,
         };
-
-        const ok = matchStreamToFotmob(fixture, streamData, {
-          windowMinutes: this.windowLeadMinutes,
-          skipLeagueCheck: !this.requireLeague && !streamData.league && !streamData.country,
+        const scored = scoreStreamMatch(fixture, streamData, {
+          normalizer: this.normalizer,
+          timeToleranceMinutes: this.timeToleranceMinutes,
         });
-
-        if (ok) {
-          hit = entry;
-          break;
+        if (scored.accepted) {
+          candidates.push({ entry, scored });
         }
       }
 
-      // Soft retry: if league context missing on all entries, allow layers 1+3 only
-      if (!hit && this.requireLeague) {
-        for (const entry of entries || []) {
-          if (!entry?.url || usedUrls.has(entry.url)) continue;
-          if (entry.league || entry.country) continue; // already tried with league
-          const ok = matchStreamToFotmob(
-            fixture,
-            { ...entry, url: entry.url },
-            { windowMinutes: this.windowLeadMinutes, skipLeagueCheck: true }
-          );
-          if (ok) {
-            hit = entry;
-            break;
-          }
-        }
+      candidates.sort((a, b) => b.scored.score - a.scored.score);
+      if (!candidates.length) continue;
+      if (
+        candidates.length > 1 &&
+        candidates[0].scored.score - candidates[1].scored.score < 5
+      ) {
+        logger.info(`${this.sourceName} ambiguous Match URL — skipped`, {
+          matchId: fixture.matchId,
+          candidates: candidates.slice(0, 3).map((c) => c.entry.url),
+        });
+        continue;
       }
 
-      if (!hit) continue;
+      scoredRows.push({ fixture, hit: candidates[0] });
+    }
 
-      usedUrls.add(hit.url);
+    const byUrl = new Map();
+    for (const row of scoredRows) {
+      const url = row.hit.entry.url;
+      const prev = byUrl.get(url);
+      if (!prev) {
+        byUrl.set(url, row);
+        continue;
+      }
+      if (row.hit.scored.score > prev.hit.scored.score) {
+        byUrl.set(url, row);
+      } else if (row.hit.scored.score === prev.hit.scored.score) {
+        byUrl.set(url, null);
+      }
+    }
+
+    const out = [];
+    const usedFixtures = new Set();
+    for (const row of byUrl.values()) {
+      if (!row) continue;
+      const { fixture, hit } = row;
+      if (usedFixtures.has(fixture.matchId)) continue;
+      usedFixtures.add(fixture.matchId);
+
+      const status =
+        hit.scored.status === MATCH_URL_STATUS.CONFIRMED
+          ? MATCH_URL_STATUS.CONFIRMED
+          : MATCH_URL_STATUS.FOUND;
+
       out.push({
         matchId: fixture.matchId,
         league: fixture.league,
@@ -401,15 +423,18 @@ class MultiMatchScraper {
         date: fixture.date,
         time: fixture.time,
         kickoff: fixture.kickoff,
-        matchUrl: hit.url,
+        matchUrl: hit.entry.url,
         source: this.sourceName,
+        matchUrlStatus: status,
+        confidence: hit.scored.score,
+        accepted: true,
         originalNames: {
           ...(fixture.originalNames || {}),
           [this.sourceName]: {
-            league: hit.league || fixture.league,
-            homeTeam: hit.homeTeam || fixture.homeTeam,
-            awayTeam: hit.awayTeam || fixture.awayTeam,
-            url: hit.url,
+            league: hit.entry.league || fixture.league,
+            homeTeam: hit.entry.homeTeam || fixture.homeTeam,
+            awayTeam: hit.entry.awayTeam || fixture.awayTeam,
+            url: hit.entry.url,
           },
         },
       });

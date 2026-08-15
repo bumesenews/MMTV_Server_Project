@@ -75,6 +75,10 @@ function mergeStreamLists(existingStreams = [], incomingStreams = []) {
       url: prev.url || s.url,
       active: s.active !== false,
       headers: { ...(prev.headers || {}), ...(s.headers || {}) },
+      streamHeaders: {
+        ...(prev.streamHeaders || prev.headers || {}),
+        ...(s.streamHeaders || s.headers || {}),
+      },
     };
     byKey.set(key, next);
     updated += 1;
@@ -133,6 +137,15 @@ function mergeIncomingMatches(existingMatches, incomingMatches) {
         ...(incoming.streamAttempts || {}),
       },
       streamSearch: incoming.streamSearch || prev.streamSearch,
+      matchUrl: incoming.matchUrl || prev.matchUrl || null,
+      matchUrlStatus: incoming.matchUrlStatus || prev.matchUrlStatus || null,
+      matchUrlAttempts: Math.max(
+        Number(incoming.matchUrlAttempts) || 0,
+        Number(prev.matchUrlAttempts) || 0
+      ),
+      lastMatchUrlAttemptAt:
+        incoming.lastMatchUrlAttemptAt || prev.lastMatchUrlAttemptAt || null,
+      matchUrlSearch: incoming.matchUrlSearch || prev.matchUrlSearch,
       sourcePages: {
         ...(prev.sourcePages || {}),
         ...(incoming.sourcePages || {}),

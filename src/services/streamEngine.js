@@ -3,16 +3,41 @@ const {
   getCheckIntervalMinutes,
   minutesUntilKickoff,
   resolveStreamSearchSlot,
+  resolveMatchUrlSearchSlot,
   isStreamSearchStopped,
   STREAM_FIND_LEAD_MIN,
   STREAM_SEARCH_STOP_AFTER_MIN,
   nowYangon,
+  nowUtcUnixSeconds,
 } = require('../utils/time');
 const { StreamValidator } = require('./streamValidator');
 const { MatchMerger } = require('./matchMerger');
 const { enrichMatchState } = require('./statusService');
-
-const MAX_POST_KICKOFF_ATTEMPTS = 3;
+const {
+  needsMatchUrlDiscovery,
+  applySourceDiscoveryResult,
+  skipDiscoveryKeepKnown,
+  finalizeMatchUrlStatus,
+  getSourceMatchUrlState,
+  sourceHasSavedMatchUrl,
+} = require('../utils/matchUrlDiscovery');
+const { JobQueue, scraperConcurrency } = require('../utils/jobQueue');
+const {
+  STREAM_SOURCE_STATUS,
+  MAX_POST_KICKOFF_ATTEMPTS,
+  extractJobKey,
+  isValidatedStream,
+  decideSourceExtract,
+  nextSourceStateAfterAttempt,
+  aggregateStreamStatus,
+  firstValidatedStreamUrl,
+  firstValidatedStreamHeaders,
+  aggregateValidationFields,
+  maxSourceAttempts,
+  normalizeValidationReason,
+  isKnownValidationReason,
+  readSourceExtractState,
+} = require('../utils/streamExtractPolicy');
 
 /**
  * Production multi-source streaming extraction engine (matches.json).
@@ -21,8 +46,8 @@ const MAX_POST_KICKOFF_ATTEMPTS = 3;
  *  -30m, -15m, -5m, kickoff, +5m, +10m
  * Stop all searching at +15m (keep already-found valid streams).
  *
- * Per source: skip once AVAILABLE; failed sources may retry;
- * at most 3 post-kickoff attempts per source.
+ * Per source: skip once AVAILABLE; permanently FAILED after 3 post-kickoff attempts;
+ * extract jobs queued at SCRAPER_CONCURRENCY (default 2).
  * Match-by-match sequential processing; all enabled sources checked.
  */
 class StreamEngine {
@@ -32,11 +57,17 @@ class StreamEngine {
       .sort(
         (a, b) => Number(b.config?.priority || 0) - Number(a.config?.priority || 0)
       );
-    this.validator = validator || new StreamValidator();
+    const sourceConfigs = {};
+    for (const src of this.sources) {
+      if (src?.name) sourceConfigs[src.name] = src.config || {};
+    }
+    this.validator = validator || new StreamValidator({ sourceConfigs });
     this.merger = merger || new MatchMerger(this.validator);
     this.lastCheckByMatch = new Map();
     this.scraperMonitor = scraperMonitor || null;
     this.onMatchUpdated = typeof onMatchUpdated === 'function' ? onMatchUpdated : null;
+    this.extractQueue = new JobQueue({ concurrency: scraperConcurrency() });
+    this._matchApplyLocks = new Map();
   }
 
   shouldCheck(match) {
@@ -61,18 +92,20 @@ class StreamEngine {
       : {};
     const sources = { ...(prev.sources || {}) };
 
-    // Preserve AVAILABLE for sources that already have a valid stream on the match
+    // Preserve AVAILABLE only for sources that already have a *validated* stream
     for (const s of match.streams || []) {
       const name = s?.source;
-      if (!name || !s.url || s.active === false) continue;
+      if (!name || !isValidatedStream(s)) continue;
       const existing = sources[name] || {};
-      if (existing.status === 'AVAILABLE') continue;
+      if (existing.status === STREAM_SOURCE_STATUS.AVAILABLE) continue;
       sources[name] = {
-        status: 'AVAILABLE',
+        status: STREAM_SOURCE_STATUS.AVAILABLE,
         attempts: Number(existing.attempts) || 1,
         postKickoffAttempts: Number(existing.postKickoffAttempts) || 0,
         lastError: null,
+        lastAttemptAt: existing.lastAttemptAt || null,
         updatedAt: existing.updatedAt || new Date().toISOString(),
+        slotsDone: { ...(existing.slotsDone || {}) },
       };
     }
 
@@ -86,14 +119,7 @@ class StreamEngine {
   }
 
   sourceState(streamSearch, sourceName) {
-    const raw = streamSearch.sources?.[sourceName] || {};
-    return {
-      status: raw.status || 'PENDING',
-      attempts: Number(raw.attempts) || 0,
-      postKickoffAttempts: Number(raw.postKickoffAttempts) || 0,
-      lastError: raw.lastError || null,
-      updatedAt: raw.updatedAt || null,
-    };
+    return readSourceExtractState(streamSearch, sourceName);
   }
 
   /**
@@ -104,7 +130,8 @@ class StreamEngine {
 
     const mins = minutesUntilKickoff(fixture.kickoff);
     if (mins == null) return false;
-    if (mins > STREAM_FIND_LEAD_MIN) return false;
+    // Stream extract is post-kickoff only (kickoff / +5 / +10). Match URL is separate.
+    if (mins > 0) return false;
     if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
 
     if (force) return true;
@@ -113,19 +140,17 @@ class StreamEngine {
     if (!slot) return false;
 
     const search = this.ensureStreamSearch(fixture);
-    if (search.slotsDone?.[slot.id]) {
-      // Re-run slot only if some sources are still not AVAILABLE
-      const pending = this.sources.some((s) => {
-        const st = this.sourceState(search, s.name);
-        if (st.status === 'AVAILABLE') return false;
-        if (slot.postKickoff && st.postKickoffAttempts >= MAX_POST_KICKOFF_ATTEMPTS) {
-          return false;
-        }
-        return true;
+    return this.sources.some((s) => {
+      const decision = decideSourceExtract({
+        sourceName: s.name,
+        streamSearch: search,
+        matchUrlState: getSourceMatchUrlState(fixture, s.name),
+        slot,
+        stopped: false,
+        force,
       });
-      return pending;
-    }
-    return true;
+      return !decision.skip;
+    });
   }
 
   markSlotDone(streamSearch, slotId) {
@@ -179,7 +204,8 @@ class StreamEngine {
     const list = fixtures || [];
     if (!list.length) return [];
 
-    // One list-page fetch per source; match 15–20 due FotMob fixtures via URL helper
+    // One list-page fetch per source — only for fixtures in −30/−15/−5 slots
+    // that do not already have a saved Match URL.
     const discovery = await this.discoverAll(list);
     const urlBySourceMatch = {};
     for (const [sourceName, matches] of Object.entries(discovery)) {
@@ -191,48 +217,60 @@ class StreamEngine {
       }
     }
 
-    const results = [];
+    const resultsById = new Map();
+    const jobs = [];
+    const order = [];
 
-    // Match 1 → Match 2 → … (no unbounded parallel match launches)
     for (const fixture of list) {
       try {
         let base = enrichMatchState(fixture);
+        base = this.applyDiscoveryToFixture(base, urlBySourceMatch);
         let streamSearch = this.ensureStreamSearch(base);
         const mins = minutesUntilKickoff(base.kickoff);
+        order.push(base.matchId);
 
         if (base.status === 'END') {
           streamSearch = this.markStopped(streamSearch);
-          const ended = enrichMatchState({
-            ...base,
-            streamSearch,
-            streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
-          });
-          this.markChecked(ended.matchId);
-          results.push(ended);
-          continue;
-        }
-
-        // Hard stop at kickoff + 15m
-        if (isStreamSearchStopped(base.kickoff, streamSearch)) {
-          streamSearch = this.markStopped(streamSearch);
-          const stopped = enrichMatchState({
-            ...base,
-            streamSearch,
-            streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
-          });
-          this.markChecked(stopped.matchId);
-          results.push(stopped);
-          continue;
-        }
-
-        if (!force && !this.shouldCheck(base)) {
-          results.push(
+          this.extractQueue.cancelMatch(base.matchId);
+          const ended = this.stampStreamFields(
             enrichMatchState({
               ...base,
               streamSearch,
               streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
-            })
+            }),
+            mins
           );
+          this.markChecked(ended.matchId);
+          resultsById.set(ended.matchId, ended);
+          continue;
+        }
+
+        if (isStreamSearchStopped(base.kickoff, streamSearch)) {
+          streamSearch = this.markStopped(streamSearch);
+          this.extractQueue.cancelMatch(base.matchId);
+          const stopped = this.stampStreamFields(
+            enrichMatchState({
+              ...base,
+              streamSearch,
+              streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
+            }),
+            mins
+          );
+          this.markChecked(stopped.matchId);
+          resultsById.set(stopped.matchId, stopped);
+          continue;
+        }
+
+        if (!force && !this.shouldCheck(base)) {
+          const idle = this.stampStreamFields(
+            enrichMatchState({
+              ...base,
+              streamSearch,
+              streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
+            }),
+            mins
+          );
+          resultsById.set(idle.matchId, idle);
           continue;
         }
 
@@ -243,16 +281,20 @@ class StreamEngine {
         const slot = resolveStreamSearchSlot(base.kickoff);
 
         if (!extract) {
-          const idle = enrichMatchState({
-            ...base,
-            streamSearch: {
-              ...streamSearch,
-              started: streamSearch.started || mins != null && mins <= STREAM_FIND_LEAD_MIN,
-            },
-            streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
-          });
+          const idle = this.stampStreamFields(
+            enrichMatchState({
+              ...base,
+              streamSearch: {
+                ...streamSearch,
+                started:
+                  streamSearch.started || (mins != null && mins <= STREAM_FIND_LEAD_MIN),
+              },
+              streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
+            }),
+            mins
+          );
           this.markChecked(idle.matchId);
-          results.push(idle);
+          resultsById.set(idle.matchId, idle);
           continue;
         }
 
@@ -260,216 +302,411 @@ class StreamEngine {
           ...streamSearch,
           started: true,
           stopped: false,
+          sources: { ...(streamSearch.sources || {}) },
         };
 
-        let working = enrichMatchState({ ...base, streamSearch });
-
-        // Check ALL enabled sources (do not stop after first success)
         for (const source of this.sources) {
-          const st = this.sourceState(streamSearch, source.name);
+          const urlState = getSourceMatchUrlState(base, source.name);
+          const found = urlBySourceMatch[source.name]?.get(base.matchId);
+          const matchUrl = urlState.matchUrl || found?.matchUrl || null;
+          const decision = decideSourceExtract({
+            sourceName: source.name,
+            streamSearch,
+            matchUrlState: {
+              ...urlState,
+              matchUrl,
+            },
+            slot,
+            stopped: false,
+            force,
+          });
 
-          if (st.status === 'AVAILABLE') {
-            continue;
-          }
-
-          if (slot?.postKickoff && st.postKickoffAttempts >= MAX_POST_KICKOFF_ATTEMPTS) {
+          if (decision.markFailed) {
             streamSearch.sources[source.name] = {
-              ...st,
-              status: 'FAILED',
+              ...this.sourceState(streamSearch, source.name),
+              status: STREAM_SOURCE_STATUS.FAILED,
               updatedAt: new Date().toISOString(),
             };
             continue;
           }
 
-          const found = urlBySourceMatch[source.name]?.get(working.matchId);
-          if (!found?.matchUrl) {
-            streamSearch.sources[source.name] = {
-              ...st,
-              status: st.status === 'AVAILABLE' ? 'AVAILABLE' : 'FAILED',
-              attempts: st.attempts + 1,
-              postKickoffAttempts:
-                st.postKickoffAttempts + (slot?.postKickoff ? 1 : 0),
-              lastError: 'no_match_page',
-              updatedAt: new Date().toISOString(),
-            };
+          if (decision.skip) {
             continue;
           }
 
+          const prev = this.sourceState(streamSearch, source.name);
+          const attempt = (Number(prev.postKickoffAttempts) || 0) + 1;
           streamSearch.sources[source.name] = {
-            ...st,
-            status: 'SEARCHING',
+            ...prev,
+            status: STREAM_SOURCE_STATUS.SEARCHING,
             updatedAt: new Date().toISOString(),
           };
 
-          try {
-            const validateStreams = async (raw) => {
-              const checked = await this.validator.fastHealthCheckMany(raw);
-              return checked.filter((s) => s && s.active && s.url);
-            };
-
-            let streams = await source.extractStreams(found.matchUrl, {
-              validateStreams,
-            });
-            // Fallback health check for sources that ignore validateStreams
-            if (
-              streams?.length &&
-              !streams.every((s) => s.validation && typeof s.validation.ok === 'boolean')
-            ) {
-              streams = await validateStreams(streams);
-            }
-            streams = (streams || []).filter((s) => s && s.active !== false && s.url);
-            streams = this.validator.dedupeAndRank(streams);
-
-            const attempts = st.attempts + 1;
-            const postKickoffAttempts =
-              st.postKickoffAttempts + (slot?.postKickoff ? 1 : 0);
-
-            if (streams.length) {
-              streamSearch.sources[source.name] = {
-                status: 'AVAILABLE',
-                attempts,
-                postKickoffAttempts,
-                lastError: null,
-                updatedAt: new Date().toISOString(),
-              };
-
-              working = this.merger.mergeMatch(
-                {
-                  ...working,
-                  streamSearch,
-                  streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
-                },
-                [
-                  {
-                    source: source.name,
-                    matchUrl: found.matchUrl,
-                    streams,
-                    originalNames: found.originalNames || {
-                      [source.name]: working.originalNames?.[source.name],
-                    },
-                    sourceLive: working.status === 'LIVE',
-                  },
-                ]
-              );
-              working = enrichMatchState({
-                ...working,
-                streamSearch,
-                streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
-              });
-
-              // Immediate save as soon as a verified stream is found
-              await this.persistProgress(working);
-            } else {
-              streamSearch.sources[source.name] = {
-                status: 'FAILED',
-                attempts,
-                postKickoffAttempts,
-                lastError: 'no_valid_stream',
-                updatedAt: new Date().toISOString(),
-              };
-              working = enrichMatchState({
-                ...working,
-                streamSearch,
-                streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
-              });
-            }
-          } catch (err) {
-            logEvent(events.SCRAPER_ERROR, 'Streaming source failed — continuing', {
-              source: source.name,
-              matchId: working.matchId,
-              error: err.message,
-            });
-            streamSearch.sources[source.name] = {
-              ...this.sourceState(streamSearch, source.name),
-              status: 'FAILED',
-              attempts: st.attempts + 1,
-              postKickoffAttempts:
-                st.postKickoffAttempts + (slot?.postKickoff ? 1 : 0),
-              lastError: err.message,
-              updatedAt: new Date().toISOString(),
-            };
-            working = enrichMatchState({
-              ...working,
-              streamSearch,
-              streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
-            });
-
-            if (this.scraperMonitor) {
-              await this.scraperMonitor
-                .notifySourceFailed(source.name, err, {
-                  url: found?.matchUrl || source.baseUrl,
-                })
-                .catch(() => {});
-            }
-            const mgr = source?.browser;
-            if (
-              mgr &&
-              typeof mgr.restart === 'function' &&
-              typeof mgr.isConnected === 'function' &&
-              !mgr.isConnected()
-            ) {
-              try {
-                await mgr.restart({ force: true });
-              } catch {
-                // ignore restart errors
-              }
-            }
-          }
+          jobs.push({
+            key: extractJobKey(base.matchId, source.name, slot || attempt),
+            matchId: base.matchId,
+            source,
+            matchUrl: decision.matchUrl,
+            slot,
+            attempt,
+            originalNames: found?.originalNames || null,
+          });
         }
 
-        if (slot) {
-          streamSearch = this.markSlotDone(streamSearch, slot.id);
-        }
-
-        // Stop flag when past +15 even mid-cycle
-        if (isStreamSearchStopped(working.kickoff, streamSearch)) {
-          streamSearch = this.markStopped(streamSearch);
-        }
-
-        const finalMatch = enrichMatchState({
-          ...working,
-          streamSearch,
-          streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
-        });
-
-        this.markChecked(finalMatch.matchId);
-        results.push(finalMatch);
+        const working = this.stampStreamFields(
+          enrichMatchState({
+            ...base,
+            streamSearch,
+            streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
+          }),
+          mins
+        );
+        resultsById.set(working.matchId, working);
       } catch (err) {
         logEvent(events.SCRAPER_ERROR, 'Match stream collection failed', {
           matchId: fixture.matchId,
           error: err.message,
         });
-        results.push(enrichMatchState(fixture));
+        resultsById.set(fixture.matchId, enrichMatchState(fixture));
+        order.push(fixture.matchId);
       }
+    }
+
+    if (jobs.length) {
+      logger.info('Stream extract queue start', {
+        jobs: jobs.length,
+        concurrency: this.extractQueue.concurrency,
+        matches: resultsById.size,
+      });
+      await this.extractQueue.run(jobs, (job) => this.runExtractJob(job, resultsById));
+    }
+
+    const results = [];
+    const seen = new Set();
+    for (const id of order) {
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      const match = resultsById.get(id);
+      if (!match) continue;
+      const mins = minutesUntilKickoff(match.kickoff);
+      let streamSearch = match.streamSearch || this.ensureStreamSearch(match);
+      const slot = resolveStreamSearchSlot(match.kickoff);
+      if (slot) streamSearch = this.markSlotDone(streamSearch, slot.id);
+      if (isStreamSearchStopped(match.kickoff, streamSearch)) {
+        streamSearch = this.markStopped(streamSearch);
+      }
+      const finalMatch = this.stampStreamFields(
+        enrichMatchState({
+          ...match,
+          streamSearch,
+          streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
+        }),
+        mins
+      );
+      this.markChecked(finalMatch.matchId);
+      results.push(finalMatch);
     }
 
     return results;
   }
 
+  stampStreamFields(match, mins = minutesUntilKickoff(match?.kickoff)) {
+    const hasValidated = (match?.streams || []).some((s) => isValidatedStream(s));
+    const streamSearch = match?.streamSearch || {};
+    let lastAttemptAt = match.lastAttemptAt || null;
+    for (const src of Object.values(streamSearch.sources || {})) {
+      if (src?.lastAttemptAt && (!lastAttemptAt || src.lastAttemptAt > lastAttemptAt)) {
+        lastAttemptAt = src.lastAttemptAt;
+      }
+    }
+    const streamStatus = aggregateStreamStatus(streamSearch, {
+      hasValidatedStream: hasValidated,
+      stopped: Boolean(streamSearch.stopped),
+      mins,
+    });
+    const validation = aggregateValidationFields(
+      { ...match, streamSearch },
+      streamStatus
+    );
+    const first = (match?.streams || []).find((s) => isValidatedStream(s));
+    return {
+      ...match,
+      streamStatus,
+      streamUrl: firstValidatedStreamUrl(match),
+      streamHeaders: firstValidatedStreamHeaders(match),
+      lastAttemptAt,
+      attempts: maxSourceAttempts(streamSearch),
+      validationStatus: validation.validationStatus,
+      validationReason: validation.validationReason,
+      source: first?.source || match.source || null,
+    };
+  }
+
+  async withMatchLock(matchId, fn) {
+    const prev = this._matchApplyLocks.get(matchId) || Promise.resolve();
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    this._matchApplyLocks.set(
+      matchId,
+      prev.then(
+        () => gate,
+        () => gate
+      )
+    );
+    await prev.catch(() => {});
+    try {
+      return await fn();
+    } finally {
+      release();
+    }
+  }
+
+  async runExtractJob(job, resultsById) {
+    const { matchId, source, matchUrl, slot } = job;
+    if (this.extractQueue.isCancelled(matchId)) {
+      return { skipped: true, reason: 'stopped' };
+    }
+
+    const current = resultsById.get(matchId);
+    if (!current) return { skipped: true, reason: 'missing_match' };
+
+    if (isStreamSearchStopped(current.kickoff, current.streamSearch)) {
+      this.extractQueue.cancelMatch(matchId);
+      return { skipped: true, reason: 'stopped' };
+    }
+
+    let lastValidationReason = null;
+    const validateStreams = async (raw) => {
+      let checked;
+      if (typeof this.validator.validateMany === 'function') {
+        checked = await this.validator.validateMany(raw, {
+          sourceConfig: source.config,
+        });
+      } else {
+        checked = await this.validator.fastHealthCheckMany(raw);
+      }
+      const failed = (checked || []).find(
+        (s) => s?.validation && s.validation.ok === false
+      );
+      if (failed) {
+        lastValidationReason = normalizeValidationReason(
+          failed.validation.state || failed.validation.reason
+        );
+      }
+      return (checked || []).filter(
+        (s) => s && s.active && s.url && s.validation?.ok === true
+      );
+    };
+
+    let streams = [];
+    let error = null;
+    let extractionMethod = null;
+    try {
+      if (this.extractQueue.isCancelled(matchId) || isStreamSearchStopped(current.kickoff, current.streamSearch)) {
+        this.extractQueue.cancelMatch(matchId);
+        return { skipped: true, reason: 'stopped' };
+      }
+      streams = await source.extractStreams(matchUrl, {
+        validateStreams,
+        shouldAbort: () =>
+          this.extractQueue.isCancelled(matchId) ||
+          isStreamSearchStopped(
+            resultsById.get(matchId)?.kickoff || current.kickoff,
+            resultsById.get(matchId)?.streamSearch || current.streamSearch
+          ),
+      });
+      if (
+        streams?.length &&
+        !streams.every((s) => s.validation && typeof s.validation.ok === 'boolean')
+      ) {
+        streams = await validateStreams(streams);
+      }
+      streams = (streams || []).filter((s) => isValidatedStream(s));
+      streams = this.validator.dedupeAndRank(streams);
+      extractionMethod = streams[0]?.extractionMethod || null;
+      if (!streams.length) {
+        error = lastValidationReason || error;
+      }
+    } catch (err) {
+      error = err.message;
+      logEvent(events.SCRAPER_ERROR, 'Streaming source failed — continuing', {
+        source: source.name,
+        matchId,
+        error: err.message,
+      });
+      const validationLike = isKnownValidationReason(err.message);
+      if (this.scraperMonitor && !validationLike) {
+        await this.scraperMonitor
+          .notifySourceFailed(source.name, err, {
+            url: matchUrl || source.baseUrl,
+          })
+          .catch(() => {});
+      }
+      const mgr = source?.browser;
+      if (
+        mgr &&
+        typeof mgr.restart === 'function' &&
+        typeof mgr.isConnected === 'function' &&
+        !mgr.isConnected()
+      ) {
+        try {
+          await mgr.restart({ force: true });
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    await this.withMatchLock(matchId, async () => {
+      const working = resultsById.get(matchId) || current;
+      if (isStreamSearchStopped(working.kickoff, working.streamSearch) && !streams.length) {
+        this.extractQueue.cancelMatch(matchId);
+        return;
+      }
+
+      const mins = minutesUntilKickoff(working.kickoff);
+      const streamSearch = {
+        ...(working.streamSearch || this.ensureStreamSearch(working)),
+        sources: { ...((working.streamSearch && working.streamSearch.sources) || {}) },
+      };
+      const previous = this.sourceState(streamSearch, source.name);
+      streamSearch.sources[source.name] = nextSourceStateAfterAttempt({
+        previous,
+        slot,
+        validatedStreams: streams,
+        error,
+        extractionMethod,
+      });
+
+      let next = {
+        ...working,
+        streamSearch,
+        streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
+      };
+
+      if (streams.length) {
+        next = this.merger.mergeMatch(next, [
+          {
+            source: source.name,
+            matchUrl,
+            streams,
+            originalNames: job.originalNames || {
+              [source.name]: working.originalNames?.[source.name],
+            },
+            sourceLive: working.status === 'LIVE',
+          },
+        ]);
+      }
+
+      next = this.stampStreamFields(enrichMatchState(next), mins);
+      resultsById.set(matchId, next);
+
+      if (streams.length) {
+        await this.persistProgress(next);
+      }
+    });
+
+    return { matchId, source: source.name, streams: streams.length, error };
+  }
+
+  /**
+   * Stamp Match URL state from this cycle's discovery (or keep previously saved URLs).
+   */
+  applyDiscoveryToFixture(fixture, urlBySourceMatch = {}) {
+    const nowIso = new Date().toISOString();
+    const nowSec = nowUtcUnixSeconds();
+    const slot = resolveMatchUrlSearchSlot(fixture.kickoff, nowSec);
+    let next = fixture;
+
+    for (const source of this.sources) {
+      const found = urlBySourceMatch[source.name]?.get(fixture.matchId);
+      if (needsMatchUrlDiscovery(next, source.name, nowSec)) {
+        next = applySourceDiscoveryResult(
+          next,
+          source.name,
+          found
+            ? {
+                matchUrl: found.matchUrl,
+                status: found.matchUrlStatus,
+                confidence: found.confidence,
+                accepted: true,
+              }
+            : null,
+          slot,
+          nowIso
+        );
+      } else {
+        next = skipDiscoveryKeepKnown(next, source.name);
+      }
+    }
+
+    return finalizeMatchUrlStatus(next, nowSec);
+  }
+
   /**
    * Discover match pages once per source.
-   * Prefers multi-match Axios list + FotMob URL matching when available.
+   * Skips Today-page scrape when no fixture is in a Match URL slot (−30/−15/−5)
+   * or when that source already has a saved Match URL.
    */
   async discoverAll(fixtures = []) {
     const bySource = {};
+    const nowSec = nowUtcUnixSeconds();
+
     for (const source of this.sources) {
       try {
-        logger.info('Discovering matches once', {
+        const known = [];
+        const due = [];
+        for (const f of fixtures || []) {
+          const st = getSourceMatchUrlState(f, source.name);
+          if (sourceHasSavedMatchUrl(st)) {
+            known.push({
+              matchId: f.matchId,
+              matchUrl: st.matchUrl,
+              matchUrlStatus: st.status,
+              confidence: st.confidence,
+              source: source.name,
+              originalNames: f.originalNames,
+            });
+            continue;
+          }
+          if (needsMatchUrlDiscovery(f, source.name, nowSec)) {
+            due.push(f);
+          }
+        }
+
+        if (!due.length) {
+          logger.info('Skipping Today-page scrape — no Match URL search due', {
+            source: source.name,
+            known: known.length,
+          });
+          bySource[source.name] = known;
+          continue;
+        }
+
+        logger.info('Discovering Match URLs (Today page)', {
           source: source.name,
-          fixtures: (fixtures || []).length,
+          due: due.length,
+          known: known.length,
         });
 
         let found = [];
-        if (
-          typeof source.discoverMatchesForFixtures === 'function' &&
-          (fixtures || []).length
-        ) {
-          found = await source.discoverMatchesForFixtures(fixtures);
+        if (typeof source.discoverMatchesForFixtures === 'function') {
+          found = await source.discoverMatchesForFixtures(due);
         } else {
           found = await source.discoverMatches();
         }
 
-        bySource[source.name] = found || [];
+        const merged = [...known];
+        const seen = new Set(known.map((k) => k.matchId));
+        for (const m of found || []) {
+          if (m?.matchId && m.matchUrl && !seen.has(m.matchId)) {
+            merged.push(m);
+            seen.add(m.matchId);
+          }
+        }
+        bySource[source.name] = merged;
         this.scraperMonitor?.recordSourceResult(source.name, {
           ok: true,
           url: source.baseUrl || source.config?.domains?.[0],

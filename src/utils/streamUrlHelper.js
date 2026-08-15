@@ -1,7 +1,32 @@
 const { DateTime } = require('luxon');
+const {
+  foldKey,
+  stripClubAffixes,
+  stripGenderPrefix,
+  teamMatchKey,
+} = require('./normalize');
+const { ZONE: YANGON_ZONE, MATCH_TIME_TOLERANCE_MIN, formatDate } = require('./time');
 
-/** Indochina Time (ICT) — GMT+7 */
+/** Indochina Time (ICT) — GMT+7 (Vietnamese streaming sites embed this clock). */
 const ICT_ZONE = 'Asia/Bangkok';
+
+/** Confidence weights — home/away required; date/time complete the identity. */
+const MATCH_SCORE_WEIGHTS = {
+  HOME: 40,
+  AWAY: 40,
+  DATE: 10,
+  TIME: 10,
+  CONFIRMED_MIN: 90,
+  POSSIBLE_MIN: 75,
+};
+
+const MATCH_URL_STATUS = {
+  NOT_FOUND: 'MATCH_URL_NOT_FOUND',
+  FOUND: 'MATCH_URL_FOUND',
+  CONFIRMED: 'MATCH_CONFIRMED',
+  REJECTED: 'REJECTED',
+  POSSIBLE: 'POSSIBLE_MATCH',
+};
 
 /** Noise tokens stripped when cleaning team names for matching. */
 const TEAM_NOISE_WORDS = new Set([
@@ -135,6 +160,28 @@ function buildIctDateTime({ day, month, year, hour, minute }) {
 }
 
 /**
+ * Strip tracking/query/hash and trailing random IDs from a match URL slug.
+ * houseId and similar query params are ignored (URL.pathname already drops them).
+ */
+function stripDynamicSlugTail(slug) {
+  let s = String(slug || '').trim();
+  if (!s) return '';
+  s = s.replace(/[?#].*$/, '');
+  s = decodeURIComponentSafe(s);
+  // {yyyy}-{randomId} after ngay-DD-MM-YYYY
+  s = s.replace(/-(\d{4})-[a-z0-9]{4,}$/i, '-$1');
+  return s.replace(/\/+$/, '');
+}
+
+function decodeURIComponentSafe(value) {
+  try {
+    return decodeURIComponent(String(value || ''));
+  } catch {
+    return String(value || '');
+  }
+}
+
+/**
  * Extract the meaningful path slug from a streaming match URL.
  */
 function extractMatchSlug(url) {
@@ -145,7 +192,7 @@ function extractMatchSlug(url) {
     const u = new URL(raw);
     raw = u.pathname || raw;
   } catch {
-    // not a full URL — treat as path/slug
+    raw = raw.replace(/[?#].*$/, '');
   }
 
   const parts = raw
@@ -157,13 +204,15 @@ function extractMatchSlug(url) {
   for (let i = parts.length - 1; i >= 0; i -= 1) {
     const p = parts[i].toLowerCase();
     if (p.includes('-vs-') && (p.includes('-luc-') || p.includes('-ngay-'))) {
-      return parts[i];
+      return stripDynamicSlugTail(parts[i]);
     }
   }
   for (let i = parts.length - 1; i >= 0; i -= 1) {
-    if (parts[i].toLowerCase().includes('-vs-')) return parts[i];
+    if (parts[i].toLowerCase().includes('-vs-')) {
+      return stripDynamicSlugTail(parts[i]);
+    }
   }
-  return parts[parts.length - 1] || '';
+  return stripDynamicSlugTail(parts[parts.length - 1] || '');
 }
 
 /**
@@ -203,6 +252,9 @@ function parseStreamUrl(url) {
     utcDate: null,
     utcTimestamp: null,
     utcIso: null,
+    yangonDate: '',
+    yangonTime: '',
+    yangonIso: null,
     slug: '',
     ok: false,
   };
@@ -214,19 +266,28 @@ function parseStreamUrl(url) {
 
   const lower = slug.toLowerCase();
 
-  // Primary pattern: {home}-vs-{away}-luc-{HHMM}-ngay-{DD}-{MM}-{YYYY}
+  // Primary: {home}-vs-{away}-luc-{HHMM}-ngay-{DD}-{MM}-{YYYY}[ -randomId]
+  // Random suffix / query already stripped by extractMatchSlug.
   let m = lower.match(
-    /^(.+?)-vs-(.+?)-luc-(\d{3,4})-ngay-(\d{1,2})-(\d{1,2})-(\d{4})$/
+    /^(.+?)-vs-(.+?)-luc-(\d{3,4})-ngay-(\d{1,2})-(\d{1,2})-(\d{4})(?:-[a-z0-9]+)?$/
   );
 
   // Alternate: ngay before luc
   if (!m) {
     m = lower.match(
-      /^(.+?)-vs-(.+?)-ngay-(\d{1,2})-(\d{1,2})-(\d{4})-luc-(\d{3,4})$/
+      /^(.+?)-vs-(.+?)-ngay-(\d{1,2})-(\d{1,2})-(\d{4})-luc-(\d{3,4})(?:-[a-z0-9]+)?$/
     );
     if (m) {
       m = [m[0], m[1], m[2], m[6], m[3], m[4], m[5]];
     }
+  }
+
+  // Search (unanchored) so extra trailing tokens cannot hide the date/time
+  if (!m) {
+    const found = lower.match(
+      /^(.+?)-vs-(.+?)-luc-(\d{3,4})-ngay-(\d{1,2})-(\d{1,2})-(\d{4})/
+    );
+    if (found) m = found;
   }
 
   // Fallback: teams only (no embedded kickoff)
@@ -274,6 +335,7 @@ function parseStreamUrl(url) {
   const homeTeam = titleCaseWords(slugToText(homeSlug));
   const awayTeam = titleCaseWords(slugToText(awaySlug));
   const utc = ict.toUTC();
+  const yangon = ict.setZone(YANGON_ZONE);
 
   return {
     homeTeam,
@@ -287,6 +349,9 @@ function parseStreamUrl(url) {
     utcDate: utc.toJSDate(),
     utcTimestamp: utc.toMillis(),
     utcIso: utc.toISO(),
+    yangonDate: yangon.toFormat('yyyy-MM-dd'),
+    yangonTime: yangon.toFormat('HH:mm'),
+    yangonIso: yangon.toISO(),
     slug,
     ok: true,
   };
@@ -543,34 +608,173 @@ function normalizeStreamUrlData(streamUrlData) {
       utcTimestamp: streamUrlData.utcTimestamp ?? parsed.utcTimestamp,
       utcDate: streamUrlData.utcDate || parsed.utcDate,
       utcIso: streamUrlData.utcIso || parsed.utcIso,
+      yangonDate: streamUrlData.yangonDate || parsed.yangonDate,
+      yangonTime: streamUrlData.yangonTime || parsed.yangonTime,
+      yangonIso: streamUrlData.yangonIso || parsed.yangonIso,
     };
   }
 
   return streamUrlData;
 }
 
+function canonicalizeTeamForMatch(rawName, normalizer) {
+  const cleaned = String(rawName || '').trim();
+  if (!cleaned) return '';
+  let aliased = cleaned;
+  if (normalizer?.teamIndex) {
+    aliased = normalizer.teamIndex.get(foldKey(cleaned)) || cleaned;
+    if (aliased === cleaned) {
+      const stripped = stripClubAffixes(stripGenderPrefix(cleaned));
+      if (stripped && foldKey(stripped) !== foldKey(cleaned)) {
+        aliased = normalizer.teamIndex.get(foldKey(stripped)) || aliased;
+      }
+    }
+  } else if (normalizer?.normalizeTeam) {
+    aliased = normalizer.normalizeTeam(cleaned);
+  }
+  return teamMatchKey(aliased || cleaned);
+}
+
 /**
- * 3-layer validation: match a stream URL/card to a FotMob fixture.
- *
- * Layer 1 — Time: kickoffs within ±30 minutes (UTC)
- * Layer 2 — League/Country: shared tag/code (e.g. SPA, ENG, LaLiga)
- * Layer 3 — Teams: BOTH home & away core keywords appear in the URL string
- *
- * @param {object} fotmobMatch - { homeTeam, awayTeam, kickoff, league, country?, ccode? }
- * @param {string|object} streamUrlData - URL string or parseStreamUrl / scrape object
- * @param {{ windowMinutes?: number, skipLeagueCheck?: boolean }} [options]
- * @returns {boolean}
+ * Compare FotMob team vs streaming-URL team via existing alias/foldKey system.
+ * exact = 40, fuzzy (multi-token containment / full token overlap) = 32, else 0.
+ * Single-token containment is rejected (Inter Milan vs Milan / AC Milan).
  */
-function matchStreamToFotmob(fotmobMatch, streamUrlData, options = {}) {
-  if (!fotmobMatch || typeof fotmobMatch !== 'object') return false;
+function compareTeamIdentity(fotmobName, streamName, normalizer) {
+  const a = canonicalizeTeamForMatch(fotmobName, normalizer);
+  const b = canonicalizeTeamForMatch(streamName, normalizer);
+  if (!a || !b) return { score: 0, kind: 'none', fotmobKey: a, streamKey: b };
+  if (a === b) {
+    return { score: MATCH_SCORE_WEIGHTS.HOME, kind: 'exact', fotmobKey: a, streamKey: b };
+  }
+
+  const aTok = a.split(' ').filter((t) => t.length >= 2);
+  const bTok = b.split(' ').filter((t) => t.length >= 2);
+  const shorter = a.length <= b.length ? a : b;
+  const longer = a.length <= b.length ? b : a;
+  const shortTok = shorter.split(' ').filter((t) => t.length >= 2);
+
+  // Multi-token containment only (avoids "milan" matching "inter milan")
+  if (shortTok.length >= 2 && longer.includes(shorter)) {
+    return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };
+  }
+
+  if (aTok.length && bTok.length) {
+    const setB = new Set(bTok);
+    const overlap = aTok.filter((t) => setB.has(t)).length;
+    const need = Math.min(aTok.length, bTok.length);
+    if (need >= 2 && overlap === need) {
+      return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };
+    }
+  }
+
+  return { score: 0, kind: 'none', fotmobKey: a, streamKey: b };
+}
+
+function fotmobYangonDate(fotmobMatch) {
+  const kick =
+    fotmobMatch?.kickoff ||
+    fotmobMatch?.utcTime ||
+    fotmobMatch?.startTime ||
+    fotmobMatch?.kickoffUtc;
+  if (fotmobMatch?.date && /^\d{4}-\d{2}-\d{2}$/.test(String(fotmobMatch.date))) {
+    return String(fotmobMatch.date);
+  }
+  return formatDate(kick);
+}
+
+function streamYangonDate(stream) {
+  if (stream?.yangonDate) return stream.yangonDate;
+  const ms = toUtcMillis(
+    stream?.utcTimestamp ??
+      stream?.utcDate ??
+      stream?.utcIso ??
+      stream?.kickoff ??
+      stream?.ictDateTime
+  );
+  if (ms == null) return '';
+  return DateTime.fromMillis(ms, { zone: 'utc' }).setZone(YANGON_ZONE).toFormat('yyyy-MM-dd');
+}
+
+function extraLeagueValidation(fotmobMatch, stream) {
+  const fotmobTags = collectLeagueCountryTags(fotmobMatch);
+  const streamTags = collectLeagueCountryTags(
+    stream,
+    stream.url || stream.slug || stream.matchUrl || ''
+  );
+  if (!fotmobTags.size || !streamTags.size) return { known: false, matches: false };
+  for (const tag of streamTags) {
+    if (fotmobTags.has(tag)) return { known: true, matches: true };
+  }
+  return { known: true, matches: false };
+}
+
+function emptyScoreResult(reason) {
+  return {
+    accepted: false,
+    status: MATCH_URL_STATUS.REJECTED,
+    score: 0,
+    reason: reason || 'rejected',
+    home: { score: 0, kind: 'none' },
+    away: { score: 0, kind: 'none' },
+    dateMatched: false,
+    timeMatched: false,
+    league: { known: false, matches: false },
+    ambiguous: false,
+  };
+}
+
+/**
+ * Score a streaming Match URL against a FotMob fixture.
+ *
+ * Primary identity: Home + Away + Date + Kickoff (canonical Asia/Yangon).
+ * League is secondary validation only (used for POSSIBLE_MATCH).
+ * Both teams must match — one-team hits are always rejected.
+ */
+function scoreStreamMatch(fotmobMatch, streamUrlData, options = {}) {
+  if (!fotmobMatch || typeof fotmobMatch !== 'object') {
+    return emptyScoreResult('missing_fotmob');
+  }
 
   const stream = normalizeStreamUrlData(streamUrlData);
-  if (!stream) return false;
+  if (!stream) return emptyScoreResult('missing_stream');
 
-  const windowMinutes =
-    options.windowMinutes == null ? 30 : Number(options.windowMinutes);
+  const normalizer = options.normalizer || null;
+  const timeTolerance =
+    options.timeToleranceMinutes == null
+      ? MATCH_TIME_TOLERANCE_MIN
+      : Number(options.timeToleranceMinutes);
 
-  // Layer 1 — Time Check
+  const homeName = fotmobMatch.homeTeam || fotmobMatch.home || '';
+  const awayName = fotmobMatch.awayTeam || fotmobMatch.away || '';
+  const streamHome = stream.homeTeam || stream.home || '';
+  const streamAway = stream.awayTeam || stream.away || '';
+
+  const home = compareTeamIdentity(homeName, streamHome, normalizer);
+  const away = compareTeamIdentity(awayName, streamAway, normalizer);
+
+  if (home.score <= 0 || away.score <= 0) {
+    return {
+      ...emptyScoreResult('teams_mismatch'),
+      home,
+      away,
+    };
+  }
+
+  const fotDate = fotmobYangonDate(fotmobMatch);
+  const strDate = streamYangonDate(stream);
+  const dateKnown = Boolean(fotDate && strDate);
+  const dateMatched = dateKnown && fotDate === strDate;
+
+  if (dateKnown && !dateMatched) {
+    return {
+      ...emptyScoreResult('date_mismatch'),
+      home,
+      away,
+      dateMatched: false,
+    };
+  }
+
   const fotmobTime =
     fotmobMatch.kickoff ||
     fotmobMatch.utcTime ||
@@ -581,40 +785,138 @@ function matchStreamToFotmob(fotmobMatch, streamUrlData, options = {}) {
     stream.utcTimestamp ??
     stream.utcDate ??
     stream.utcIso ??
+    stream.yangonIso ??
     stream.kickoff ??
     stream.ictDateTime;
+  const fotMs = toUtcMillis(fotmobTime);
+  const strMs = toUtcMillis(streamTime);
+  const timeKnown = fotMs != null && strMs != null;
+  const timeMatched = timeKnown && isMatchWithinWindow(fotmobTime, streamTime, timeTolerance);
 
-  if (!isMatchWithinWindow(fotmobTime, streamTime, windowMinutes)) {
-    return false;
+  if (timeKnown && !timeMatched) {
+    return {
+      ...emptyScoreResult('time_mismatch'),
+      home,
+      away,
+      dateMatched,
+    };
   }
 
-  // Layer 2 — League / Country Check (optional skip when list HTML has no tags)
-  if (!options.skipLeagueCheck && !leagueCountryMatches(fotmobMatch, stream)) {
-    return false;
+  let score = home.score + away.score;
+  if (dateMatched) score += MATCH_SCORE_WEIGHTS.DATE;
+  if (timeMatched) score += MATCH_SCORE_WEIGHTS.TIME;
+
+  const league = extraLeagueValidation(fotmobMatch, stream);
+  const fuzzyTeam = home.kind === 'fuzzy' || away.kind === 'fuzzy';
+  const incompleteClock = !dateKnown || !timeKnown;
+
+  // Cap incomplete / fuzzy identity at POSSIBLE so league extra-validation runs
+  if ((fuzzyTeam || incompleteClock) && score >= MATCH_SCORE_WEIGHTS.CONFIRMED_MIN) {
+    score = MATCH_SCORE_WEIGHTS.CONFIRMED_MIN - 1;
   }
 
-  // Layer 3 — Team Names Check (keywords in URL)
-  if (!teamNamesInUrl(fotmobMatch, stream)) {
-    return false;
+  if (score < MATCH_SCORE_WEIGHTS.POSSIBLE_MIN) {
+    return {
+      accepted: false,
+      status: MATCH_URL_STATUS.REJECTED,
+      score,
+      reason: 'below_threshold',
+      home,
+      away,
+      dateMatched,
+      timeMatched,
+      league,
+      ambiguous: false,
+    };
   }
 
-  return true;
+  if (score >= MATCH_SCORE_WEIGHTS.CONFIRMED_MIN) {
+    return {
+      accepted: true,
+      status: MATCH_URL_STATUS.CONFIRMED,
+      score,
+      reason: 'confirmed',
+      home,
+      away,
+      dateMatched,
+      timeMatched,
+      league,
+      ambiguous: false,
+    };
+  }
+
+  // POSSIBLE_MATCH (75–89): extra validation via league when the site provided one.
+  // Streaming sites often mislabel league — missing tags do not reject.
+  // A *known conflicting* league on a fuzzy team match is rejected.
+  if (fuzzyTeam && league.known && !league.matches) {
+    return {
+      accepted: false,
+      status: MATCH_URL_STATUS.REJECTED,
+      score,
+      reason: 'possible_league_conflict',
+      home,
+      away,
+      dateMatched,
+      timeMatched,
+      league,
+      ambiguous: false,
+    };
+  }
+
+  return {
+    accepted: true,
+    status: MATCH_URL_STATUS.FOUND,
+    score,
+    reason: 'possible_accepted',
+    home,
+    away,
+    dateMatched,
+    timeMatched,
+    league,
+    ambiguous: false,
+  };
+}
+
+/**
+ * Boolean wrapper kept for existing call sites.
+ * League is secondary — skipLeagueCheck is accepted but no longer required for a hit.
+ */
+function matchStreamToFotmob(fotmobMatch, streamUrlData, options = {}) {
+  const scored = scoreStreamMatch(fotmobMatch, streamUrlData, {
+    ...options,
+    timeToleranceMinutes:
+      options.timeToleranceMinutes != null
+        ? options.timeToleranceMinutes
+        : options.windowMinutes != null && Number(options.windowMinutes) <= 15
+          ? Number(options.windowMinutes)
+          : MATCH_TIME_TOLERANCE_MIN,
+  });
+  return Boolean(scored.accepted);
 }
 
 module.exports = {
   ICT_ZONE,
+  YANGON_ZONE,
   TEAM_NOISE_WORDS,
   LEAGUE_COUNTRY_GROUPS,
+  MATCH_SCORE_WEIGHTS,
+  MATCH_URL_STATUS,
   parseStreamUrl,
   cleanTeamName,
   isMatchWithinWindow,
   matchStreamToFotmob,
+  scoreStreamMatch,
+  compareTeamIdentity,
+  canonicalizeTeamForMatch,
   toUtcMillis,
   parseIctClock,
   slugToText,
   titleCaseWords,
   extractMatchSlug,
+  stripDynamicSlugTail,
   collectLeagueCountryTags,
   coreTeamKeywords,
   canonicalizeLeagueTag,
+  teamNamesInUrl,
+  leagueCountryMatches,
 };

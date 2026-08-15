@@ -17,6 +17,36 @@ function foldKey(value) {
     .trim();
 }
 
+function stripClubAffixes(value) {
+  let s = cleanText(value);
+  if (!s) return '';
+  const affix =
+    /^(fc|fk|sc|cf|ac|afc|cfc|ifc|sk|nk|bk|ifk|sd)\s+|\s+(fc|fk|sc|cf|ac|afc|cfc|ifc|sk|nk|bk|ifk|sd|football club|sporting club)$/i;
+  let prev = null;
+  while (s && s !== prev) {
+    prev = s;
+    s = s.replace(affix, ' ').replace(/\s+/g, ' ').trim();
+  }
+  return s;
+}
+
+/** Vietnamese "nữ" / English women's prefix used in streaming slugs. */
+const GENDER_PREFIX_RE = /^(nu|nữ|nu+|wfc|women|womens|ladies)\s+/i;
+
+function stripGenderPrefix(value) {
+  const s = cleanText(value);
+  if (!s) return '';
+  return s.replace(GENDER_PREFIX_RE, '').trim() || s;
+}
+
+/**
+ * Canonical key for team identity matching (aliases applied by Normalizer first).
+ */
+function teamMatchKey(value) {
+  const stripped = stripClubAffixes(stripGenderPrefix(value));
+  return foldKey(stripped || value);
+}
+
 function buildAliasIndex(entries, nameKey = 'standardName') {
   const index = new Map();
   for (const entry of entries || []) {
@@ -309,7 +339,21 @@ class Normalizer {
   normalizeTeam(rawName) {
     const cleaned = cleanText(rawName);
     if (!cleaned) return cleaned;
-    const mapped = this.teamIndex.get(foldKey(cleaned));
+
+    const lookup = (name) => {
+      const key = foldKey(name);
+      if (!key) return null;
+      return this.teamIndex.get(key) || null;
+    };
+
+    let mapped = lookup(cleaned);
+    if (!mapped) {
+      const stripped = stripClubAffixes(stripGenderPrefix(cleaned));
+      if (stripped && foldKey(stripped) !== foldKey(cleaned)) {
+        mapped = lookup(stripped);
+      }
+    }
+
     if (mapped && mapped !== cleaned) {
       logEvent(events.TEAM_NORMALIZED, 'Team normalized', {
         from: cleaned,
@@ -425,6 +469,9 @@ class Normalizer {
 module.exports = {
   cleanText,
   foldKey,
+  stripClubAffixes,
+  stripGenderPrefix,
+  teamMatchKey,
   buildAliasIndex,
   buildFotmobIdIndex,
   Normalizer,

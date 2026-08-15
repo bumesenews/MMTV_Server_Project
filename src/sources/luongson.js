@@ -110,6 +110,7 @@ class LuongSonSource extends BaseStreamingSource {
           browser: this.browser,
           getM3u8Patterns: () => this.getM3u8Patterns(),
           validateStreams: options.validateStreams,
+          shouldAbort: options.shouldAbort,
         }),
       'extractStreams'
     );

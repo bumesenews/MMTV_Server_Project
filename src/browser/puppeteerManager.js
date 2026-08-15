@@ -172,7 +172,12 @@ class PuppeteerManager {
       options.blockResources ?? process.env.PUPPETEER_BLOCK_RESOURCES !== 'false';
     this.maxConcurrentPages = Math.max(
       1,
-      Number(options.maxConcurrentPages || process.env.PUPPETEER_MAX_PAGES || 2)
+      Number(
+        options.maxConcurrentPages ||
+          process.env.PUPPETEER_MAX_PAGES ||
+          process.env.SCRAPER_CONCURRENCY ||
+          2
+      )
     );
     this.executablePath =
       options.executablePath !== undefined

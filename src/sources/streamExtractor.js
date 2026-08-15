@@ -1,5 +1,5 @@
 const { logger, logEvent, events } = require('../utils/logger');
-const { DEFAULT_UA } = require('../browser/puppeteerManager');
+const { mergePlaybackHeaders, playbackHeadersForClient } = require('../utils/streamHeaders');
 const { sleep } = require('./baseStreamingSource');
 const { cleanText } = require('../utils/normalize');
 
@@ -34,11 +34,17 @@ async function extractStreamsFromPage({
       type: 'm3u8',
       quality: cleanText(quality) || 'HD',
       url,
-      headers: {
-        'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
-        Referer: matchPageUrl,
-        ...(extra.headers || {}),
-      },
+      headers: playbackHeadersForClient(
+        mergePlaybackHeaders({
+          streamHeaders: {
+            Referer: matchPageUrl,
+            ...(extra.headers || {}),
+          },
+          sourceConfig: config,
+          matchPageUrl,
+        })
+      ),
+      matchPageUrl,
       active: true,
       priority: sourcePriority,
       checkedAt: new Date().toISOString(),
@@ -53,7 +59,7 @@ async function extractStreamsFromPage({
 
   // 1) Auto-play / network interception after load
   await sleep(waitAfterLoad);
-  collectFromCapture(page, pushStream, 'Auto');
+  collectFromCapture(page, pushStream, 'Auto', config);
 
   // Optional play button if nothing yet
   if (!streams.length && Array.isArray(playerRules.clickPlaySelectors)) {
@@ -63,7 +69,7 @@ async function extractStreamsFromPage({
         if (!btn) continue;
         await btn.click({ delay: 40 });
         await sleep(waitAfterClick);
-        collectFromCapture(page, pushStream, 'Auto');
+        collectFromCapture(page, pushStream, 'Auto', config);
         if (streams.length) break;
       } catch {
         // ignore
@@ -114,7 +120,7 @@ async function extractStreamsFromPage({
       for (const item of after) {
         if (before.has(item.url)) continue;
         pushStream(item.url, button.label || 'HD', {
-          headers: buildHeaders(item, matchPageUrl),
+          headers: buildHeaders(item, matchPageUrl, config),
         });
       }
     } catch (err) {
@@ -127,27 +133,32 @@ async function extractStreamsFromPage({
   }
 
   // Final sweep of capture buffer
-  collectFromCapture(page, pushStream, 'HD');
+  collectFromCapture(page, pushStream, 'HD', config);
 
   return dedupeStreams(streams);
 }
 
-function collectFromCapture(page, pushStream, defaultQuality) {
+function collectFromCapture(page, pushStream, defaultQuality, config) {
   const items = page.__streamCapture?.getUniqueStreams() || [];
   for (const item of items) {
     pushStream(item.url, defaultQuality, {
-      headers: buildHeaders(item, page.url()),
+      headers: buildHeaders(item, page.url(), config),
     });
   }
 }
 
-function buildHeaders(item, referer) {
+function buildHeaders(item, referer, config = {}) {
   const h = item.headers || {};
-  return {
-    'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
-    Referer: referer || h.referer || h.Referer || '',
-    ...(h.cookie || h.Cookie ? { Cookie: h.cookie || h.Cookie } : {}),
-  };
+  return mergePlaybackHeaders({
+    streamHeaders: {
+      'User-Agent': h['User-Agent'] || h['user-agent'],
+      Referer: h.Referer || h.referer || referer,
+      Origin: h.Origin || h.origin,
+      ...(h.cookie || h.Cookie ? { Cookie: h.cookie || h.Cookie } : {}),
+    },
+    sourceConfig: config,
+    matchPageUrl: referer,
+  });
 }
 
 async function extractFromIframes(page, iframeSelectors, pushStream) {

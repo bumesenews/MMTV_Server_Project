@@ -147,6 +147,7 @@ class OverrideService {
             headers: {
               'User-Agent': s.headers?.['User-Agent'] || '',
               Referer: s.headers?.Referer || '',
+              ...(s.headers?.Origin ? { Origin: s.headers.Origin } : {}),
               ...(s.headers?.Cookie ? { Cookie: s.headers.Cookie } : {}),
             },
             active: s.active !== false,
@@ -221,6 +222,9 @@ function normalizeManualStream(input = {}) {
     headers: {
       'User-Agent': input.headers?.['User-Agent'] || input.userAgent || '',
       Referer: input.headers?.Referer || input.referer || '',
+      ...(input.headers?.Origin || input.origin
+        ? { Origin: input.headers?.Origin || input.origin }
+        : {}),
       ...(input.headers?.Cookie || input.cookie
         ? { Cookie: input.headers?.Cookie || input.cookie }
         : {}),

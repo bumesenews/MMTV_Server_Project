@@ -1,6 +1,29 @@
 const { nowYangon } = require('../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../utils/compare');
 const { enrichMatchState } = require('./statusService');
+const {
+  aggregateStreamStatus,
+  firstValidatedStreamUrl,
+  firstValidatedStreamHeaders,
+  isValidatedStream,
+  aggregateValidationFields,
+  maxSourceAttempts,
+} = require('../utils/streamExtractPolicy');
+
+function flutterPlaybackHeaders(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return { 'User-Agent': '', Referer: '' };
+  }
+  const headers = {
+    'User-Agent': raw['User-Agent'] || raw['user-agent'] || '',
+    Referer: raw.Referer || raw.referer || '',
+  };
+  const origin = raw.Origin || raw.origin;
+  if (origin) headers.Origin = origin;
+  const cookie = raw.Cookie || raw.cookie;
+  if (cookie) headers.Cookie = cookie;
+  return headers;
+}
 
 /**
  * Generate Flutter-facing JSON payload.
@@ -10,6 +33,19 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
   const cleanedMatches = (matches || []).map((raw) => {
     // Status from kickoff windows (Scheduled / PREPARING_STREAM / LIVE / END)
     const m = enrichMatchState(raw);
+    const streamStatus =
+      m.streamStatus ||
+      aggregateStreamStatus(m.streamSearch, {
+        hasValidatedStream: (m.streams || []).some((s) => isValidatedStream(s)),
+        stopped: Boolean(m.streamSearch?.stopped),
+      });
+    const validation =
+      m.validationStatus != null || m.validationReason != null
+        ? {
+            validationStatus: m.validationStatus || null,
+            validationReason: m.validationReason || null,
+          }
+        : aggregateValidationFields(m, streamStatus);
     return {
     matchId: m.matchId,
     league: m.league,
@@ -23,8 +59,13 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
     date: m.date,
     time: m.time,
     kickoff: m.kickoff,
+    kickoffTime: m.kickoffTime || m.time || null,
     timezone: m.timezone || 'Asia/Yangon',
     status: m.status || 'Scheduled',
+    fotmobMatchId: m.fotmobMatchId || m.fotmobId || null,
+    leagueId: m.leagueId || m.leagueFotmobId || null,
+    leagueName: m.leagueName || m.league || null,
+    source: m.source || (m.streams || []).find((s) => s && s.url)?.source || null,
     manual: Boolean(m.manual),
     statusLocked: Boolean(m.statusLocked),
     pinned: Boolean(m.pinned),
@@ -41,19 +82,42 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
         quality: s.quality || s.name || 'HD',
         name: s.name || s.quality || 'HD',
         url: s.url,
-        headers: {
-          'User-Agent': s.headers?.['User-Agent'] || '',
-          Referer: s.headers?.Referer || '',
-          ...(s.headers?.Cookie ? { Cookie: s.headers.Cookie } : {}),
-        },
+        headers: flutterPlaybackHeaders(s.streamHeaders || s.headers),
+        streamHeaders: flutterPlaybackHeaders(s.streamHeaders || s.headers),
         active: Boolean(s.active),
         checkedAt: s.checkedAt || null,
+        ...(s.validation?.state || s.validation?.reason
+          ? {
+              validationStatus: s.validation.state || s.validation.reason,
+              validationReason:
+                s.validation.ok === true
+                  ? null
+                  : s.validation.state || s.validation.reason || null,
+            }
+          : {}),
         ...(s.manualId ? { manualId: s.manualId } : {}),
       })),
     streamAttempts: m.streamAttempts || {},
+    matchUrl: m.matchUrl || null,
+    matchUrlStatus: m.matchUrlStatus || 'MATCH_URL_NOT_FOUND',
+    matchUrlAttempts: Number(m.matchUrlAttempts) || 0,
+    lastMatchUrlAttemptAt: m.lastMatchUrlAttemptAt || null,
+    streamUrl: m.streamUrl || firstValidatedStreamUrl(m) || null,
+    streamHeaders: (() => {
+      const raw = m.streamHeaders || firstValidatedStreamHeaders(m);
+      return raw ? flutterPlaybackHeaders(raw) : null;
+    })(),
+    streamStatus,
+    attempts: Number(m.attempts) || maxSourceAttempts(m.streamSearch) || 0,
+    validationStatus: validation.validationStatus,
+    validationReason: validation.validationReason,
+    lastAttemptAt: m.lastAttemptAt || null,
     // Kickoff-relative stream-search state (Flutter-safe; optional)
     ...(m.streamSearch && typeof m.streamSearch === 'object'
       ? { streamSearch: m.streamSearch }
+      : {}),
+    ...(m.matchUrlSearch && typeof m.matchUrlSearch === 'object'
+      ? { matchUrlSearch: m.matchUrlSearch }
       : {}),
     updatedAt: m.updatedAt || new Date().toISOString(),
   };
@@ -115,4 +179,4 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
   return payload;
 }
 
-module.exports = { generateFlutterJson };
+module.exports = { generateFlutterJson, flutterPlaybackHeaders };

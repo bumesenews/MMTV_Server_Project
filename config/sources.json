@@ -58,7 +58,11 @@
         "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-btn", "#play", ".btn-play", ".play-button"]
       },
-      "notes": "https://cakhiazvm.tv/"
+      "notes": "https://cakhiazvm.tv/",
+      "playbackHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+        "Referer": "https://cakhiazvm.tv/"
+      }
     },
     {
       "name": "xoilac",
@@ -97,7 +101,11 @@
         "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-button", ".btn-play"]
       },
-      "notes": "https://xoilacxtn.tv/"
+      "notes": "https://xoilacxtn.tv/",
+      "playbackHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+        "Referer": "https://xoilacxtn.tv/"
+      }
     },
     {
       "name": "colatv",
@@ -141,7 +149,11 @@
         "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-btn", "#play", ".btn-play", ".play-button"]
       },
-      "notes": "https://colatv65.live/"
+      "notes": "https://colatv65.live/",
+      "playbackHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+        "Referer": "https://colatv65.live/"
+      }
     },
     {
       "name": "socolive",
@@ -150,7 +162,7 @@
       "priority": 300,
       "extractionMethod": "axios-first",
       "parser": "socolive",
-      "domains": ["https://socoliveoo.tv"],
+      "domains": ["https://socolivepp.tv"],
       "mirrorDomains": [],
       "paths": {
         "home": "/",
@@ -180,7 +192,11 @@
         "autoPlay": true,
         "clickPlaySelectors": [".play", ".vjs-big-play-button", ".btn-play"]
       },
-      "notes": "https://socoliveoo.tv/"
+      "notes": "https://socolivepp.tv/",
+      "playbackHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+        "Referer": "https://soco.textliveupdaterz.com/"
+      }
     },
     {
       "name": "highlight",

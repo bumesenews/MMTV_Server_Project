@@ -18,6 +18,7 @@ class GenericStreamingSource extends BaseStreamingSource {
       browser: this.browser,
       sourceName: name,
       linkPattern: /truc-tiep\/[^\s"'<>#?]+/gi,
+      normalizer: this.normalizer,
     });
   }
 
@@ -248,6 +249,7 @@ class GenericStreamingSource extends BaseStreamingSource {
           waitUntil: this.discoverOptions.waitUntil || 'domcontentloaded',
           getM3u8Patterns: () => this.getM3u8Patterns(),
           validateStreams: options.validateStreams,
+          shouldAbort: options.shouldAbort,
         }),
       'extractStreams'
     );

@@ -1,15 +1,36 @@
 const { BaseStreamingSource, sleep } = require('./baseStreamingSource');
 const { extractStreamsAxiosThenPuppeteer } = require('./httpStreamExtractor');
+const { MultiMatchScraper } = require('../services/multiMatchScraper');
 const { logger, logEvent, events } = require('../utils/logger');
 const { formatDate, nowYangon } = require('../utils/time');
 
 /**
- * Source C — https://xoilacxyw.io/ (mirror: https://xoilacxyy.io/)
+ * Source C — https://xoilacxtn.tv/
  * Independent scraper module.
  */
 class XoilacSource extends BaseStreamingSource {
   constructor(deps) {
     super({ name: 'xoilac', ...deps });
+    this.multiMatch = new MultiMatchScraper({
+      browser: this.browser,
+      sourceName: this.name,
+      linkPattern: /truc-tiep\/[^\s"'<>#?]+/gi,
+      normalizer: this.normalizer,
+    });
+  }
+
+  async discoverMatchesForFixtures(fixtures = []) {
+    return this.withRetries(async () => {
+      logEvent(events.SCRAPER_START, `${this.name} multi-match discover start`, {
+        source: this.name,
+        fixtures: (fixtures || []).length,
+      });
+      return this.multiMatch.discoverForFixtures({
+        listUrls: this.scheduleUrls(),
+        fixtures,
+        config: this.config,
+      });
+    }, 'discoverMatchesForFixtures');
   }
 
   scheduleUrls() {
@@ -127,6 +148,7 @@ class XoilacSource extends BaseStreamingSource {
           browser: this.browser,
           getM3u8Patterns: () => this.getM3u8Patterns(),
           validateStreams: options.validateStreams,
+          shouldAbort: options.shouldAbort,
         }),
       'extractStreams'
     );
