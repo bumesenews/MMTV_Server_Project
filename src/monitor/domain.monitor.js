@@ -13,9 +13,9 @@ const DEFAULT_STATE_PATH = path.resolve(
 /**
  * Periodic domain health checks for enabled streaming sources.
  *
- * - Probe configured primary domain
- * - Require N consecutive failures before investigating
- * - After threshold: look for redirects / alternate working host
+ * - Probe configured primary domain every hour (DOMAIN_CHECK_CRON)
+ * - Immediate Telegram if the site redirects to a new host
+ * - After N consecutive failures: look for mirrors / variants, then alert down
  * - Telegram notify only — never auto-update sources.json
  */
 class DomainMonitor {
@@ -26,7 +26,7 @@ class DomainMonitor {
     this.statePath = statePath || DEFAULT_STATE_PATH;
     this.failThreshold = Math.max(
       1,
-      Number(env.DOMAIN_CHECK_FAIL_THRESHOLD || 3)
+      Number(env.DOMAIN_CHECK_FAIL_THRESHOLD || 1)
     );
     this.timeoutMs = Number(env.DOMAIN_CHECK_TIMEOUT_MS || 12000);
     this.state = this._loadState();
@@ -150,6 +150,12 @@ class DomainMonitor {
       };
     }
 
+    // Live but landed on a different host (common VN stream-site hops).
+    if (probe.reachable && probe.finalUrl && !this._sameSite(primary, probe.finalUrl)) {
+      const moved = this._originOf(probe.finalUrl) || probe.finalUrl;
+      return this._recordDomainChange(name, st, primary, moved);
+    }
+
     st.consecutiveFailures = Number(st.consecutiveFailures || 0) + 1;
     st.lastFailAt = st.lastCheckAt;
     this.state.sources[name] = st;
@@ -175,47 +181,7 @@ class DomainMonitor {
     const discovery = await this._discoverNewDomain(source, primary, probe);
 
     if (discovery?.newDomain) {
-      const oldHost = this._displayHost(primary);
-      const newHost = this._displayHost(discovery.newDomain);
-      const changeKey = `${oldHost}->${newHost}`;
-
-      if (st.alertedChange === changeKey) {
-        logger.debug('Domain change already alerted — skip duplicate', {
-          source: name,
-          changeKey,
-        });
-        return {
-          source: name,
-          ok: false,
-          domainChanged: true,
-          duplicate: true,
-          oldDomain: oldHost,
-          newDomain: newHost,
-        };
-      }
-
-      try {
-        await this.telegram.streamingDomainChanged({
-          source: name,
-          oldDomain: oldHost,
-          newDomain: newHost,
-        });
-      } catch (err) {
-        logger.warn('Telegram domain-change alert failed (ignored)', {
-          source: name,
-          error: err.message,
-        });
-      }
-
-      st.alertedChange = changeKey;
-      this.state.sources[name] = st;
-      return {
-        source: name,
-        ok: false,
-        domainChanged: true,
-        oldDomain: oldHost,
-        newDomain: newHost,
-      };
+      return this._recordDomainChange(name, st, primary, discovery.newDomain);
     }
 
     // Website down / unreachable — not a domain change
@@ -290,6 +256,52 @@ class DomainMonitor {
     }
 
     return null;
+  }
+
+  async _recordDomainChange(name, st, primary, newDomain) {
+    const oldHost = this._displayHost(primary);
+    const newHost = this._displayHost(newDomain);
+    const changeKey = `${oldHost}->${newHost}`;
+
+    if (st.alertedChange === changeKey) {
+      logger.debug('Domain change already alerted — skip duplicate', {
+        source: name,
+        changeKey,
+      });
+      this.state.sources[name] = st;
+      return {
+        source: name,
+        ok: false,
+        domainChanged: true,
+        duplicate: true,
+        oldDomain: oldHost,
+        newDomain: newHost,
+      };
+    }
+
+    try {
+      await this.telegram.streamingDomainChanged({
+        source: name,
+        oldDomain: oldHost,
+        newDomain: newHost,
+      });
+    } catch (err) {
+      logger.warn('Telegram domain-change alert failed (ignored)', {
+        source: name,
+        error: err.message,
+      });
+    }
+
+    st.alertedChange = changeKey;
+    st.consecutiveFailures = 0;
+    this.state.sources[name] = st;
+    return {
+      source: name,
+      ok: false,
+      domainChanged: true,
+      oldDomain: oldHost,
+      newDomain: newHost,
+    };
   }
 
   async _probeUrl(url) {

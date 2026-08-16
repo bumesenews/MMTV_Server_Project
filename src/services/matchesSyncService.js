@@ -178,6 +178,7 @@ function sanitizeLeagueLabels(matches, normalizer = null) {
   const out = [];
   let repaired = 0;
   let droppedFalseEpl = 0;
+  let droppedDisallowed = 0;
 
   for (const raw of list) {
     let m = raw;
@@ -211,10 +212,38 @@ function sanitizeLeagueLabels(matches, normalizer = null) {
       continue;
     }
 
+    if (!matchAllowedOnCurrentList(m, normalizer)) {
+      droppedDisallowed += 1;
+      continue;
+    }
+
     out.push(m);
   }
 
-  return { matches: out, repaired, droppedFalseEpl };
+  return { matches: out, repaired, droppedFalseEpl, droppedDisallowed };
+}
+
+/**
+ * Drop leftover rows after the allow-list shrinks (e.g. UKR PL still in matches.json).
+ * Also drops mislabeled comps (AUT Bundesliga stored as "Bundesliga").
+ */
+function matchAllowedOnCurrentList(match, normalizer) {
+  if (!normalizer?.allowedLeagues || !normalizer.allowedLeagues.size) return true;
+  if (match?.manual || match?.statusLocked) return true;
+
+  const league = match.league || match.leagueName;
+  if (league && !normalizer.allowedLeagues.has(league)) return false;
+
+  const fot = match.originalNames?.fotmob || {};
+  const raw = fot.league || league;
+  if (raw && typeof normalizer.normalizeLeague === 'function') {
+    const standard = normalizer.normalizeLeague(raw, {
+      fotmobId: fot.leagueId || match.leagueId || match.leagueFotmobId,
+      country: fot.country || match.country,
+    });
+    if (!standard || !normalizer.allowedLeagues.has(standard)) return false;
+  }
+  return true;
 }
 
 /**
@@ -252,7 +281,11 @@ function syncMatchesForDelivery(existingMatches, incomingMatches, options = {}) 
     { matches: finalFiltered.matches }
   );
 
-  const removed = cleaned.removed + incomingClean.removed + sanitized.droppedFalseEpl;
+  const removed =
+    cleaned.removed +
+    incomingClean.removed +
+    sanitized.droppedFalseEpl +
+    (sanitized.droppedDisallowed || 0);
 
   logger.info('matches.json sync prepared', {
     existing: (existingMatches || []).length,
@@ -260,6 +293,7 @@ function syncMatchesForDelivery(existingMatches, incomingMatches, options = {}) 
     removedExpired: removed,
     leaguesRepaired: sanitized.repaired,
     droppedFalseEpl: sanitized.droppedFalseEpl,
+    droppedDisallowed: sanitized.droppedDisallowed || 0,
     matchesAdded: merged.matchesAdded,
     matchesUpdated: merged.matchesUpdated,
     streamsAdded: merged.streamsAdded,
@@ -276,6 +310,7 @@ function syncMatchesForDelivery(existingMatches, incomingMatches, options = {}) 
     matchesUpdated: merged.matchesUpdated,
     leaguesRepaired: sanitized.repaired,
     droppedFalseEpl: sanitized.droppedFalseEpl,
+    droppedDisallowed: sanitized.droppedDisallowed || 0,
   };
 }
 
@@ -302,6 +337,7 @@ module.exports = {
   mergeStreamLists,
   mergeIncomingMatches,
   sanitizeLeagueLabels,
+  matchAllowedOnCurrentList,
   syncMatchesForDelivery,
   readExistingMatches,
 };

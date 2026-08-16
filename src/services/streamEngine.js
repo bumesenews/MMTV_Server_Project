@@ -5,7 +5,7 @@ const {
   resolveStreamSearchSlot,
   resolveMatchUrlSearchSlot,
   isStreamSearchStopped,
-  STREAM_FIND_LEAD_MIN,
+  STREAM_EXTRACT_LEAD_MIN,
   STREAM_SEARCH_STOP_AFTER_MIN,
   nowYangon,
   nowUtcUnixSeconds,
@@ -43,7 +43,8 @@ const {
  * Production multi-source streaming extraction engine (matches.json).
  *
  * Kickoff-relative search slots (no fixed daily times):
- *  -30m, -15m, -5m, kickoff, +5m, +10m
+ *  Match URL: tEarly (today/tomorrow), then −45 / −30 / −15 / −5
+ *  Stream extract: −30 / −15 / −5 / kickoff / +5 / +10
  * Stop all searching at +15m (keep already-found valid streams).
  *
  * Per source: skip once AVAILABLE; permanently FAILED after 3 post-kickoff attempts;
@@ -68,6 +69,7 @@ class StreamEngine {
     this.onMatchUpdated = typeof onMatchUpdated === 'function' ? onMatchUpdated : null;
     this.extractQueue = new JobQueue({ concurrency: scraperConcurrency() });
     this._matchApplyLocks = new Map();
+    this.lastDiscoverMeta = {};
   }
 
   shouldCheck(match) {
@@ -130,8 +132,8 @@ class StreamEngine {
 
     const mins = minutesUntilKickoff(fixture.kickoff);
     if (mins == null) return false;
-    // Stream extract is post-kickoff only (kickoff / +5 / +10). Match URL is separate.
-    if (mins > 0) return false;
+    // Extract from a saved Match URL starting −30m (then −15/−5/kickoff/+5/+10).
+    if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
     if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
 
     if (force) return true;
@@ -204,8 +206,8 @@ class StreamEngine {
     const list = fixtures || [];
     if (!list.length) return [];
 
-    // One list-page fetch per source — only for fixtures in −30/−15/−5 slots
-    // that do not already have a saved Match URL.
+    // One list-page fetch per source — tEarly (today/tomorrow) then −30/−15/−5
+    // for fixtures that do not already have a saved Match URL.
     const discovery = await this.discoverAll(list);
     const urlBySourceMatch = {};
     for (const [sourceName, matches] of Object.entries(discovery)) {
@@ -287,7 +289,7 @@ class StreamEngine {
               streamSearch: {
                 ...streamSearch,
                 started:
-                  streamSearch.started || (mins != null && mins <= STREAM_FIND_LEAD_MIN),
+                  streamSearch.started || (mins != null && mins <= STREAM_EXTRACT_LEAD_MIN),
               },
               streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
             }),
@@ -335,7 +337,7 @@ class StreamEngine {
           }
 
           const prev = this.sourceState(streamSearch, source.name);
-          const attempt = (Number(prev.postKickoffAttempts) || 0) + 1;
+          const attempt = (Number(prev.attempts) || 0) + 1;
           streamSearch.sources[source.name] = {
             ...prev,
             status: STREAM_SOURCE_STATUS.SEARCHING,
@@ -343,7 +345,7 @@ class StreamEngine {
           };
 
           jobs.push({
-            key: extractJobKey(base.matchId, source.name, slot || attempt),
+            key: extractJobKey(base.matchId, source.name, slot?.id || attempt),
             matchId: base.matchId,
             source,
             matchUrl: decision.matchUrl,
@@ -623,6 +625,10 @@ class StreamEngine {
     for (const source of this.sources) {
       const found = urlBySourceMatch[source.name]?.get(fixture.matchId);
       if (needsMatchUrlDiscovery(next, source.name, nowSec)) {
+        if (!found && this.lastDiscoverMeta[source.name]?.failed) {
+          next = skipDiscoveryKeepKnown(next, source.name);
+          continue;
+        }
         next = applySourceDiscoveryResult(
           next,
           source.name,
@@ -647,12 +653,13 @@ class StreamEngine {
 
   /**
    * Discover match pages once per source.
-   * Skips Today-page scrape when no fixture is in a Match URL slot (−30/−15/−5)
-   * or when that source already has a saved Match URL.
+   * Skips Today-page scrape when no fixture is in a Match URL slot
+   * (tEarly / −30 / −15 / −5) or when that source already has a saved Match URL.
    */
   async discoverAll(fixtures = []) {
     const bySource = {};
     const nowSec = nowUtcUnixSeconds();
+    this.lastDiscoverMeta = {};
 
     for (const source of this.sources) {
       try {
@@ -707,6 +714,10 @@ class StreamEngine {
           }
         }
         bySource[source.name] = merged;
+        this.lastDiscoverMeta[source.name] = {
+          failed: false,
+          matched: merged.length,
+        };
         this.scraperMonitor?.recordSourceResult(source.name, {
           ok: true,
           url: source.baseUrl || source.config?.domains?.[0],
@@ -716,6 +727,7 @@ class StreamEngine {
           source: source.name,
           error: err.message,
         });
+        this.lastDiscoverMeta[source.name] = { failed: true, error: err.message };
         bySource[source.name] = [];
         if (this.scraperMonitor) {
           await this.scraperMonitor

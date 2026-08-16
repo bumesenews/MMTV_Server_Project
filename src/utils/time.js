@@ -1,10 +1,13 @@
 const { DateTime } = require('luxon');
 const {
   STREAM_FIND_LEAD_MIN,
+  MATCH_URL_LEAD_MIN,
+  STREAM_EXTRACT_LEAD_MIN,
   STREAM_SEARCH_STOP_AFTER_MIN,
   STREAM_SEARCH_INTERVAL_MINUTES,
   MATCH_URL_MAX_ATTEMPTS,
   MATCH_URL_SEARCH_SLOTS,
+  MATCH_URL_EARLY_SLOT,
   STREAM_SEARCH_SLOTS,
 } = require('./scraperConfig');
 
@@ -81,7 +84,15 @@ function toUtcUnixSeconds(input) {
 function combineDateAndTime(dateStr, timeStr) {
   const datePart = String(dateStr || '').trim();
   let timePart = String(timeStr || '00:00').trim();
-  if (/^\d{1,2}:\d{2}$/.test(timePart)) {
+  const ampm = timePart.match(/^(\d{1,2}):(\d{2})\s*([AaPp][Mm])$/);
+  if (ampm) {
+    let hour = Number(ampm[1]);
+    const minute = ampm[2];
+    const period = ampm[3].toUpperCase();
+    if (period === 'PM' && hour < 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+    timePart = `${String(hour).padStart(2, '0')}:${minute}`;
+  } else if (/^\d{1,2}:\d{2}$/.test(timePart)) {
     const [h, m] = timePart.split(':');
     timePart = `${h.padStart(2, '0')}:${m}`;
   }
@@ -96,6 +107,12 @@ function formatDate(dt) {
 function formatTime(dt) {
   const d = toYangon(dt);
   return d ? d.toFormat('HH:mm') : null;
+}
+
+/** Display clock for matches.json, e.g. 17:00 → "5:00 PM". */
+function formatTime12(dt) {
+  const d = toYangon(dt);
+  return d ? d.toFormat('h:mm a') : null;
 }
 
 function formatKickoffId(dt) {
@@ -144,13 +161,23 @@ const MATCH_TIME_TOLERANCE_MIN = Math.max(
 
 /**
  * Resolve which Match URL discovery slot the fixture is in.
- * Returns null outside −30m .. 0 (kickoff). Does not include post-kickoff.
+ * tEarly = today/tomorrow before −45m. Then −45 / −30 / −15 / −5.
+ * Null at/after kickoff.
  */
 function resolveMatchUrlSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
   const mins = minutesUntilKickoff(kickoff, nowSec);
   if (mins == null) return null;
-  if (mins > STREAM_FIND_LEAD_MIN) return null;
   if (mins <= 0) return null;
+  if (mins > MATCH_URL_LEAD_MIN) {
+    if (
+      MATCH_URL_EARLY_SLOT &&
+      mins <= MATCH_URL_EARLY_SLOT.maxInclusive &&
+      mins > MATCH_URL_EARLY_SLOT.minExclusive
+    ) {
+      return MATCH_URL_EARLY_SLOT;
+    }
+    return null;
+  }
   for (const slot of MATCH_URL_SEARCH_SLOTS) {
     if (mins <= slot.maxInclusive && mins > slot.minExclusive) return slot;
   }
@@ -158,13 +185,13 @@ function resolveMatchUrlSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
 }
 
 /**
- * Resolve the post-kickoff m3u8 extract slot (kickoff / +5 / +10 by default).
- * Returns null before kickoff and at/after the +15 stop.
+ * Resolve the m3u8 extract slot: −30 / −15 / −5, then kickoff / +5 / +10.
+ * Returns null before −30m and at/after the +15 stop.
  */
 function resolveStreamSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
   const mins = minutesUntilKickoff(kickoff, nowSec);
   if (mins == null) return null;
-  if (mins > 0) return null;
+  if (mins > STREAM_EXTRACT_LEAD_MIN) return null;
   if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return null;
   for (const slot of STREAM_SEARCH_SLOTS) {
     if (mins <= slot.maxInclusive && mins > slot.minExclusive) return slot;
@@ -194,8 +221,8 @@ function getCheckIntervalMinutes(kickoff, status, nowSec = nowUtcUnixSeconds()) 
     return null;
   }
 
-  // Inside Match URL / stream-search window (−30 .. +15)
-  if (mins <= STREAM_FIND_LEAD_MIN) return STREAM_SEARCH_INTERVAL_MINUTES;
+  // Inside Match URL / stream-search window (−45 .. +15)
+  if (mins <= MATCH_URL_LEAD_MIN) return STREAM_SEARCH_INTERVAL_MINUTES;
 
   // Far from kickoff
   return 15;
@@ -205,15 +232,15 @@ function getCheckIntervalMinutes(kickoff, status, nowSec = nowUtcUnixSeconds()) 
  * Time-only phase helper (no stream knowledge).
  * Full match status (incl. PREPARING_STREAM / LIVE) lives in statusService.
  *
- * Scheduled → more than 30m before kickoff
- * PREPARING → kickoff−30m .. kickoff
+ * Scheduled → more than 45m before kickoff
+ * PREPARING → kickoff−45m .. kickoff
  * POST_KICKOFF / LIVE window → kickoff .. kickoff+120m
  * END → after +120m
  */
 function resolveFixtureStatus(kickoff, nowSec = nowUtcUnixSeconds()) {
   const kickSec = toUtcUnixSeconds(kickoff);
   if (kickSec == null) return 'Scheduled';
-  const preparingFrom = kickSec - STREAM_FIND_LEAD_MIN * 60;
+  const preparingFrom = kickSec - MATCH_URL_LEAD_MIN * 60;
   const liveUntil = kickSec + MATCH_LIVE_DURATION_MIN * 60;
 
   if (nowSec < preparingFrom) return 'Scheduled';
@@ -231,6 +258,7 @@ module.exports = {
   combineDateAndTime,
   formatDate,
   formatTime,
+  formatTime12,
   formatKickoffId,
   todayYangon,
   tomorrowYangon,
@@ -243,10 +271,13 @@ module.exports = {
   resolveMatchUrlSearchSlot,
   isStreamSearchStopped,
   STREAM_FIND_LEAD_MIN,
+  MATCH_URL_LEAD_MIN,
+  STREAM_EXTRACT_LEAD_MIN,
   STREAM_RETRY_LEAD_MIN,
   STREAM_SEARCH_STOP_AFTER_MIN,
   STREAM_SEARCH_SLOTS,
   MATCH_URL_SEARCH_SLOTS,
+  MATCH_URL_EARLY_SLOT,
   STREAM_SEARCH_INTERVAL_MINUTES,
   MATCH_TIME_TOLERANCE_MIN,
   MATCH_URL_MAX_ATTEMPTS,

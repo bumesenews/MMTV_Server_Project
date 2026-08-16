@@ -648,11 +648,34 @@ function compareTeamIdentity(fotmobName, streamName, normalizer) {
     return { score: MATCH_SCORE_WEIGHTS.HOME, kind: 'exact', fotmobKey: a, streamKey: b };
   }
 
+  const compact = (s) => String(s || '').replace(/\s+/g, '');
+  if (compact(a) && compact(a) === compact(b)) {
+    return { score: MATCH_SCORE_WEIGHTS.HOME, kind: 'exact', fotmobKey: a, streamKey: b };
+  }
+
+  const stripYearTokens = (s) =>
+    String(s || '')
+      .replace(/\b(?:18|19|20)\d{2}\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  const aYearless = stripYearTokens(a);
+  const bYearless = stripYearTokens(b);
+  if (aYearless && bYearless && compact(aYearless) === compact(bYearless)) {
+    return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };
+  }
+
   const aTok = a.split(' ').filter((t) => t.length >= 2);
   const bTok = b.split(' ').filter((t) => t.length >= 2);
   const shorter = a.length <= b.length ? a : b;
   const longer = a.length <= b.length ? b : a;
   const shortTok = shorter.split(' ').filter((t) => t.length >= 2);
+  const longTok = longer.split(' ').filter((t) => t.length >= 2);
+  if (shortTok.length && longer.includes(shorter)) {
+    const leftover = longTok.filter((t) => !shortTok.includes(t));
+    if (leftover.length && leftover.every((t) => /^\d{2,4}$/.test(t))) {
+      return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };
+    }
+  }
 
   // Multi-token containment only (avoids "milan" matching "inter milan")
   if (shortTok.length >= 2 && longer.includes(shorter)) {

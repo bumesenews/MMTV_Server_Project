@@ -1,4 +1,4 @@
-const { nowYangon } = require('../utils/time');
+const { nowYangon, formatTime12 } = require('../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../utils/compare');
 const { enrichMatchState } = require('./statusService');
 const {
@@ -57,9 +57,8 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
     homeLogo: m.homeLogo || null,
     awayLogo: m.awayLogo || null,
     date: m.date,
-    time: m.time,
+    time: formatTime12(m.kickoff) || m.time,
     kickoff: m.kickoff,
-    kickoffTime: m.kickoffTime || m.time || null,
     timezone: m.timezone || 'Asia/Yangon',
     status: m.status || 'Scheduled',
     fotmobMatchId: m.fotmobMatchId || m.fotmobId || null,

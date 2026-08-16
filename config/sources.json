@@ -26,7 +26,11 @@
       "mirrorDomains": [],
       "paths": {
         "home": "/",
-        "schedule": "/lich-thi-dau"
+        "schedule": "/sport/football/filter/today",
+        "lists": [
+          "/sport/football/filter/today",
+          "/sport/football/filter/tomorrow"
+        ]
       },
       "discover": {
         "waitUntil": "domcontentloaded",
@@ -71,11 +75,15 @@
       "priority": 400,
       "extractionMethod": "axios-first",
       "parser": "xoilac",
-      "domains": ["https://xoilacxtn.tv"],
+      "domains": ["https://xoilacxtr.tv"],
       "mirrorDomains": [],
       "paths": {
         "home": "/",
-        "schedule": "/lich-thi-dau"
+        "schedule": "/sport/football/filter/today",
+        "lists": [
+          "/sport/football/filter/today",
+          "/sport/football/filter/tomorrow"
+        ]
       },
       "attrs": {
         "href": ["href", "data-href", "data-url"],
@@ -101,10 +109,10 @@
         "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-button", ".btn-play"]
       },
-      "notes": "https://xoilacxtn.tv/",
+      "notes": "https://xoilacxtr.tv/",
       "playbackHeaders": {
         "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
-        "Referer": "https://xoilacxtn.tv/"
+        "Referer": "https://xoilacxtr.tv/"
       }
     },
     {
@@ -117,7 +125,8 @@
       "mirrorDomains": [],
       "paths": {
         "home": "/",
-        "schedule": "/lich-thi-dau"
+        "schedule": "https://api.gvapi.cc/api/matches",
+        "lists": ["https://api.gvapi.cc/api/matches"]
       },
       "discover": {
         "waitUntil": "domcontentloaded",
@@ -166,7 +175,11 @@
       "mirrorDomains": [],
       "paths": {
         "home": "/",
-        "schedule": "/lich-thi-dau"
+        "schedule": "/sport/football/filter/today",
+        "lists": [
+          "/sport/football/filter/today",
+          "/sport/football/filter/tomorrow"
+        ]
       },
       "attrs": {
         "href": ["href", "data-href", "data-url"],

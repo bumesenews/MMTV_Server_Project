@@ -162,6 +162,25 @@ console.log('\n=== Source skip / retry policy ===');
   });
   assert('Retry allowed when not available/failed', ok.skip === false && ok.matchUrl);
 
+  const preKickoff = decideSourceExtract({
+    sourceName: 'cakhia',
+    streamSearch: { sources: {} },
+    matchUrlState: urlState,
+    slot: { id: 't30', postKickoff: false },
+  });
+  assert(
+    'Extract allowed −30m when Match URL is saved',
+    preKickoff.skip === false && preKickoff.matchUrl
+  );
+
+  {
+    const engine = engineWith([mockSource('cakhia', async () => [])]);
+    const at30 = fixture({ id: 'pre30', offsetMin: 28, sources: ['cakhia'] });
+    assert('Engine extracts at −30m window', engine.shouldExtractStreams(at30) === true);
+    const morning = fixture({ id: 'pre3h', offsetMin: 180, sources: ['cakhia'] });
+    assert('Engine does not extract 3h before kickoff', engine.shouldExtractStreams(morning) === false);
+  }
+
   const after1 = nextSourceStateAfterAttempt({
     previous: { attempts: 0, postKickoffAttempts: 0, slotsDone: {} },
     slot: { id: 't0', postKickoff: true },

@@ -15,8 +15,8 @@ const { DomainMonitor } = require('../monitor/domain.monitor');
  * MyanmarTV Job (MYANMARTV_CRON, default every 12 hr)
  * └── Channels → myanmartv.json
  *
- * Domain check (DOMAIN_CHECK_CRON, default every 30 min)
- * └── Enabled streaming source domains → Telegram alerts only
+ * Domain check (DOMAIN_CHECK_CRON, default every hour)
+ * └── Enabled streaming source domains → Telegram if down or domain changed
  */
 class Scheduler {
   constructor(pipeline, env = process.env) {
@@ -37,7 +37,7 @@ class Scheduler {
     const expression = this.env.PIPELINE_CRON || `*/${this.tickMinutes} * * * *`;
     const highlightExpression = this.env.HIGHLIGHT_CRON || '0 */3 * * *';
     const channelsExpression = this.env.MYANMARTV_CRON || '0 */12 * * *';
-    const domainExpression = this.env.DOMAIN_CHECK_CRON || '*/30 * * * *';
+    const domainExpression = this.env.DOMAIN_CHECK_CRON || '0 * * * *';
 
     if (!cron.validate(expression)) {
       logger.error('Invalid PIPELINE_CRON expression', { expression });

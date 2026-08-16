@@ -132,12 +132,11 @@ function buildChromeArgs(lowMem) {
 
   if (lowMem) {
     // Aggressive 1GB profile — fewer processes, smaller surface.
-    args.push(
-      '--no-zygote',
-      '--single-process',
-      '--renderer-process-limit=1',
-      '--window-size=800,600'
-    );
+    // --single-process crashes Chrome on Windows (detached Frame / disconnect).
+    args.push('--renderer-process-limit=1', '--window-size=800,600');
+    if (process.platform !== 'win32') {
+      args.push('--no-zygote', '--single-process');
+    }
   } else {
     args.push('--window-size=1280,720');
   }
@@ -261,8 +260,10 @@ class PuppeteerManager {
         '--disable-images',
         '--memory-pressure-off',
         '--js-flags=--max-old-space-size=128',
-        '--single-process',
       ];
+      if (process.platform !== 'win32') {
+        lowMemArgs.push('--single-process');
+      }
       const args = [
         ...new Set([...buildChromeArgs(this.lowMemory), ...(this.lowMemory ? lowMemArgs : [])]),
       ];

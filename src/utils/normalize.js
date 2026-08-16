@@ -81,6 +81,7 @@ const AMBIGUOUS_LEAGUE_KEYS = new Set([
   'premier division',
   'epl',
   'pl',
+  'bundesliga',
 ]);
 
 function isEnglandCountry(countryFold) {
@@ -97,6 +98,16 @@ function isEnglandCountry(countryFold) {
 function isItalyCountry(countryFold) {
   return Boolean(
     countryFold && (countryFold.includes('ital') || countryFold === 'ita')
+  );
+}
+
+function isGermanyCountry(countryFold) {
+  return Boolean(
+    countryFold &&
+      (countryFold === 'ger' ||
+        countryFold === 'deu' ||
+        countryFold === 'de' ||
+        countryFold.includes('german'))
   );
 }
 
@@ -179,6 +190,9 @@ function ambiguousLeagueAllowed(aliasKey, rawKey, countryFold) {
         countryFold === 'blr' ||
         /\b(blr|belarus|belarusian)\b/.test(rawKey))
     );
+  }
+  if (aliasKey === 'bundesliga') {
+    return isGermanyCountry(countryFold) || /\b(ger|deu|germany|german)\b/.test(rawKey);
   }
   return true;
 }
@@ -270,7 +284,7 @@ class Normalizer {
     // ARM Premier League). Strip a short leading token and retry — still gated for
     // ambiguous names so ARM/ECU cannot collapse into EPL/Serie A.
     const strippedKey = key.replace(
-      /^(int|eng|esp|ita|ger|fra|ned|por|bra|kor|usa|arm|aze|bih|ecu|tan|rus|blr|ukr|egy|gha|jor|kaz|tha|wal|can|fro|sin|uefa|fifa|conmebol|afc)\s+/,
+      /^(int|eng|esp|ita|ger|fra|ned|por|bra|kor|usa|arm|aut|aze|bih|ecu|tan|rus|blr|ukr|egy|gha|jor|kaz|tha|wal|can|fro|sin|uefa|fifa|conmebol|afc)\s+/,
       ''
     );
     if (strippedKey && strippedKey !== key) {

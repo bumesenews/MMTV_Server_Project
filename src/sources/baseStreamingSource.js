@@ -32,6 +32,22 @@ class BaseStreamingSource {
     return this.domains[0] || '';
   }
 
+  scheduleUrls() {
+    const paths = this.config.paths || {};
+    const extras =
+      Array.isArray(paths.lists) && paths.lists.length
+        ? paths.lists
+        : [paths.schedule].filter(Boolean);
+    const urls = [];
+    for (const domain of this.domains) {
+      urls.push(new URL(paths.home || '/', domain).toString());
+      for (const extra of extras) {
+        urls.push(new URL(extra, domain).toString());
+      }
+    }
+    return [...new Set(urls)];
+  }
+
   get selectors() {
     return this.config.selectors || {};
   }

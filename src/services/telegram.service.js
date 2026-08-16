@@ -222,6 +222,7 @@ class TelegramService {
         Source: name,
         'Old Domain': oldHost,
         'New Domain': newHost,
+        Action: 'Update this domain in Admin → Sources (not auto-changed)',
         Time: this.formatTime(),
       }),
       { fingerprint: `domain_changed:${name}:${oldHost}->${newHost}` }

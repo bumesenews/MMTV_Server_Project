@@ -61,7 +61,7 @@ function buildStreamSearchSlots(offsets, stopAfterMin) {
 function loadScraperConfig(env = process.env) {
   const matchUrlPreKickoffMinutes = parseMinutesList(
     env.MATCH_URL_PRE_KICKOFF_MINUTES,
-    [30, 15, 5]
+    [45, 30, 15, 5]
   );
   const streamMaxAttempts = parsePositiveInt(env.STREAM_MAX_ATTEMPTS, 3);
   const streamPostKickoffMaxMinutes = parsePositiveInt(
@@ -82,22 +82,50 @@ function loadScraperConfig(env = process.env) {
   if (!streamAttemptOffsets.length) streamAttemptOffsets.push(0);
 
   const matchUrlSearchSlots = buildMatchUrlSlots(matchUrlPreKickoffMinutes);
-  const streamSearchSlots = buildStreamSearchSlots(
-    streamAttemptOffsets,
-    streamPostKickoffMaxMinutes
+  const matchUrlLeadMin = matchUrlPreKickoffMinutes[0] || 45;
+  const streamExtractPreKickoffMinutes = parseMinutesList(
+    env.STREAM_EXTRACT_PRE_KICKOFF_MINUTES,
+    [30, 15, 5]
   );
+  const streamExtractLeadMin = streamExtractPreKickoffMinutes[0] || 30;
+  const matchUrlEarlyDiscovery =
+    String(env.MATCH_URL_EARLY_DISCOVERY || 'true').toLowerCase() !== 'false';
+  const matchUrlEarlySlot = matchUrlEarlyDiscovery
+    ? {
+        id: 'tEarly',
+        minExclusive: matchUrlLeadMin,
+        maxInclusive: 72 * 60,
+        attempt: 0,
+        early: true,
+      }
+    : null;
+  const preKickoffExtractSlots = buildMatchUrlSlots(streamExtractPreKickoffMinutes).map(
+    (slot) => ({
+      ...slot,
+      postKickoff: false,
+    })
+  );
+  const streamSearchSlots = [
+    ...preKickoffExtractSlots,
+    ...buildStreamSearchSlots(streamAttemptOffsets, streamPostKickoffMaxMinutes),
+  ];
 
   return {
     matchUrlPreKickoffMinutes,
     matchUrlMaxAttempts: matchUrlPreKickoffMinutes.length,
     matchUrlSearchSlots,
+    matchUrlLeadMin,
+    matchUrlEarlyDiscovery,
+    matchUrlEarlySlot,
+    streamExtractPreKickoffMinutes,
+    streamExtractLeadMin,
     streamMaxAttempts,
     streamPostKickoffMaxMinutes,
     streamSearchIntervalMinutes,
     streamAttemptOffsets,
     streamSearchSlots,
     scraperConcurrency,
-    streamFindLeadMin: matchUrlPreKickoffMinutes[0] || 30,
+    streamFindLeadMin: streamExtractLeadMin,
   };
 }
 
@@ -110,13 +138,16 @@ module.exports = {
   buildStreamSearchSlots,
   loadScraperConfig,
   CONFIG,
-  STREAM_FIND_LEAD_MIN: CONFIG.streamFindLeadMin,
+  STREAM_FIND_LEAD_MIN: CONFIG.streamExtractLeadMin,
+  MATCH_URL_LEAD_MIN: CONFIG.matchUrlLeadMin,
+  STREAM_EXTRACT_LEAD_MIN: CONFIG.streamExtractLeadMin,
   STREAM_SEARCH_STOP_AFTER_MIN: CONFIG.streamPostKickoffMaxMinutes,
   STREAM_SEARCH_INTERVAL_MINUTES: CONFIG.streamSearchIntervalMinutes,
   STREAM_MAX_ATTEMPTS: CONFIG.streamMaxAttempts,
   MATCH_URL_MAX_ATTEMPTS: CONFIG.matchUrlMaxAttempts,
   MATCH_URL_SEARCH_SLOTS: CONFIG.matchUrlSearchSlots,
   STREAM_SEARCH_SLOTS: CONFIG.streamSearchSlots,
+  MATCH_URL_EARLY_SLOT: CONFIG.matchUrlEarlySlot,
   MAX_POST_KICKOFF_ATTEMPTS: CONFIG.streamMaxAttempts,
   SCRAPER_CONCURRENCY: CONFIG.scraperConcurrency,
 };

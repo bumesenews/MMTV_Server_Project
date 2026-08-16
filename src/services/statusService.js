@@ -3,7 +3,7 @@ const {
   toYangon,
   toUtcUnixSeconds,
   nowUtcUnixSeconds,
-  STREAM_FIND_LEAD_MIN,
+  MATCH_URL_LEAD_MIN,
   MATCH_LIVE_DURATION_MIN,
 } = require('../utils/time');
 
@@ -12,8 +12,8 @@ const {
  * Scheduled | PREPARING_STREAM | LIVE | END
  *
  * Driven strictly by fixture kickoff vs current time (UTC unix seconds):
- * - current < kickoff − 30m → Scheduled
- * - kickoff − 30m ≤ current < kickoff → PREPARING_STREAM
+ * - current < kickoff − 45m → Scheduled
+ * - kickoff − 45m ≤ current < kickoff → PREPARING_STREAM
  * - kickoff ≤ current < kickoff + 2h → LIVE
  * - current ≥ kickoff + 2h → END (streams stripped)
  */
@@ -60,7 +60,7 @@ function resolveMatchStatus(match, options = {}) {
   if (kickSec == null) {
     status = 'Scheduled';
   } else {
-    const preparingFrom = kickSec - STREAM_FIND_LEAD_MIN * 60;
+    const preparingFrom = kickSec - MATCH_URL_LEAD_MIN * 60;
     const liveUntil = kickSec + MATCH_LIVE_DURATION_MIN * 60;
 
     if (nowSec < preparingFrom) {
@@ -85,7 +85,7 @@ function resolveMatchStatus(match, options = {}) {
       kickoffUnix: kickSec,
       nowUnix: nowSec,
       liveDurationMin: MATCH_LIVE_DURATION_MIN,
-      preparingLeadMin: STREAM_FIND_LEAD_MIN,
+      preparingLeadMin: MATCH_URL_LEAD_MIN,
     });
   }
 

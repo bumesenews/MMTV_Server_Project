@@ -33,16 +33,6 @@ class SocoliveSource extends BaseStreamingSource {
     }, 'discoverMatchesForFixtures');
   }
 
-  scheduleUrls() {
-    const paths = this.config.paths || {};
-    const urls = [];
-    for (const domain of this.domains) {
-      urls.push(new URL(paths.home || '/', domain).toString());
-      if (paths.schedule) urls.push(new URL(paths.schedule, domain).toString());
-    }
-    return [...new Set(urls)];
-  }
-
   async discoverMatches() {
     return this.withRetries(async () => {
       logEvent(events.SCRAPER_START, 'Socolive discover start', { source: this.name });

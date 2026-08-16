@@ -5,7 +5,7 @@ const { logger, logEvent, events } = require('../utils/logger');
 const { formatDate, nowYangon } = require('../utils/time');
 
 /**
- * Source C — https://xoilacxtn.tv/
+ * Source C — https://xoilacxtr.tv/
  * Independent scraper module.
  */
 class XoilacSource extends BaseStreamingSource {
@@ -31,16 +31,6 @@ class XoilacSource extends BaseStreamingSource {
         config: this.config,
       });
     }, 'discoverMatchesForFixtures');
-  }
-
-  scheduleUrls() {
-    const paths = this.config.paths || {};
-    const urls = [];
-    for (const domain of this.domains) {
-      urls.push(new URL(paths.home || '/', domain).toString());
-      if (paths.schedule) urls.push(new URL(paths.schedule, domain).toString());
-    }
-    return [...new Set(urls)];
   }
 
   async discoverMatches() {

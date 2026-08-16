@@ -13,6 +13,9 @@ const cases = [
   ['ARM Premier League', { country: 'ARM' }],
   ['Premier League', { country: 'England' }],
   ['Premier League', { fotmobId: 47 }],
+  ['Bundesliga', { country: 'AUT', fotmobId: 938366 }],
+  ['Bundesliga', { country: 'GER', fotmobId: 54 }],
+  ['UKR Premier League', { country: 'UKR' }],
 ];
 for (const [name, opts] of cases) {
   console.log(JSON.stringify(name), opts, '=>', n.filterAllowedLeague(name, opts));

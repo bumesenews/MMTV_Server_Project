@@ -1,751 +1,28 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-13T22:19:15.359+06:30",
+  "generatedAt": "2026-08-16T15:19:06.468+06:30",
   "timezone": "Asia/Yangon",
-  "matchCount": 23,
+  "matchCount": 17,
   "matches": [
     {
-      "matchId": "urartu_fc_syunik_20260813",
-      "league": "English Premier League (EPL)",
-      "leagueIcon": null,
-      "homeTeam": "Urartu FC",
-      "awayTeam": "Syunik",
-      "homeTeamId": 7979,
-      "awayTeamId": 6569,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/7979.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/6569.png",
-      "date": "2026-08-13",
-      "time": "21:30",
-      "kickoff": "2026-08-13T21:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "PREPARING_STREAM",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "ARM Premier League",
-          "homeTeam": "Urartu FC",
-          "awayTeam": "Syunik"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {
-        "t30": true,
-        "t15": true,
-        "t5": true,
-        "t0": true,
-        "tP5": true,
-        "tP10": true
-      },
-      "streamSearch": {
-        "started": true,
-        "stopped": true,
-        "stopTime": "2026-08-13T21:53:44.757+06:30",
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.344Z"
-    },
-    {
-      "matchId": "besiktas_hradec_kralove_20260813",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Beşiktaş",
-      "awayTeam": "Hradec Kralove",
-      "homeTeamId": 10188,
-      "awayTeamId": 1712,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10188.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1712.png",
-      "date": "2026-08-13",
-      "time": "23:30",
-      "kickoff": "2026-08-13T23:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Beşiktaş",
-          "awayTeam": "Hradec Kralove"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.345Z"
-    },
-    {
-      "matchId": "gornik_zabrze_ferencvaros_20260813",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Górnik Zabrze",
-      "awayTeam": "Ferencvaros",
-      "homeTeamId": 8020,
-      "awayTeamId": 8222,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8020.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8222.png",
-      "date": "2026-08-13",
-      "time": "23:30",
-      "kickoff": "2026-08-13T23:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Górnik Zabrze",
-          "awayTeam": "Ferencvaros"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.346Z"
-    },
-    {
-      "matchId": "omonia_nicosia_lincoln_red_imps_fc_20260813",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Omonia Nicosia",
-      "awayTeam": "Lincoln Red Imps FC",
-      "homeTeamId": 8044,
-      "awayTeamId": 545012,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8044.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/545012.png",
-      "date": "2026-08-13",
-      "time": "23:30",
-      "kickoff": "2026-08-13T23:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Omonia Nicosia",
-          "awayTeam": "Lincoln Red Imps FC"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.347Z"
-    },
-    {
-      "matchId": "pafos_fc_salzburg_20260813",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Pafos FC",
-      "awayTeam": "Salzburg",
-      "homeTeamId": 2137,
-      "awayTeamId": 10013,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/2137.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10013.png",
-      "date": "2026-08-13",
-      "time": "23:30",
-      "kickoff": "2026-08-13T23:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Pafos FC",
-          "awayTeam": "Salzburg"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.348Z"
-    },
-    {
-      "matchId": "universitatea_craiova_kups_20260813",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Universitatea Craiova",
-      "awayTeam": "KuPS",
-      "homeTeamId": 480286,
-      "awayTeamId": 1693,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/480286.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1693.png",
-      "date": "2026-08-13",
-      "time": "23:30",
-      "kickoff": "2026-08-13T23:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Universitatea Craiova",
-          "awayTeam": "KuPS"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.349Z"
-    },
-    {
-      "matchId": "klaksvik_lech_poznan_20260814",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Klaksvik",
-      "awayTeam": "Lech Poznań",
-      "homeTeamId": 8106,
-      "awayTeamId": 2182,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8106.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/2182.png",
-      "date": "2026-08-14",
-      "time": "00:00",
-      "kickoff": "2026-08-14T00:00:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Klaksvik",
-          "awayTeam": "Lech Poznań"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.349Z"
-    },
-    {
-      "matchId": "vikingur_reykjavik_thun_20260814",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Vikingur Reykjavik",
-      "awayTeam": "Thun",
-      "homeTeamId": 6017,
-      "awayTeamId": 10191,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/6017.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10191.png",
-      "date": "2026-08-14",
-      "time": "00:00",
-      "kickoff": "2026-08-14T00:00:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Vikingur Reykjavik",
-          "awayTeam": "Thun"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.350Z"
-    },
-    {
-      "matchId": "cska_sofia_maccabi_tel_aviv_20260814",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "CSKA Sofia",
-      "awayTeam": "Maccabi Tel Aviv",
-      "homeTeamId": 10144,
-      "awayTeamId": 7855,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10144.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/7855.png",
-      "date": "2026-08-14",
-      "time": "00:30",
-      "kickoff": "2026-08-14T00:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "CSKA Sofia",
-          "awayTeam": "Maccabi Tel Aviv"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.351Z"
-    },
-    {
-      "matchId": "anderlecht_paok_thessaloniki_20260814",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Anderlecht",
-      "awayTeam": "PAOK Thessaloniki",
-      "homeTeamId": 8635,
-      "awayTeamId": 8619,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8635.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8619.png",
-      "date": "2026-08-14",
-      "time": "01:00",
-      "kickoff": "2026-08-14T01:00:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Anderlecht",
-          "awayTeam": "PAOK Thessaloniki"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.351Z"
-    },
-    {
-      "matchId": "rangers_jagiellonia_bia_ystok_20260814",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Rangers",
-      "awayTeam": "Jagiellonia Białystok",
-      "homeTeamId": 8548,
-      "awayTeamId": 1957,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8548.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1957.png",
-      "date": "2026-08-14",
-      "time": "01:00",
-      "kickoff": "2026-08-14T01:00:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Rangers",
-          "awayTeam": "Jagiellonia Białystok"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.352Z"
-    },
-    {
-      "matchId": "hearts_benfica_20260814",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Hearts",
-      "awayTeam": "Benfica",
-      "homeTeamId": 9860,
-      "awayTeamId": 9772,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9860.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9772.png",
-      "date": "2026-08-14",
-      "time": "01:15",
-      "kickoff": "2026-08-14T01:15:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Hearts",
-          "awayTeam": "Benfica"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.352Z"
-    },
-    {
-      "matchId": "egnatia_shamrock_rovers_20260814",
-      "league": "UEFA Europa League",
-      "leagueIcon": null,
-      "homeTeam": "Egnatia",
-      "awayTeam": "Shamrock Rovers",
-      "homeTeamId": 10039,
-      "awayTeamId": 4131,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10039.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/4131.png",
-      "date": "2026-08-14",
-      "time": "01:30",
-      "kickoff": "2026-08-14T01:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Europa League Qualification",
-          "homeTeam": "Egnatia",
-          "awayTeam": "Shamrock Rovers"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.353Z"
-    },
-    {
-      "matchId": "pamba_jiji_dodoma_jiji_fc_20260814",
-      "league": "English Premier League (EPL)",
-      "leagueIcon": null,
-      "homeTeam": "Pamba Jiji",
-      "awayTeam": "Dodoma Jiji FC",
-      "homeTeamId": 1056183,
-      "awayTeamId": 1177034,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1056183.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1177034.png",
-      "date": "2026-08-14",
-      "time": "17:30",
-      "kickoff": "2026-08-14T17:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "TAN Premier League",
-          "homeTeam": "Pamba Jiji",
-          "awayTeam": "Dodoma Jiji FC"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.354Z"
-    },
-    {
-      "matchId": "mbeya_city_geita_gold_fc_20260814",
-      "league": "English Premier League (EPL)",
-      "leagueIcon": null,
-      "homeTeam": "Mbeya City",
-      "awayTeam": "Geita Gold FC",
-      "homeTeamId": 465620,
-      "awayTeamId": 1056184,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/465620.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1056184.png",
-      "date": "2026-08-14",
-      "time": "19:45",
-      "kickoff": "2026-08-14T19:45:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "TAN Premier League",
-          "homeTeam": "Mbeya City",
-          "awayTeam": "Geita Gold FC"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.354Z"
-    },
-    {
-      "matchId": "orenburg_lokomotiv_20260814",
-      "league": "English Premier League (EPL)",
-      "leagueIcon": null,
-      "homeTeam": "Orenburg",
-      "awayTeam": "Lokomotiv",
-      "homeTeamId": 132286,
-      "awayTeamId": 8710,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/132286.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8710.png",
-      "date": "2026-08-14",
-      "time": "20:30",
-      "kickoff": "2026-08-14T20:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "RUS Premier League",
-          "homeTeam": "Orenburg",
-          "awayTeam": "Lokomotiv"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.355Z"
-    },
-    {
-      "matchId": "arsenal_dzerzhinsk_slavia_mozyr_20260814",
-      "league": "English Premier League (EPL)",
-      "leagueIcon": null,
-      "homeTeam": "Arsenal Dzerzhinsk",
-      "awayTeam": "Slavia Mozyr",
-      "homeTeamId": 1142489,
-      "awayTeamId": 10070,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1142489.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10070.png",
-      "date": "2026-08-14",
-      "time": "20:30",
-      "kickoff": "2026-08-14T20:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "BLR Premier League",
-          "homeTeam": "Arsenal Dzerzhinsk",
-          "awayTeam": "Slavia Mozyr"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.355Z"
-    },
-    {
-      "matchId": "epitsentr_kamianets_podilskyi_veres_rivne_20260814",
-      "league": "English Premier League (EPL)",
-      "leagueIcon": null,
-      "homeTeam": "Epitsentr Kamianets-Podilskyi",
-      "awayTeam": "Veres Rivne",
-      "homeTeamId": 1395678,
-      "awayTeamId": 1175395,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1395678.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1175395.png",
-      "date": "2026-08-14",
-      "time": "21:30",
-      "kickoff": "2026-08-14T21:30:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "UKR Premier League",
-          "homeTeam": "Epitsentr Kamianets-Podilskyi",
-          "awayTeam": "Veres Rivne"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-13T15:49:15.356Z"
-    },
-    {
-      "matchId": "marseille_atletico_madrid_20260814",
+      "matchId": "liverpool_como_20260816",
       "league": "Club Friendlies",
       "leagueIcon": null,
-      "homeTeam": "Marseille",
-      "awayTeam": "Atletico Madrid",
-      "homeTeamId": 8592,
-      "awayTeamId": 9906,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8592.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9906.png",
-      "date": "2026-08-14",
-      "time": "22:00",
-      "kickoff": "2026-08-14T22:00:00.000+06:30",
+      "homeTeam": "Liverpool",
+      "awayTeam": "Como",
+      "homeTeamId": 8650,
+      "awayTeamId": 10171,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8650.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10171.png",
+      "date": "2026-08-16",
+      "time": "5:00 PM",
+      "kickoff": "2026-08-16T17:00:00.000+06:30",
       "timezone": "Asia/Yangon",
       "status": "Scheduled",
+      "fotmobMatchId": 5973785,
+      "leagueId": 915708,
+      "leagueName": "Club Friendlies",
+      "source": "fotmob",
       "manual": false,
       "statusLocked": false,
       "pinned": false,
@@ -755,13 +32,26 @@
       "originalNames": {
         "fotmob": {
           "league": "INT Club Friendlies",
-          "homeTeam": "Marseille",
-          "awayTeam": "Atletico Madrid"
+          "country": "INT",
+          "leagueId": 915708,
+          "homeTeam": "Liverpool",
+          "awayTeam": "Como"
         }
       },
       "sourcePages": {},
       "streams": [],
       "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.323Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
       "streamSearch": {
         "started": false,
         "stopped": false,
@@ -769,23 +59,74 @@
         "slotsDone": {},
         "sources": {}
       },
-      "updatedAt": "2026-08-13T15:49:15.356Z"
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.323Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.323Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.323Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.323Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.461Z"
     },
     {
-      "matchId": "turan_tovuz_fk_qabala_20260814",
-      "league": "English Premier League (EPL)",
+      "matchId": "bucheon_fc_1995_jeonbuk_hyundai_motors_fc_20260816",
+      "league": "K League 1 (KOR D1)",
       "leagueIcon": null,
-      "homeTeam": "Turan Tovuz",
-      "awayTeam": "FK Qabala",
-      "homeTeamId": 4674,
-      "awayTeamId": 8076,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/4674.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8076.png",
-      "date": "2026-08-14",
-      "time": "22:00",
-      "kickoff": "2026-08-14T22:00:00.000+06:30",
+      "homeTeam": "Bucheon FC 1995",
+      "awayTeam": "Jeonbuk Hyundai Motors FC",
+      "homeTeamId": 429441,
+      "awayTeamId": 46038,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/429441.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/46038.png",
+      "date": "2026-08-16",
+      "time": "5:00 PM",
+      "kickoff": "2026-08-16T17:00:00.000+06:30",
       "timezone": "Asia/Yangon",
       "status": "Scheduled",
+      "fotmobMatchId": 5139997,
+      "leagueId": 919356,
+      "leagueName": "K League 1 (KOR D1)",
+      "source": "fotmob",
       "manual": false,
       "statusLocked": false,
       "pinned": false,
@@ -794,14 +135,32 @@
       "streamCount": 0,
       "originalNames": {
         "fotmob": {
-          "league": "AZE Premier League",
-          "homeTeam": "Turan Tovuz",
-          "awayTeam": "FK Qabala"
+          "league": "KOR K-League 1",
+          "country": "KOR",
+          "leagueId": 919356,
+          "homeTeam": "Bucheon FC 1995",
+          "awayTeam": "Jeonbuk Hyundai Motors FC"
         }
       },
-      "sourcePages": {},
+      "sourcePages": {
+        "xoilac": "https://xoilacxtr.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/",
+        "colatv": "https://colatv65.live/truc-tiep/bucheon-fc-1995-vs-jeonbuk-hyundai-motors-luc-1730-ngay-16-08-2026-xvkjoi80m11t879",
+        "socolive": "https://socolivepp.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/",
+        "cakhia": "https://cakhiazvm.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/"
+      },
       "streams": [],
       "streamAttempts": {},
+      "matchUrl": "https://colatv65.live/truc-tiep/bucheon-fc-1995-vs-jeonbuk-hyundai-motors-luc-1730-ngay-16-08-2026-xvkjoi80m11t879",
+      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.325Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
       "streamSearch": {
         "started": false,
         "stopped": false,
@@ -809,23 +168,74 @@
         "slotsDone": {},
         "sources": {}
       },
-      "updatedAt": "2026-08-13T15:49:15.356Z"
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": "https://cakhiazvm.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/",
+            "status": "MATCH_URL_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.325Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 84
+          },
+          "xoilac": {
+            "matchUrl": "https://xoilacxtr.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/",
+            "status": "MATCH_URL_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.867Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 84
+          },
+          "colatv": {
+            "matchUrl": "https://colatv65.live/truc-tiep/bucheon-fc-1995-vs-jeonbuk-hyundai-motors-luc-1730-ngay-16-08-2026-xvkjoi80m11t879",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.867Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "socolive": {
+            "matchUrl": "https://socolivepp.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/",
+            "status": "MATCH_URL_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:35:34.225Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 84
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.461Z"
     },
     {
-      "matchId": "dnyapro_mogilev_belshina_bobruisk_20260814",
-      "league": "English Premier League (EPL)",
+      "matchId": "incheon_united_gimcheon_sangmu_20260816",
+      "league": "K League 1 (KOR D1)",
       "leagueIcon": null,
-      "homeTeam": "Dnyapro Mogilev",
-      "awayTeam": "Belshina Bobruisk",
-      "homeTeamId": 10067,
-      "awayTeamId": 10064,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10067.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10064.png",
-      "date": "2026-08-14",
-      "time": "22:30",
-      "kickoff": "2026-08-14T22:30:00.000+06:30",
+      "homeTeam": "Incheon United",
+      "awayTeam": "Gimcheon Sangmu",
+      "homeTeamId": 133895,
+      "awayTeamId": 133901,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/133895.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/133901.png",
+      "date": "2026-08-16",
+      "time": "5:00 PM",
+      "kickoff": "2026-08-16T17:00:00.000+06:30",
       "timezone": "Asia/Yangon",
       "status": "Scheduled",
+      "fotmobMatchId": 5139998,
+      "leagueId": 919356,
+      "leagueName": "K League 1 (KOR D1)",
+      "source": "fotmob",
       "manual": false,
       "statusLocked": false,
       "pinned": false,
@@ -834,14 +244,32 @@
       "streamCount": 0,
       "originalNames": {
         "fotmob": {
-          "league": "BLR Premier League",
-          "homeTeam": "Dnyapro Mogilev",
-          "awayTeam": "Belshina Bobruisk"
+          "league": "KOR K-League 1",
+          "country": "KOR",
+          "leagueId": 919356,
+          "homeTeam": "Incheon United",
+          "awayTeam": "Gimcheon Sangmu"
         }
       },
-      "sourcePages": {},
+      "sourcePages": {
+        "xoilac": "https://xoilacxtr.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
+        "colatv": "https://colatv65.live/truc-tiep/incheon-united-vs-gimcheon-sangmu-fc-luc-1730-ngay-16-08-2026-jr7owiprly0bgq0",
+        "socolive": "https://socolivepp.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
+        "cakhia": "https://cakhiazvm.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/"
+      },
       "streams": [],
       "streamAttempts": {},
+      "matchUrl": "https://cakhiazvm.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
+      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.326Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
       "streamSearch": {
         "started": false,
         "stopped": false,
@@ -849,23 +277,74 @@
         "slotsDone": {},
         "sources": {}
       },
-      "updatedAt": "2026-08-13T15:49:15.357Z"
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": "https://cakhiazvm.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.326Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "xoilac": {
+            "matchUrl": "https://xoilacxtr.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.868Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "colatv": {
+            "matchUrl": "https://colatv65.live/truc-tiep/incheon-united-vs-gimcheon-sangmu-fc-luc-1730-ngay-16-08-2026-jr7owiprly0bgq0",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.868Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "socolive": {
+            "matchUrl": "https://socolivepp.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:35:34.228Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.462Z"
     },
     {
-      "matchId": "gandzasar_shirak_20260814",
-      "league": "English Premier League (EPL)",
+      "matchId": "ulsan_hd_fc_gangwon_fc_20260816",
+      "league": "K League 1 (KOR D1)",
       "leagueIcon": null,
-      "homeTeam": "Gandzasar",
-      "awayTeam": "Shirak",
-      "homeTeamId": 1388663,
-      "awayTeamId": 2211,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1388663.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/2211.png",
-      "date": "2026-08-14",
-      "time": "22:30",
-      "kickoff": "2026-08-14T22:30:00.000+06:30",
+      "homeTeam": "Ulsan HD FC",
+      "awayTeam": "Gangwon FC",
+      "homeTeamId": 133896,
+      "awayTeamId": 164734,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/133896.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/164734.png",
+      "date": "2026-08-16",
+      "time": "5:00 PM",
+      "kickoff": "2026-08-16T17:00:00.000+06:30",
       "timezone": "Asia/Yangon",
       "status": "Scheduled",
+      "fotmobMatchId": 5139999,
+      "leagueId": 919356,
+      "leagueName": "K League 1 (KOR D1)",
+      "source": "fotmob",
       "manual": false,
       "statusLocked": false,
       "pinned": false,
@@ -874,14 +353,27 @@
       "streamCount": 0,
       "originalNames": {
         "fotmob": {
-          "league": "ARM Premier League",
-          "homeTeam": "Gandzasar",
-          "awayTeam": "Shirak"
+          "league": "KOR K-League 1",
+          "country": "KOR",
+          "leagueId": 919356,
+          "homeTeam": "Ulsan HD FC",
+          "awayTeam": "Gangwon FC"
         }
       },
       "sourcePages": {},
       "streams": [],
       "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.327Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
       "streamSearch": {
         "started": false,
         "stopped": false,
@@ -889,23 +381,74 @@
         "slotsDone": {},
         "sources": {}
       },
-      "updatedAt": "2026-08-13T15:49:15.357Z"
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.327Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.327Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.327Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.327Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.462Z"
     },
     {
-      "matchId": "singida_black_stars_fountain_gate_fc_20260814",
-      "league": "English Premier League (EPL)",
+      "matchId": "malaysia_vietnam_20260816",
+      "league": "ASEAN Championship",
       "leagueIcon": null,
-      "homeTeam": "Singida Black Stars",
-      "awayTeam": "Fountain Gate FC",
-      "homeTeamId": 1171766,
-      "awayTeamId": 1396530,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1171766.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1396530.png",
-      "date": "2026-08-14",
-      "time": "22:30",
-      "kickoff": "2026-08-14T22:30:00.000+06:30",
+      "homeTeam": "Malaysia",
+      "awayTeam": "Vietnam",
+      "homeTeamId": 5823,
+      "awayTeamId": 5894,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/5823.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/5894.png",
+      "date": "2026-08-16",
+      "time": "7:30 PM",
+      "kickoff": "2026-08-16T19:30:00.000+06:30",
       "timezone": "Asia/Yangon",
       "status": "Scheduled",
+      "fotmobMatchId": 5844766,
+      "leagueId": 938330,
+      "leagueName": "ASEAN Championship",
+      "source": "fotmob",
       "manual": false,
       "statusLocked": false,
       "pinned": false,
@@ -914,14 +457,30 @@
       "streamCount": 0,
       "originalNames": {
         "fotmob": {
-          "league": "TAN Premier League",
-          "homeTeam": "Singida Black Stars",
-          "awayTeam": "Fountain Gate FC"
+          "league": "INT ASEAN Championship",
+          "country": "INT",
+          "leagueId": 938330,
+          "homeTeam": "Malaysia",
+          "awayTeam": "Vietnam"
         }
       },
-      "sourcePages": {},
+      "sourcePages": {
+        "xoilac": "https://xoilacxtr.tv/truc-tiep/malaysia-vs-viet-nam-luc-2000-ngay-16-08-2026/",
+        "colatv": "https://colatv65.live/truc-tiep/malaysia-vs-viet-nam-luc-2000-ngay-16-08-2026-o07dni5l4l4cmkn"
+      },
       "streams": [],
       "streamAttempts": {},
+      "matchUrl": "https://xoilacxtr.tv/truc-tiep/malaysia-vs-viet-nam-luc-2000-ngay-16-08-2026/",
+      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.328Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
       "streamSearch": {
         "started": false,
         "stopped": false,
@@ -929,7 +488,1326 @@
         "slotsDone": {},
         "sources": {}
       },
-      "updatedAt": "2026-08-13T15:49:15.359Z"
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.328Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "xoilac": {
+            "matchUrl": "https://xoilacxtr.tv/truc-tiep/malaysia-vs-viet-nam-luc-2000-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.874Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "colatv": {
+            "matchUrl": "https://colatv65.live/truc-tiep/malaysia-vs-viet-nam-luc-2000-ngay-16-08-2026-o07dni5l4l4cmkn",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.874Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "socolive": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.328Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.463Z"
+    },
+    {
+      "matchId": "nottm_forest_brest_20260816",
+      "league": "Club Friendlies",
+      "leagueIcon": null,
+      "homeTeam": "Nottm Forest",
+      "awayTeam": "Brest",
+      "homeTeamId": 10203,
+      "awayTeamId": 8521,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10203.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8521.png",
+      "date": "2026-08-16",
+      "time": "7:30 PM",
+      "kickoff": "2026-08-16T19:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5899097,
+      "leagueId": 915708,
+      "leagueName": "Club Friendlies",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "INT Club Friendlies",
+          "country": "INT",
+          "leagueId": 915708,
+          "homeTeam": "Nottm Forest",
+          "awayTeam": "Brest"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.329Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.329Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.329Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.329Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.329Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.463Z"
+    },
+    {
+      "matchId": "basel_barcelona_20260816",
+      "league": "Club Friendlies",
+      "leagueIcon": null,
+      "homeTeam": "Basel",
+      "awayTeam": "Barcelona",
+      "homeTeamId": 9931,
+      "awayTeamId": 8634,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9931.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8634.png",
+      "date": "2026-08-16",
+      "time": "9:00 PM",
+      "kickoff": "2026-08-16T21:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 6000973,
+      "leagueId": 915708,
+      "leagueName": "Club Friendlies",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "INT Club Friendlies",
+          "country": "INT",
+          "leagueId": 915708,
+          "homeTeam": "Basel",
+          "awayTeam": "Barcelona"
+        }
+      },
+      "sourcePages": {
+        "xoilac": "https://xoilacxtr.tv/truc-tiep/fc-basel-1893-vs-barcelona-luc-2130-ngay-16-08-2026/",
+        "socolive": "https://socolivepp.tv/truc-tiep/fc-basel-1893-vs-barcelona-luc-2130-ngay-16-08-2026/",
+        "cakhia": "https://cakhiazvm.tv/truc-tiep/fc-basel-1893-vs-barcelona-luc-2130-ngay-16-08-2026/"
+      },
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": "https://cakhiazvm.tv/truc-tiep/fc-basel-1893-vs-barcelona-luc-2130-ngay-16-08-2026/",
+      "matchUrlStatus": "MATCH_URL_FOUND",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.333Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": "https://cakhiazvm.tv/truc-tiep/fc-basel-1893-vs-barcelona-luc-2130-ngay-16-08-2026/",
+            "status": "MATCH_URL_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.333Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 89
+          },
+          "xoilac": {
+            "matchUrl": "https://xoilacxtr.tv/truc-tiep/fc-basel-1893-vs-barcelona-luc-2130-ngay-16-08-2026/",
+            "status": "MATCH_URL_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.877Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 89
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.333Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": "https://socolivepp.tv/truc-tiep/fc-basel-1893-vs-barcelona-luc-2130-ngay-16-08-2026/",
+            "status": "MATCH_URL_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:35:34.242Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 89
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.463Z"
+    },
+    {
+      "matchId": "racing_santander_villarreal_20260816",
+      "league": "La Liga",
+      "leagueIcon": null,
+      "homeTeam": "Racing Santander",
+      "awayTeam": "Villarreal",
+      "homeTeamId": 8696,
+      "awayTeamId": 10205,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8696.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10205.png",
+      "date": "2026-08-16",
+      "time": "9:30 PM",
+      "kickoff": "2026-08-16T21:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5868017,
+      "leagueId": 87,
+      "leagueName": "La Liga",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ESP LaLiga",
+          "country": "ESP",
+          "leagueId": 87,
+          "homeTeam": "Racing Santander",
+          "awayTeam": "Villarreal"
+        }
+      },
+      "sourcePages": {
+        "xoilac": "https://xoilacxtr.tv/truc-tiep/racing-santander-vs-villarreal-luc-2200-ngay-16-08-2026/",
+        "colatv": "https://colatv65.live/truc-tiep/racing-santander-vs-villarreal-luc-2200-ngay-16-08-2026-oj7x9ixl95lh47g",
+        "socolive": "https://socolivepp.tv/truc-tiep/racing-santander-vs-villarreal-luc-2200-ngay-16-08-2026/",
+        "cakhia": "https://cakhiazvm.tv/truc-tiep/racing-santander-vs-villarreal-luc-2200-ngay-16-08-2026/"
+      },
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": "https://cakhiazvm.tv/truc-tiep/racing-santander-vs-villarreal-luc-2200-ngay-16-08-2026/",
+      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.361Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": "https://cakhiazvm.tv/truc-tiep/racing-santander-vs-villarreal-luc-2200-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.361Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "xoilac": {
+            "matchUrl": "https://xoilacxtr.tv/truc-tiep/racing-santander-vs-villarreal-luc-2200-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.880Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "colatv": {
+            "matchUrl": "https://colatv65.live/truc-tiep/racing-santander-vs-villarreal-luc-2200-ngay-16-08-2026-oj7x9ixl95lh47g",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.880Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "socolive": {
+            "matchUrl": "https://socolivepp.tv/truc-tiep/racing-santander-vs-villarreal-luc-2200-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:35:34.244Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.464Z"
+    },
+    {
+      "matchId": "newcastle_united_strasbourg_20260816",
+      "league": "Club Friendlies",
+      "leagueIcon": null,
+      "homeTeam": "Newcastle United",
+      "awayTeam": "Strasbourg",
+      "homeTeamId": 10261,
+      "awayTeamId": 9848,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10261.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9848.png",
+      "date": "2026-08-16",
+      "time": "9:30 PM",
+      "kickoff": "2026-08-16T21:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5918243,
+      "leagueId": 915708,
+      "leagueName": "Club Friendlies",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "INT Club Friendlies",
+          "country": "INT",
+          "leagueId": 915708,
+          "homeTeam": "Newcastle",
+          "awayTeam": "Strasbourg"
+        }
+      },
+      "sourcePages": {
+        "socolive": "https://socolivepp.tv/truc-tiep/newcastle-united-vs-strasbourg-luc-2200-ngay-16-08-2026/",
+        "cakhia": "https://cakhiazvm.tv/truc-tiep/newcastle-united-vs-strasbourg-luc-2200-ngay-16-08-2026/"
+      },
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": "https://cakhiazvm.tv/truc-tiep/newcastle-united-vs-strasbourg-luc-2200-ngay-16-08-2026/",
+      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.363Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": "https://cakhiazvm.tv/truc-tiep/newcastle-united-vs-strasbourg-luc-2200-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.363Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.363Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.363Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": "https://socolivepp.tv/truc-tiep/newcastle-united-vs-strasbourg-luc-2200-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:35:34.246Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.465Z"
+    },
+    {
+      "matchId": "schalke_04_real_madrid_20260816",
+      "league": "Club Friendlies",
+      "leagueIcon": null,
+      "homeTeam": "Schalke 04",
+      "awayTeam": "Real Madrid",
+      "homeTeamId": 10189,
+      "awayTeamId": 8633,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10189.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8633.png",
+      "date": "2026-08-16",
+      "time": "9:30 PM",
+      "kickoff": "2026-08-16T21:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5979020,
+      "leagueId": 915708,
+      "leagueName": "Club Friendlies",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "INT Club Friendlies",
+          "country": "INT",
+          "leagueId": 915708,
+          "homeTeam": "Schalke 04",
+          "awayTeam": "Real Madrid"
+        }
+      },
+      "sourcePages": {
+        "xoilac": "https://xoilacxtr.tv/truc-tiep/schalke-04-vs-real-madrid-luc-2200-ngay-16-08-2026/",
+        "colatv": "https://colatv65.live/truc-tiep/fc-schalke-04-vs-real-madrid-cf-luc-2200-ngay-16-08-2026-jr7owipg51pugq0",
+        "socolive": "https://socolivepp.tv/truc-tiep/schalke-04-vs-real-madrid-luc-2200-ngay-16-08-2026/",
+        "cakhia": "https://cakhiazvm.tv/truc-tiep/schalke-04-vs-real-madrid-luc-2200-ngay-16-08-2026/"
+      },
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": "https://cakhiazvm.tv/truc-tiep/schalke-04-vs-real-madrid-luc-2200-ngay-16-08-2026/",
+      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.364Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": "https://cakhiazvm.tv/truc-tiep/schalke-04-vs-real-madrid-luc-2200-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.364Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "xoilac": {
+            "matchUrl": "https://xoilacxtr.tv/truc-tiep/schalke-04-vs-real-madrid-luc-2200-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.884Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "colatv": {
+            "matchUrl": "https://colatv65.live/truc-tiep/fc-schalke-04-vs-real-madrid-cf-luc-2200-ngay-16-08-2026-jr7owipg51pugq0",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.884Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "socolive": {
+            "matchUrl": "https://socolivepp.tv/truc-tiep/schalke-04-vs-real-madrid-luc-2200-ngay-16-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:35:34.250Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.465Z"
+    },
+    {
+      "matchId": "espanyol_levante_20260816",
+      "league": "La Liga",
+      "leagueIcon": null,
+      "homeTeam": "Espanyol",
+      "awayTeam": "Levante",
+      "homeTeamId": 8558,
+      "awayTeamId": 8581,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8558.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8581.png",
+      "date": "2026-08-16",
+      "time": "11:30 PM",
+      "kickoff": "2026-08-16T23:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5868015,
+      "leagueId": 87,
+      "leagueName": "La Liga",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ESP LaLiga",
+          "country": "ESP",
+          "leagueId": 87,
+          "homeTeam": "Espanyol",
+          "awayTeam": "Levante"
+        }
+      },
+      "sourcePages": {
+        "xoilac": "https://xoilacxtr.tv/truc-tiep/espanyol-vs-levante-luc-0000-ngay-17-08-2026/",
+        "socolive": "https://socolivepp.tv/truc-tiep/espanyol-vs-levante-luc-0000-ngay-17-08-2026/",
+        "cakhia": "https://cakhiazvm.tv/truc-tiep/espanyol-vs-levante-luc-0000-ngay-17-08-2026/"
+      },
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": "https://cakhiazvm.tv/truc-tiep/espanyol-vs-levante-luc-0000-ngay-17-08-2026/",
+      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.366Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": "https://cakhiazvm.tv/truc-tiep/espanyol-vs-levante-luc-0000-ngay-17-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.366Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "xoilac": {
+            "matchUrl": "https://xoilacxtr.tv/truc-tiep/espanyol-vs-levante-luc-0000-ngay-17-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T05:24:01.890Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.366Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": "https://socolivepp.tv/truc-tiep/espanyol-vs-levante-luc-0000-ngay-17-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:35:34.251Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.466Z"
+    },
+    {
+      "matchId": "chapecoense_af_bahia_20260816",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": null,
+      "homeTeam": "Chapecoense AF",
+      "awayTeam": "Bahia",
+      "homeTeamId": 197693,
+      "awayTeamId": 7877,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/197693.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/7877.png",
+      "date": "2026-08-16",
+      "time": "8:30 PM",
+      "kickoff": "2026-08-16T20:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5103593,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Serie A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Chapecoense AF",
+          "awayTeam": "Bahia"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.331Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.331Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.331Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.331Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.331Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.466Z"
+    },
+    {
+      "matchId": "vasco_da_gama_santos_fc_20260817",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": null,
+      "homeTeam": "Vasco da Gama",
+      "awayTeam": "Santos FC",
+      "homeTeamId": 10276,
+      "awayTeamId": 8514,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10276.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8514.png",
+      "date": "2026-08-17",
+      "time": "1:30 AM",
+      "kickoff": "2026-08-17T01:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5103585,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Serie A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Vasco da Gama",
+          "awayTeam": "Santos FC"
+        }
+      },
+      "sourcePages": {
+        "socolive": "https://socolivepp.tv/truc-tiep/vasco-da-gama-vs-santos-luc-0200-ngay-17-08-2026/",
+        "cakhia": "https://cakhiazvm.tv/truc-tiep/vasco-da-gama-vs-santos-luc-0200-ngay-17-08-2026/"
+      },
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": "https://cakhiazvm.tv/truc-tiep/vasco-da-gama-vs-santos-luc-0200-ngay-17-08-2026/",
+      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.370Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": "https://cakhiazvm.tv/truc-tiep/vasco-da-gama-vs-santos-luc-0200-ngay-17-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.370Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.370Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.370Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": "https://socolivepp.tv/truc-tiep/vasco-da-gama-vs-santos-luc-0200-ngay-17-08-2026/",
+            "status": "MATCH_CONFIRMED",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:35:34.253Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 100
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.466Z"
+    },
+    {
+      "matchId": "atletico_mg_gremio_20260817",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": null,
+      "homeTeam": "Atletico MG",
+      "awayTeam": "Gremio",
+      "homeTeamId": 10272,
+      "awayTeamId": 9769,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10272.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9769.png",
+      "date": "2026-08-17",
+      "time": "1:30 AM",
+      "kickoff": "2026-08-17T01:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5103589,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Serie A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Atletico MG",
+          "awayTeam": "Gremio"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.372Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.372Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.372Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.372Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.372Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.466Z"
+    },
+    {
+      "matchId": "mirassol_flamengo_20260817",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": null,
+      "homeTeam": "Mirassol",
+      "awayTeam": "Flamengo",
+      "homeTeamId": 163782,
+      "awayTeamId": 9770,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/163782.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9770.png",
+      "date": "2026-08-17",
+      "time": "4:00 AM",
+      "kickoff": "2026-08-17T04:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5103588,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Serie A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Mirassol",
+          "awayTeam": "Flamengo"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.373Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.373Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.373Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.373Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.373Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.467Z"
+    },
+    {
+      "matchId": "vitoria_botafogo_rj_20260817",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": null,
+      "homeTeam": "Vitoria",
+      "awayTeam": "Botafogo RJ",
+      "homeTeamId": 7733,
+      "awayTeamId": 8517,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/7733.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8517.png",
+      "date": "2026-08-17",
+      "time": "4:00 AM",
+      "kickoff": "2026-08-17T04:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5103592,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Serie A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Vitoria",
+          "awayTeam": "Botafogo RJ"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.375Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.375Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.375Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.375Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.375Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.467Z"
+    },
+    {
+      "matchId": "corinthians_cruzeiro_20260817",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": null,
+      "homeTeam": "Corinthians",
+      "awayTeam": "Cruzeiro",
+      "homeTeamId": 9808,
+      "awayTeamId": 9781,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9808.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9781.png",
+      "date": "2026-08-17",
+      "time": "5:00 AM",
+      "kickoff": "2026-08-17T05:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "fotmobMatchId": 5103587,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Serie A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Corinthians",
+          "awayTeam": "Cruzeiro"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.376Z",
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "streamSearch": {
+        "started": false,
+        "stopped": false,
+        "stopTime": null,
+        "slotsDone": {},
+        "sources": {}
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "tEarly": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.376Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.376Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.376Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": null,
+            "status": "MATCH_URL_NOT_FOUND",
+            "attempts": 0,
+            "lastAttemptAt": "2026-08-16T08:49:06.376Z",
+            "slotsDone": {
+              "tEarly": true
+            },
+            "confidence": 0
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T08:49:06.467Z"
     }
   ],
   "meta": {
@@ -943,13 +1821,13 @@
       "myanmartv"
     ],
     "liveCount": 0,
-    "scheduledCount": 22,
+    "scheduledCount": 17,
     "endedCount": 0,
     "manualStreamCount": 0,
     "highlightCount": 0,
     "channelCount": 18,
-    "checksum": "2f4e1484784825adf1e802c7af96d7b8ecc7f9d160727320b5c33d3e19e84b9e",
-    "cachedAt": "2026-08-13T15:49:15.465Z",
+    "checksum": "887aedc21f2c004384ad909a09aafd41ab44bd0ab0f74e5c7e529dfdb312462b",
+    "cachedAt": "2026-08-16T08:49:06.498Z",
     "feed": "matches"
   }
 }

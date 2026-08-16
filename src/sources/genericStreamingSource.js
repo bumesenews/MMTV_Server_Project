@@ -30,18 +30,6 @@ class GenericStreamingSource extends BaseStreamingSource {
     return this.config.discover || {};
   }
 
-  scheduleUrls() {
-    const paths = this.config.paths || {};
-    const urls = [];
-    for (const domain of this.domains) {
-      urls.push(new URL(paths.home || '/', domain).toString());
-      if (paths.schedule) {
-        urls.push(new URL(paths.schedule, domain).toString());
-      }
-    }
-    return [...new Set(urls)];
-  }
-
   /**
    * Efficient path for 15–20 FotMob fixtures: one list fetch, URL extract, 3-layer match.
    */

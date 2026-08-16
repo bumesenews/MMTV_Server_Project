@@ -178,15 +178,17 @@ async function run() {
       { year: 2026, month: 8, day: 15, hour: 20, minute: 0 },
       { zone: ZONE }
     ).toISO();
+    const at1915 = slotAt(kickoff, 45);
     const at1930 = slotAt(kickoff, 30);
     const at1945 = slotAt(kickoff, 15);
     const at1955 = slotAt(kickoff, 5);
     const at2000 = slotAt(kickoff, 0);
-    assert('19:30 → Match URL attempt 1 (t30)', at1930.matchUrl?.id === 't30' && at1930.matchUrl.attempt === 1);
-    assert('19:45 → Match URL attempt 2 (t15)', at1945.matchUrl?.id === 't15');
-    assert('19:55 → Match URL attempt 3 (t5)', at1955.matchUrl?.id === 't5');
+    assert('19:15 → Match URL attempt 1 (t45)', at1915.matchUrl?.id === 't45' && at1915.matchUrl.attempt === 1);
+    assert('19:30 → Match URL attempt 2 (t30)', at1930.matchUrl?.id === 't30');
+    assert('19:45 → Match URL attempt 3 (t15)', at1945.matchUrl?.id === 't15');
+    assert('19:55 → Match URL attempt 4 (t5)', at1955.matchUrl?.id === 't5');
     assert('20:00 → no Match URL discovery', at2000.matchUrl == null);
-    assert('max Match URL attempts is 3', MATCH_URL_MAX_ATTEMPTS === 3);
+    assert('max Match URL attempts is 4', MATCH_URL_MAX_ATTEMPTS === 4);
     assert('Match URL slots are only pre-kickoff', MATCH_URL_SEARCH_SLOTS.every((s) => s.maxInclusive > 0));
   }
 
@@ -196,12 +198,19 @@ async function run() {
       { year: 2026, month: 8, day: 15, hour: 20, minute: 0 },
       { zone: ZONE }
     ).toISO();
-    assert('19:30 → no stream extract slot', slotAt(kickoff, 30).stream == null);
-    assert('20:00 → stream attempt 1', slotAt(kickoff, 0).stream?.attempt === 1);
-    assert('20:05 → stream attempt 2', slotAt(kickoff, -5).stream?.attempt === 2);
-    assert('20:10 → stream attempt 3', slotAt(kickoff, -10).stream?.attempt === 3);
+    assert('11:00 → early Match URL slot, no stream extract', slotAt(kickoff, 9 * 60).matchUrl?.id === 'tEarly' && slotAt(kickoff, 9 * 60).stream == null);
+    assert('19:15 → Match URL t45, no stream extract yet', slotAt(kickoff, 45).matchUrl?.id === 't45' && slotAt(kickoff, 45).stream == null);
+    assert('19:30 → stream extract from Match URL (t30)', slotAt(kickoff, 30).stream?.id === 't30');
+    assert('19:45 → stream extract t15', slotAt(kickoff, 15).stream?.id === 't15');
+    assert('20:00 → stream attempt at kickoff', slotAt(kickoff, 0).stream?.id === 't0');
+    assert('20:05 → stream attempt +5', slotAt(kickoff, -5).stream?.id === 'tP5');
+    assert('20:10 → stream attempt +10', slotAt(kickoff, -10).stream?.id === 'tP10');
     assert('20:15 → STOP', slotAt(kickoff, -15).stopped === true && slotAt(kickoff, -15).stream == null);
-    assert('stream slots are post-kickoff only', STREAM_SEARCH_SLOTS.every((s) => s.postKickoff === true));
+    assert(
+      'stream slots include pre-kickoff extract',
+      STREAM_SEARCH_SLOTS.some((s) => s.id === 't30' && s.postKickoff === false) &&
+        STREAM_SEARCH_SLOTS.some((s) => s.id === 't0' && s.postKickoff === true)
+    );
     assert(
       'poll interval inside window uses STREAM_SEARCH_INTERVAL_MINUTES',
       getCheckIntervalMinutes(kickoff, 'LIVE', toUtcUnixSeconds(kickoff)) === 5
@@ -519,7 +528,7 @@ async function run() {
     const required = [
       'matchId', 'league', 'homeTeam', 'awayTeam', 'date', 'time', 'kickoff',
       'timezone', 'status', 'streams', 'fotmobMatchId', 'leagueId', 'leagueName',
-      'kickoffTime', 'matchUrl', 'matchUrlStatus', 'streamUrl', 'streamHeaders',
+      'matchUrl', 'matchUrlStatus', 'streamUrl', 'streamHeaders',
       'streamStatus', 'validationStatus', 'attempts',
     ];
     assert(

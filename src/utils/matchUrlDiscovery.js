@@ -59,6 +59,8 @@ function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
   if (st.attempts >= MATCH_URL_MAX_ATTEMPTS) return false;
   const slot = resolveMatchUrlSearchSlot(fixture?.kickoff, nowSec);
   if (!slot) return false;
+  // Keep retrying the early list scrape until a URL is saved (or −30 window).
+  if (slot.early && !st.matchUrl) return true;
   if (st.slotsDone[slot.id]) return false;
   return true;
 }
@@ -66,7 +68,10 @@ function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
 function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
   const search = ensureMatchUrlSearch(fixture);
   const prev = getSourceMatchUrlState(fixture, sourceName);
-  const attempts = Math.min(MATCH_URL_MAX_ATTEMPTS, prev.attempts + 1);
+  // Early list scrape must not burn the −30/−15/−5 attempt budget.
+  const attempts = slot?.early
+    ? prev.attempts
+    : Math.min(MATCH_URL_MAX_ATTEMPTS, prev.attempts + 1);
   const slotsDone = { ...prev.slotsDone };
   if (slot?.id) slotsDone[slot.id] = true;
 

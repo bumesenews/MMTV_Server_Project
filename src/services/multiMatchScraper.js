@@ -85,10 +85,13 @@ class MultiMatchScraper {
           source: this.sourceName,
           error: err.message,
         });
-        return [];
+        throw err;
       }
       method = 'puppeteer';
       entries = await this.fetchListEntriesPuppeteer(urls, config);
+      if (!entries.length) {
+        throw new Error(`${err.message}; puppeteer_empty`);
+      }
     }
 
     const matched = this.matchFixturesToEntries(due, entries);
@@ -115,13 +118,33 @@ class MultiMatchScraper {
 
   async fetchListEntriesAxios(listUrls, config) {
     const all = [];
+    let lastError = null;
     for (const listUrl of listUrls) {
-      // eslint-disable-next-line no-await-in-loop
-      const html = await axiosGetHtml(listUrl, { referer: listUrl });
-      if (this.looksBlockedOrEmpty(html)) {
-        throw new Error('antibot_or_empty_html');
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const siteOrigin = (config.domains && config.domains[0]) || listUrl;
+        const html = unwrapListPayload(
+          await axiosGetHtml(listUrl, { referer: siteOrigin }),
+          siteOrigin
+        );
+        if (this.looksBlockedOrEmpty(html)) {
+          logger.warn(`${this.sourceName} list page empty or blocked — skip`, {
+            url: listUrl,
+          });
+          lastError = lastError || new Error('antibot_or_empty_html');
+          continue;
+        }
+        all.push(...this.extractMatchEntries(html, siteOrigin, config));
+      } catch (err) {
+        lastError = err;
+        logger.warn(`${this.sourceName} list Axios page failed — skip`, {
+          url: listUrl,
+          error: err.message,
+        });
       }
-      all.push(...this.extractMatchEntries(html, listUrl, config));
+    }
+    if (!all.length) {
+      throw lastError || new Error('empty_match_links');
     }
     return dedupeEntries(all);
   }
@@ -154,14 +177,15 @@ class MultiMatchScraper {
           }
 
           // eslint-disable-next-line no-await-in-loop
-          const html = await page.content();
+          const siteOrigin = (config.domains && config.domains[0]) || listUrl;
+          const html = unwrapListPayload(await page.content(), siteOrigin);
           if (this.looksBlockedOrEmpty(html)) {
             logger.warn(`${this.sourceName} Puppeteer list still blocked/empty`, {
               url: listUrl,
             });
             continue;
           }
-          all.push(...this.extractMatchEntries(html, listUrl, config));
+          all.push(...this.extractMatchEntries(html, siteOrigin, config));
         } catch (err) {
           logger.warn(`${this.sourceName} Puppeteer list page failed`, {
             url: listUrl,
@@ -179,8 +203,12 @@ class MultiMatchScraper {
   looksBlockedOrEmpty(html) {
     const text = String(html || '').trim();
     if (text.length < 400) return true;
+    const hasMatchLinks = /truc-tiep\//i.test(text);
+    // Real list pages often mention Cloudflare in scripts — do not discard
+    // a large HTML document that already has match links.
+    if (hasMatchLinks && text.length > 5000) return false;
     if (CLOUDFLARE_MARKERS.test(text)) return true;
-    if (!/truc-tiep\//i.test(text)) return true;
+    if (!hasMatchLinks) return true;
     return false;
   }
 
@@ -442,6 +470,57 @@ class MultiMatchScraper {
 
     return out;
   }
+}
+
+/**
+ * List APIs:
+ * - Cakhia / Xoilac / Socolive: { success, data: { htmls: [...] } }
+ * - ColaTV gvapi: { code, data: { "slug-id": { homeTeamName, ... } } }
+ */
+function unwrapListPayload(raw, siteOrigin = '') {
+  const text = String(raw || '');
+  const trimmed = text.trim();
+  let jsonText = '';
+  if (trimmed.startsWith('{')) {
+    jsonText = trimmed;
+  } else {
+    const start = Math.max(trimmed.indexOf('{"success"'), trimmed.indexOf('{"code"'));
+    if (start >= 0) {
+      const end = trimmed.lastIndexOf('}');
+      if (end > start) jsonText = trimmed.slice(start, end + 1);
+    }
+  }
+  if (!jsonText) return text;
+  try {
+    const json = JSON.parse(jsonText);
+    const htmls = json?.data?.htmls;
+    if (Array.isArray(htmls) && htmls.length) {
+      return htmls.filter(Boolean).join('\n');
+    }
+    const colaHtml = colaMatchesToHtml(json, siteOrigin);
+    if (colaHtml) return colaHtml;
+  } catch {
+    // not a list JSON payload
+  }
+  return text;
+}
+
+function colaMatchesToHtml(json, siteOrigin) {
+  const data = json?.data;
+  if (!data || typeof data !== 'object' || Array.isArray(data) || data.htmls) return '';
+  const keys = Object.keys(data).filter((k) => /vs-.*-luc-.*-ngay-/i.test(k));
+  if (!keys.length) return '';
+  const origin = String(siteOrigin || '').replace(/\/$/, '');
+  return keys
+    .map((key) => {
+      const m = data[key] || {};
+      const href = origin ? `${origin}/truc-tiep/${key}/` : `/truc-tiep/${key}/`;
+      const home = m.homeTeamName || m.home_team || '';
+      const away = m.awayTeamName || m.away_team || '';
+      const league = m.competitionName || m.competition || '';
+      return `<a href="${href}" data-home="${home}" data-away="${away}" data-league="${league}">${home} vs ${away}</a>`;
+    })
+    .join('\n');
 }
 
 function absoluteUrl(href, baseUrl) {
