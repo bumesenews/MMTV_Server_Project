@@ -367,9 +367,42 @@ async function run() {
       }),
     ]);
     const stoppedMatch = await engine.collectForFixtures([
-      confirmedFixture({ id: 'late', offsetMin: -16 }),
+      {
+        ...confirmedFixture({ id: 'late', offsetMin: -16 }),
+        streamSearch: {
+          started: true,
+          stopped: true,
+          slotsDone: { t30: true },
+          sources: {},
+        },
+      },
     ]);
     assert('+15 does not start a new stream search', stoppedMatch[0].streams.length === 0);
+
+    let catchupCalls = 0;
+    const catchupEngine = engineWith([
+      mockSource('socolive', async () => {
+        catchupCalls += 1;
+        return [
+          {
+            source: 'socolive',
+            url: 'https://cdn.example/catchup.m3u8',
+            type: 'm3u8',
+            _valid: true,
+          },
+        ];
+      }),
+    ]);
+    const catchupMatch = await catchupEngine.collectForFixtures([
+      {
+        ...confirmedFixture({ id: 'espanyol', offsetMin: -16 }),
+        streamSearch: { started: false, stopped: false, slotsDone: {}, sources: {} },
+      },
+    ]);
+    assert(
+      'never-started search still catch-up extracts after +15',
+      catchupCalls >= 1 && (catchupMatch[0].streams || []).length >= 1
+    );
   }
 
   console.log('\n=== No stream after +15m → not LIVE in Flutter ===');
@@ -384,10 +417,28 @@ async function run() {
         awayTeam: 'Juventus',
         streams: [],
         status: 'LIVE',
+        streamSearch: { started: true, stopped: true, slotsDone: { t30: true } },
       },
       { nowSec }
     );
     assert('no stream URL after +15m → END', ended.status === 'END');
+
+    const missedWindow = enrichMatchState(
+      {
+        matchId: 'espanyol_levante_20260816',
+        kickoff,
+        homeTeam: 'Espanyol',
+        awayTeam: 'Levante',
+        streams: [],
+        status: 'Scheduled',
+        streamSearch: { started: false, stopped: false, slotsDone: {}, sources: {} },
+      },
+      { nowSec }
+    );
+    assert(
+      'never-searched match after +15m stays LIVE for catch-up',
+      missedWindow.status === 'LIVE'
+    );
 
     const stillLive = enrichMatchState(
       {
@@ -684,6 +735,77 @@ async function run() {
       payload.matches[0].leagueIcon ===
         'https://images.fotmob.com/image_resources/logo/leaguelogo/489.png'
     );
+  }
+
+  console.log('\n=== Expire kickoff+2h (Basel 21:00 Yangon) ===');
+  {
+    const {
+      isMatchExpired,
+      filterExpiredMatches,
+      syncMatchesForDelivery,
+    } = require('../src/services/matchesSyncService');
+    const kickoff = '2026-08-16T21:00:00.000+06:30';
+    const match = {
+      matchId: 'basel_barcelona_20260816',
+      kickoff,
+      status: 'LIVE',
+      streams: [{ url: 'https://example.com/live.m3u8', source: 'socolive' }],
+    };
+    const kickSec = toUtcUnixSeconds(kickoff);
+    assert('9:00 PM Yangon kickoff parses', kickSec != null);
+    assert(
+      'still kept at kickoff+2h exactly',
+      isMatchExpired(match, kickSec + 7200) === false
+    );
+    assert(
+      'removed after kickoff+2h+1s',
+      isMatchExpired(match, kickSec + 7201) === true
+    );
+    assert(
+      '11:38 AM Yangon (before 9:00 PM) does not expire',
+      isMatchExpired(match, toUtcUnixSeconds('2026-08-16T11:38:00.000+06:30')) === false
+    );
+    const { matches: kept, removed } = filterExpiredMatches(
+      [match, { matchId: 'later', kickoff: '2026-08-16T23:30:00.000+06:30' }],
+      kickSec + 7201
+    );
+    assert(
+      'expire drops only the 21:00 row',
+      removed === 1 && kept.length === 1 && kept[0].matchId === 'later'
+    );
+    const sync = syncMatchesForDelivery([match], [match], { nowSec: kickSec + 7201 });
+    assert(
+      'sync removes expired even if scrape still returns it',
+      sync.matches.length === 0
+    );
+
+    const preparingKick = '2026-08-16T23:30:00.000+06:30';
+    const { enrichMatchState: enrich } = require('../src/services/statusService');
+    const stale = enrich(
+      {
+        matchId: 'espanyol_levante_20260816',
+        kickoff: preparingKick,
+        status: 'Scheduled',
+        streams: [],
+        streamSearch: { started: false, stopped: false, slotsDone: {}, sources: {} },
+      },
+      { nowSec: toUtcUnixSeconds(preparingKick) - 10 * 60 }
+    );
+    assert(
+      '11:30 PM Yangon at 11:20 PM is PREPARING_STREAM not Scheduled',
+      stale.status === 'PREPARING_STREAM'
+    );
+    const liveNow = enrich(
+      {
+        matchId: 'espanyol_levante_20260816',
+        kickoff: preparingKick,
+        status: 'Scheduled',
+        streams: [],
+        streamSearch: { started: false, stopped: false, slotsDone: {}, sources: {} },
+      },
+      { nowSec: toUtcUnixSeconds(preparingKick) + 5 * 60 }
+    );
+    assert('11:30 PM Yangon at 11:35 PM is LIVE', liveNow.status === 'LIVE');
   }
 }
 

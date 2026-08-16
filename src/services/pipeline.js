@@ -53,6 +53,7 @@ class Pipeline {
     this.lastTipsRun = null;
     this.channelsRunning = false;
     this.tipsRunning = false;
+    this._expiring = false;
     /** FotMob fixtures cached once per Yangon calendar day (today + tomorrow). */
     this.fixtureCache = { dayKey: null, fixtures: [] };
   }
@@ -81,7 +82,111 @@ class Pipeline {
     });
   }
 
+  /**
+   * Drop matches past kickoff+2h and refresh Scheduled/PREPARING/LIVE/END
+   * from the clock. Runs even when a scrape is still in progress so a hung
+   * Puppeteer cycle cannot leave stale status in matches.json.
+   */
+  async expireStaleMatches({ actor = 'expire' } = {}) {
+    if (this._expiring) {
+      return { ok: true, changed: false, reason: 'expire_already_running' };
+    }
+    this._expiring = true;
+    try {
+      const existing = readExistingMatches(this.cache);
+      if (!existing.length) {
+        return { ok: true, changed: false, removed: 0 };
+      }
+
+      const extras = {
+        highlights: this.cache.getCurrent()?.highlights || [],
+        channels: this.cache.getCurrent()?.channels || [],
+      };
+
+      const sync = syncMatchesForDelivery(existing, [], {
+        normalizer: this.normalizer,
+      });
+      const payload = generateFlutterJson(
+        sync.matches,
+        { configOrigin: 'expire', sources: [] },
+        extras
+      );
+      const previous = this.cache.getCurrent();
+      if (
+        !hasDataChanged(
+          { matches: previous?.matches || existing },
+          { matches: payload.matches }
+        )
+      ) {
+        return { ok: true, changed: false, removed: sync.removedExpired || 0 };
+      }
+
+      logger.info('Refreshing matches.json (expire/status)', {
+        removedExpired: sync.removedExpired,
+        matchCount: sync.matches.length,
+      });
+
+      if (this.admin?.publish) {
+        const published = await this.admin.publish.publish(
+          existing,
+          { configOrigin: 'expire', sources: [] },
+          { actor, extras }
+        );
+        return {
+          ok: published.ok !== false,
+          changed: Boolean(published.changed),
+          removed: sync.removedExpired || 0,
+          github: published.github,
+        };
+      }
+
+      const previousCache = this.cache.getCurrent();
+      const intentionalEmptyCleanup =
+        sync.removedExpired > 0 && sync.matches.length === 0;
+      if (
+        this.cache.isEmptyPayload(payload) &&
+        previousCache?.matches?.length &&
+        !intentionalEmptyCleanup
+      ) {
+        return { ok: false, reason: 'empty_payload', removed: sync.removedExpired };
+      }
+
+      const { payload: cached } = this.cache.saveGenerated(payload);
+      const delivery = buildDeliveryBundle({
+        matchesPayload: cached,
+        highlights: extras.highlights,
+        channels: extras.channels,
+      });
+      const { previous: prevDelivery } = this.cache.saveDeliveryBundle(delivery);
+      let github = { uploaded: false, reason: 'local_unchanged', feeds: {} };
+      try {
+        github = await this.github.uploadDeliveryBundle(delivery, prevDelivery);
+      } catch (err) {
+        github = {
+          uploaded: false,
+          reason: 'github_error',
+          error: err.message,
+          feeds: {},
+        };
+      }
+      return {
+        ok: true,
+        changed: true,
+        removed: sync.removedExpired || 0,
+        github,
+      };
+    } finally {
+      this._expiring = false;
+    }
+  }
+
   async run({ forceStreamCheck = false } = {}) {
+    try {
+      await this.expireStaleMatches();
+    } catch (err) {
+      logger.warn('Expire-before-scrape failed', { error: err.message });
+    }
+
     if (this.running) {
       logger.warn('Pipeline already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };

@@ -7,7 +7,7 @@ const { DomainMonitor } = require('../monitor/domain.monitor');
  * Job schedule (Asia/Yangon):
  *
  * Main pipeline (PIPELINE_CRON)
- * └── matches.json
+ * └── expire kickoff+2h (even if scrape skipped) → matches scrape
  *
  * Highlight Job (HIGHLIGHT_CRON, default every 3 hr)
  * └── Highlights → highlight.json
@@ -53,6 +53,11 @@ class Scheduler {
       expression,
       async () => {
         logger.info('Scheduler tick', { at: nowYangon().toISO() });
+        try {
+          await this.pipeline.expireStaleMatches();
+        } catch (err) {
+          logger.warn('Scheduled expire failed', { error: err.message });
+        }
         try {
           await this.pipeline.run({ forceStreamCheck: false });
         } catch (err) {

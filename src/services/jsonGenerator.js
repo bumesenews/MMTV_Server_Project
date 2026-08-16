@@ -1,5 +1,5 @@
 const { resolveLeagueIcon } = require('../utils/fotmobLogos');
-const { nowYangon, formatTime12 } = require('../utils/time');
+const { nowYangon, formatTime12, minutesUntilKickoff } = require('../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../utils/compare');
 const { enrichMatchState } = require('./statusService');
 const {
@@ -72,6 +72,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
       aggregateStreamStatus(m.streamSearch, {
         hasValidatedStream: (m.streams || []).some((s) => isValidatedStream(s)),
         stopped: Boolean(m.streamSearch?.stopped),
+        mins: minutesUntilKickoff(m.kickoff),
       });
     const validation =
       m.validationStatus != null || m.validationReason != null

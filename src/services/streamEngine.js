@@ -7,6 +7,7 @@ const {
   isStreamSearchStopped,
   STREAM_EXTRACT_LEAD_MIN,
   STREAM_SEARCH_STOP_AFTER_MIN,
+  MATCH_LIVE_DURATION_MIN,
   nowYangon,
   nowUtcUnixSeconds,
 } = require('../utils/time');
@@ -130,20 +131,49 @@ class StreamEngine {
   }
 
   /**
+   * Pipeline hung through −30..+15 with no extract started.
+   * Allow one catch-up search until kickoff+2h.
+   */
+  missedExtractCatchup(fixture) {
+    const search = fixture?.streamSearch && typeof fixture.streamSearch === 'object'
+      ? fixture.streamSearch
+      : {};
+    if (search.started || search.stopped) return false;
+    const mins = minutesUntilKickoff(fixture?.kickoff);
+    if (mins == null) return false;
+    if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
+    if (mins > -STREAM_SEARCH_STOP_AFTER_MIN) return false;
+    return mins > -MATCH_LIVE_DURATION_MIN;
+  }
+
+  catchupSlot() {
+    return {
+      id: 'catchup',
+      attempt: 1,
+      postKickoff: true,
+      minExclusive: -MATCH_LIVE_DURATION_MIN,
+      maxInclusive: -STREAM_SEARCH_STOP_AFTER_MIN,
+    };
+  }
+
+  /**
    * Whether this match should deep-extract streams in the current kickoff slot.
    */
   shouldExtractStreams(fixture, { force = false } = {}) {
-    if (isStreamSearchStopped(fixture.kickoff, fixture.streamSearch)) return false;
-
     const mins = minutesUntilKickoff(fixture.kickoff);
     if (mins == null) return false;
-    // Extract from a saved Match URL starting −30m (then −15/−5/kickoff/+5/+10).
     if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
-    if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
+    if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+
+    const catchup = this.missedExtractCatchup(fixture);
+    if (!catchup) {
+      if (isStreamSearchStopped(fixture.kickoff, fixture.streamSearch)) return false;
+      if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
+    }
 
     if (force) return true;
 
-    const slot = resolveStreamSearchSlot(fixture.kickoff);
+    const slot = resolveStreamSearchSlot(fixture.kickoff) || (catchup ? this.catchupSlot() : null);
     if (!slot) return false;
 
     const search = this.ensureStreamSearch(fixture);
@@ -261,7 +291,10 @@ class StreamEngine {
           continue;
         }
 
-        if (isStreamSearchStopped(base.kickoff, streamSearch)) {
+        if (
+          isStreamSearchStopped(base.kickoff, streamSearch) &&
+          !this.missedExtractCatchup({ ...base, streamSearch })
+        ) {
           streamSearch = this.markStopped(streamSearch);
           this.extractQueue.cancelMatch(base.matchId);
           const stopped = this.stampStreamFields(
@@ -294,7 +327,11 @@ class StreamEngine {
           { ...base, streamSearch },
           { force }
         );
-        const slot = resolveStreamSearchSlot(base.kickoff);
+        const slot =
+          resolveStreamSearchSlot(base.kickoff) ||
+          (this.missedExtractCatchup({ ...base, streamSearch })
+            ? this.catchupSlot()
+            : null);
 
         if (!extract) {
           const idle = this.stampStreamFields(
@@ -493,7 +530,16 @@ class StreamEngine {
     const current = resultsById.get(matchId);
     if (!current) return { skipped: true, reason: 'missing_match' };
 
-    if (isStreamSearchStopped(current.kickoff, current.streamSearch)) {
+    const catchupJob = slot?.id === 'catchup';
+    const pastLiveWindow = (() => {
+      const mins = minutesUntilKickoff(current.kickoff);
+      return mins != null && mins <= -MATCH_LIVE_DURATION_MIN;
+    })();
+    if (
+      current.streamSearch?.stopped ||
+      pastLiveWindow ||
+      (!catchupJob && isStreamSearchStopped(current.kickoff, current.streamSearch))
+    ) {
       this.extractQueue.cancelMatch(matchId);
       return { skipped: true, reason: 'stopped' };
     }
@@ -525,18 +571,28 @@ class StreamEngine {
     let error = null;
     let extractionMethod = null;
     try {
-      if (this.extractQueue.isCancelled(matchId) || isStreamSearchStopped(current.kickoff, current.streamSearch)) {
+      if (
+        this.extractQueue.isCancelled(matchId) ||
+        current.streamSearch?.stopped ||
+        pastLiveWindow ||
+        (!catchupJob && isStreamSearchStopped(current.kickoff, current.streamSearch))
+      ) {
         this.extractQueue.cancelMatch(matchId);
         return { skipped: true, reason: 'stopped' };
       }
       streams = await source.extractStreams(matchUrl, {
         validateStreams,
-        shouldAbort: () =>
-          this.extractQueue.isCancelled(matchId) ||
-          isStreamSearchStopped(
-            resultsById.get(matchId)?.kickoff || current.kickoff,
-            resultsById.get(matchId)?.streamSearch || current.streamSearch
-          ),
+        shouldAbort: () => {
+          const latest = resultsById.get(matchId) || current;
+          if (this.extractQueue.isCancelled(matchId) || latest.streamSearch?.stopped) {
+            return true;
+          }
+          if (catchupJob) {
+            const mins = minutesUntilKickoff(latest.kickoff);
+            return mins != null && mins <= -MATCH_LIVE_DURATION_MIN;
+          }
+          return isStreamSearchStopped(latest.kickoff, latest.streamSearch);
+        },
       });
       if (
         streams?.length &&
@@ -583,7 +639,11 @@ class StreamEngine {
 
     await this.withMatchLock(matchId, async () => {
       const working = resultsById.get(matchId) || current;
-      if (isStreamSearchStopped(working.kickoff, working.streamSearch) && !streams.length) {
+      if (
+        !catchupJob &&
+        isStreamSearchStopped(working.kickoff, working.streamSearch) &&
+        !streams.length
+      ) {
         this.extractQueue.cancelMatch(matchId);
         return;
       }
