@@ -134,6 +134,19 @@ console.log('\n=== Source skip / retry policy ===');
   });
   assert('Source already AVAILABLE → skip', available.reason === 'already_available');
 
+  const availableMissing = decideSourceExtract({
+    sourceName: 'cakhia',
+    streamSearch: { sources: { cakhia: { status: 'AVAILABLE', slotsDone: { t30: true } } } },
+    matchUrlState: urlState,
+    slot: { id: 't30', postKickoff: false },
+    match: { streams: [{ source: 'socolive', url: 'https://cdn.example/live.m3u8', active: true, validation: { ok: true } }] },
+  });
+  assert(
+    'AVAILABLE without own stream → extract again',
+    availableMissing.skip === false,
+    availableMissing.reason
+  );
+
   const failed = decideSourceExtract({
     sourceName: 'xoilac',
     streamSearch: {

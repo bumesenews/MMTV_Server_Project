@@ -515,6 +515,80 @@ async function run() {
     );
     assert('tried more than one Referer', referers.length >= 2);
   }
+
+  console.log('\n=== Keep one stream per source even when CDN URL matches ===');
+  {
+    const validator = new StreamValidator();
+    const url = 'https://live2.livefeedtextbox.com/live/channel22.m3u8';
+    const ranked = validator.dedupeAndRank([
+      { source: 'socolive', url, quality: 'Link 1', active: true, validation: { ok: true, playlistHash: 'abc' } },
+      { source: 'cakhia', url, quality: 'Link 1', active: true, validation: { ok: true, playlistHash: 'abc' } },
+      { source: 'xoilac', url, quality: 'Link 1', active: true, validation: { ok: true, playlistHash: 'abc' } },
+      { source: 'socolive', url, quality: 'Link 2', active: true, validation: { ok: true, playlistHash: 'abc' } },
+    ]);
+    const sources = ranked.map((s) => s.source).sort();
+    assert('three sources kept', ranked.length === 3, `got ${ranked.length}`);
+    assert(
+      'socolive/cakhia/xoilac all present',
+      sources.join(',') === 'cakhia,socolive,xoilac'
+    );
+
+    const { mergeStreamLists } = require('../src/services/matchesSyncService');
+    const merged = mergeStreamLists(
+      [{ source: 'socolive', url, active: true }],
+      [{ source: 'cakhia', url, active: true }]
+    );
+    assert('sync merge adds second source', merged.streams.length === 2 && merged.added === 1);
+
+    const payload = generateFlutterJson([
+      {
+        matchId: 'basel_barcelona_20260816',
+        league: 'Club Friendlies',
+        homeTeam: 'Basel',
+        awayTeam: 'Barcelona',
+        date: '2026-08-16',
+        time: '21:00',
+        kickoff: DateTime.now().setZone(ZONE).toISO(),
+        status: 'LIVE',
+        streams: ranked,
+        streamStatus: 'AVAILABLE',
+      },
+    ]);
+    assert('Flutter streamCount is 3', payload.matches[0].streamCount === 3);
+    assert(
+      'Flutter names include source',
+      payload.matches[0].streams.every((s) => String(s.name).includes(s.source.charAt(0).toUpperCase() + s.source.slice(1)))
+    );
+
+    const collapsed = generateFlutterJson([
+      {
+        matchId: 'basel_barcelona_collapsed_20260816',
+        league: 'Club Friendlies',
+        homeTeam: 'Basel',
+        awayTeam: 'Barcelona',
+        date: '2026-08-16',
+        time: '21:00',
+        kickoff: DateTime.now().setZone(ZONE).toISO(),
+        status: 'LIVE',
+        streams: [
+          { source: 'socolive', url, quality: 'Link 1', active: true, validation: { ok: true } },
+        ],
+        streamSearch: {
+          sources: {
+            cakhia: { status: 'AVAILABLE' },
+            socolive: { status: 'AVAILABLE' },
+            xoilac: { status: 'AVAILABLE' },
+          },
+        },
+        streamStatus: 'AVAILABLE',
+      },
+    ]);
+    assert(
+      'collapsed match still publishes 3 Flutter links',
+      collapsed.matches[0].streamCount === 3,
+      `got ${collapsed.matches[0].streamCount}`
+    );
+  }
 }
 
 run()

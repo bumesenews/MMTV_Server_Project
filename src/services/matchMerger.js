@@ -24,7 +24,12 @@ class MatchMerger {
         sourcePages[group.source] = group.matchUrl;
       }
       if (Array.isArray(group.streams)) {
-        streams.push(...group.streams);
+        streams.push(
+          ...group.streams.map((s) => ({
+            ...s,
+            source: s.source || group.source,
+          }))
+        );
       }
       if (group.sourceLive) {
         fixture.sourceLive = true;

@@ -1,6 +1,6 @@
 const { logger } = require('../utils/logger');
 const { toUtcUnixSeconds, MATCH_LIVE_DURATION_MIN } = require('../utils/time');
-const { hasDataChanged, normalizeStreamUrl } = require('../utils/compare');
+const { hasDataChanged, streamIdentityKey } = require('../utils/compare');
 const { enrichMatchState } = require('./statusService');
 const { isFalseEnglishPremierLabel } = require('../utils/normalize');
 
@@ -49,7 +49,7 @@ function mergeStreamLists(existingStreams = [], incomingStreams = []) {
   const byKey = new Map();
   for (const s of existingStreams || []) {
     if (!s?.url) continue;
-    byKey.set(normalizeStreamUrl(s.url), { ...s });
+    byKey.set(streamIdentityKey(s), { ...s });
   }
 
   let added = 0;
@@ -61,7 +61,7 @@ function mergeStreamLists(existingStreams = [], incomingStreams = []) {
     if (s.active === false) continue;
     if (s.validation && s.validation.ok === false) continue;
 
-    const key = normalizeStreamUrl(s.url);
+    const key = streamIdentityKey(s);
     const prev = byKey.get(key);
     if (!prev) {
       byKey.set(key, { ...s, active: s.active !== false });

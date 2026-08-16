@@ -123,14 +123,17 @@ function decideSourceExtract({
   slot = null,
   stopped = false,
   force = false,
+  match = null,
 } = {}) {
   const st = readSourceExtractState(streamSearch, sourceName);
+  const missingOwnStream =
+    match != null && !sourceHasValidatedStream(match, sourceName);
 
   if (stopped) {
     return { skip: true, reason: 'stopped', status: st.status };
   }
 
-  if (st.status === STREAM_SOURCE_STATUS.AVAILABLE) {
+  if (st.status === STREAM_SOURCE_STATUS.AVAILABLE && !missingOwnStream) {
     return { skip: true, reason: 'already_available', status: st.status };
   }
 
@@ -150,7 +153,7 @@ function decideSourceExtract({
     };
   }
 
-  if (!force && slot?.id && st.slotsDone[slot.id]) {
+  if (!force && slot?.id && st.slotsDone[slot.id] && !missingOwnStream) {
     return { skip: true, reason: 'duplicate_attempt', status: st.status };
   }
 

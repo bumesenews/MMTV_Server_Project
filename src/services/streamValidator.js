@@ -562,19 +562,20 @@ class StreamValidator {
   }
 
   /**
-   * Remove duplicates by exact URL, normalized URL, and playlist hash.
-   * Keep highest quality.
+   * Dedupe within a source (same URL / playlist hash).
+   * Keep one playable stream per source even when CDNs share the same URL.
    */
   dedupeAndRank(streams) {
     const byKey = new Map();
 
     for (const stream of streams || []) {
       if (!stream?.url) continue;
+      const src = String(stream.source || 'unknown').trim().toLowerCase() || 'unknown';
       const norm = normalizeStreamUrl(stream.url);
       const hashKey = stream.validation?.playlistHash
-        ? `hash:${stream.validation.playlistHash}`
+        ? `${src}:hash:${stream.validation.playlistHash}`
         : null;
-      const keys = [`url:${norm}`, `exact:${String(stream.url).toLowerCase()}`];
+      const keys = [`${src}:url:${norm}`, `${src}:exact:${String(stream.url).toLowerCase()}`];
       if (hashKey) keys.push(hashKey);
 
       let existingKey = null;
@@ -605,7 +606,7 @@ class StreamValidator {
     const unique = [];
     const seen = new Set();
     for (const record of byKey.values()) {
-      const id = normalizeStreamUrl(record.stream.url);
+      const id = `${String(record.stream.source || 'unknown').trim().toLowerCase()}::${normalizeStreamUrl(record.stream.url)}`;
       if (seen.has(id)) continue;
       seen.add(id);
       unique.push(record.stream);

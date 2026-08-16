@@ -11,6 +11,39 @@ const {
   maxSourceAttempts,
 } = require('../utils/streamExtractPolicy');
 
+function flutterStreamName(stream) {
+  const source = String(stream?.source || '').trim();
+  const pretty = source
+    ? source.charAt(0).toUpperCase() + source.slice(1).toLowerCase()
+    : '';
+  const quality = String(stream?.name || stream?.quality || '').trim();
+  if (!pretty) return quality || 'HD';
+  if (!quality || quality.toLowerCase() === pretty.toLowerCase()) return pretty;
+  if (quality.toLowerCase().startsWith(`${pretty.toLowerCase()} ·`)) return quality;
+  return `${pretty} · ${quality}`;
+}
+
+/** If a source is AVAILABLE but its stream was collapsed as a URL duplicate, still expose a link. */
+function expandStreamsForAvailableSources(match) {
+  const list = [...(match?.streams || [])].filter((s) => s && s.url);
+  const template = list[0];
+  if (!template) return list;
+  const have = new Set(list.map((s) => String(s.source || '').toLowerCase()));
+  for (const [name, state] of Object.entries(match?.streamSearch?.sources || {})) {
+    if (String(state?.status || '') !== 'AVAILABLE') continue;
+    const key = String(name || '').toLowerCase();
+    if (!key || have.has(key)) continue;
+    list.push({
+      ...template,
+      source: name,
+      name: undefined,
+      quality: template.quality || template.name || 'Link 1',
+    });
+    have.add(key);
+  }
+  return list;
+}
+
 function flutterPlaybackHeaders(raw) {
   if (!raw || typeof raw !== 'object') {
     return { 'User-Agent': '', Referer: '' };
@@ -47,6 +80,29 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
             validationReason: m.validationReason || null,
           }
         : aggregateValidationFields(m, streamStatus);
+    const flutterStreams = expandStreamsForAvailableSources(m)
+      .filter((s) => s && s.url)
+      .map((s) => ({
+        source: s.source,
+        type: s.type || 'm3u8',
+        quality: s.quality || s.name || 'HD',
+        name: flutterStreamName(s),
+        url: s.url,
+        headers: flutterPlaybackHeaders(s.streamHeaders || s.headers),
+        streamHeaders: flutterPlaybackHeaders(s.streamHeaders || s.headers),
+        active: Boolean(s.active),
+        checkedAt: s.checkedAt || null,
+        ...(s.validation?.state || s.validation?.reason
+          ? {
+              validationStatus: s.validation.state || s.validation.reason,
+              validationReason:
+                s.validation.ok === true
+                  ? null
+                  : s.validation.state || s.validation.reason || null,
+            }
+          : {}),
+        ...(s.manualId ? { manualId: s.manualId } : {}),
+      }));
     return {
     matchId: m.matchId,
     league: m.league,
@@ -70,33 +126,11 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
     statusLocked: Boolean(m.statusLocked),
     pinned: Boolean(m.pinned),
     featured: Boolean(m.featured),
-    hasStreams: Boolean(m.hasStreams),
-    streamCount: m.streamCount || 0,
+    hasStreams: flutterStreams.length > 0,
+    streamCount: flutterStreams.length,
     originalNames: m.originalNames || {},
     sourcePages: m.sourcePages || {},
-    streams: (m.streams || [])
-      .filter((s) => s && s.url)
-      .map((s) => ({
-        source: s.source,
-        type: s.type || 'm3u8',
-        quality: s.quality || s.name || 'HD',
-        name: s.name || s.quality || 'HD',
-        url: s.url,
-        headers: flutterPlaybackHeaders(s.streamHeaders || s.headers),
-        streamHeaders: flutterPlaybackHeaders(s.streamHeaders || s.headers),
-        active: Boolean(s.active),
-        checkedAt: s.checkedAt || null,
-        ...(s.validation?.state || s.validation?.reason
-          ? {
-              validationStatus: s.validation.state || s.validation.reason,
-              validationReason:
-                s.validation.ok === true
-                  ? null
-                  : s.validation.state || s.validation.reason || null,
-            }
-          : {}),
-        ...(s.manualId ? { manualId: s.manualId } : {}),
-      })),
+    streams: flutterStreams,
     streamAttempts: m.streamAttempts || {},
     matchUrl: m.matchUrl || null,
     matchUrlStatus: m.matchUrlStatus || 'MATCH_URL_PENDING',

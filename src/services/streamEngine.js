@@ -155,6 +155,7 @@ class StreamEngine {
         slot,
         stopped: false,
         force,
+        match: fixture,
       });
       return !decision.skip;
     });
@@ -334,6 +335,7 @@ class StreamEngine {
             slot,
             stopped: false,
             force,
+            match: base,
           });
 
           if (decision.markFailed) {
