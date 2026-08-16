@@ -15,6 +15,9 @@ const { DomainMonitor } = require('../monitor/domain.monitor');
  * MyanmarTV Job (MYANMARTV_CRON, default every 12 hr)
  * └── Channels → myanmartv.json
  *
+ * Tips Job (TIPS_CRON, default every 12 hr)
+ * └── PredictZ today + tomorrow → tips.json
+ *
  * Domain check (DOMAIN_CHECK_CRON, default every hour)
  * └── Enabled streaming source domains → Telegram if down or domain changed
  */
@@ -25,6 +28,7 @@ class Scheduler {
     this.task = null;
     this.highlightTask = null;
     this.channelsTask = null;
+    this.tipsTask = null;
     this.domainTask = null;
     this.tickMinutes = 1;
     // Prefer monitor bootstrapped in startMonitoring (shared state file)
@@ -37,6 +41,7 @@ class Scheduler {
     const expression = this.env.PIPELINE_CRON || `*/${this.tickMinutes} * * * *`;
     const highlightExpression = this.env.HIGHLIGHT_CRON || '0 */3 * * *';
     const channelsExpression = this.env.MYANMARTV_CRON || '0 */12 * * *';
+    const tipsExpression = this.env.TIPS_CRON || '0 */12 * * *';
     const domainExpression = this.env.DOMAIN_CHECK_CRON || '0 * * * *';
 
     if (!cron.validate(expression)) {
@@ -103,6 +108,26 @@ class Scheduler {
       );
     }
 
+    if (!cron.validate(tipsExpression)) {
+      logger.error('Invalid TIPS_CRON expression', { expression: tipsExpression });
+    } else {
+      this.tipsTask = cron.schedule(
+        tipsExpression,
+        async () => {
+          logger.info('Tips scheduler tick', {
+            at: nowYangon().toISO(),
+            expression: tipsExpression,
+          });
+          try {
+            await this.pipeline.runTips({ force: false });
+          } catch (err) {
+            logger.error('Scheduled tips job failed', { error: err.message });
+          }
+        },
+        { timezone: 'Asia/Yangon' }
+      );
+    }
+
     if (this.env.DOMAIN_CHECK_ENABLED === 'false') {
       logger.info('Domain check scheduler disabled (DOMAIN_CHECK_ENABLED=false)');
     } else if (!cron.validate(domainExpression)) {
@@ -134,6 +159,7 @@ class Scheduler {
       expression,
       highlightExpression,
       channelsExpression,
+      tipsExpression,
       domainExpression,
       timezone: 'Asia/Yangon',
     });
@@ -151,6 +177,10 @@ class Scheduler {
     if (this.channelsTask) {
       this.channelsTask.stop();
       this.channelsTask = null;
+    }
+    if (this.tipsTask) {
+      this.tipsTask.stop();
+      this.tipsTask = null;
     }
     if (this.domainTask) {
       this.domainTask.stop();

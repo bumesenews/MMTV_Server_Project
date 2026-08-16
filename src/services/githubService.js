@@ -28,6 +28,7 @@ class GitHubService {
       matches: env.GITHUB_MATCHES_PATH || env.GITHUB_DATA_PATH || 'matches.json',
       highlight: env.GITHUB_HIGHLIGHTS_PATH || 'highlight.json',
       myanmartv: env.GITHUB_CHANNELS_PATH || 'myanmartv.json',
+      tips: env.GITHUB_TIPS_PATH || 'tips.json',
     };
     // Backward-compatible alias used by older call sites
     this.dataPath = this.paths.matches;
@@ -107,6 +108,11 @@ class GitHubService {
     }
     if (feedKey === 'myanmartv') {
       return !Array.isArray(payload) || payload.length === 0;
+    }
+    if (feedKey === 'tips') {
+      const today = payload.today?.tips;
+      const tomorrow = payload.tomorrow?.tips;
+      return !(Array.isArray(today) && today.length) && !(Array.isArray(tomorrow) && tomorrow.length);
     }
     return false;
   }
@@ -207,7 +213,7 @@ class GitHubService {
     const feeds = {};
     let anyUploaded = false;
 
-    for (const key of ['mainlive', 'matches', 'highlight', 'myanmartv']) {
+    for (const key of ['mainlive', 'matches', 'highlight', 'myanmartv', 'tips']) {
       if (bundle[key] == null) {
         feeds[key] = { uploaded: false, reason: 'missing' };
         continue;

@@ -12,9 +12,11 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
       lastRun: pipeline.lastRun,
       lastHighlightRun: pipeline.lastHighlightRun,
       lastChannelsRun: pipeline.lastChannelsRun,
+      lastTipsRun: pipeline.lastTipsRun,
       running: pipeline.running,
       highlightRunning: pipeline.highlightRunning,
       channelsRunning: pipeline.channelsRunning,
+      tipsRunning: pipeline.tipsRunning,
     });
   });
 
@@ -32,10 +34,10 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
     return res.status(result.ok ? 200 : 500).json(result);
   });
 
-  router.post('/pipeline/myanmartv', async (req, res) => {
+  router.post('/pipeline/tips', async (req, res) => {
     if (!requireApiKey(req, res)) return;
     const force = Boolean(req.body?.force || req.query.force);
-    const result = await pipeline.runMyanmarTv({ force });
+    const result = await pipeline.runTips({ force });
     return res.status(result.ok ? 200 : 500).json(result);
   });
 
@@ -95,6 +97,7 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
       highlights: 'highlight',
       channels: 'myanmartv',
       myanmartv: 'myanmartv',
+      tips: 'tips',
     };
     const key = map[name];
     if (!key) return res.status(404).json({ ok: false, error: 'Unknown feed' });

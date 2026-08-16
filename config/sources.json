@@ -257,6 +257,17 @@
       "paths": {
         "channels": "https://www.myanmartvchannels.com/tv-channels.html"
       }
+    },
+    {
+      "name": "tips",
+      "enabled": true,
+      "type": "tips",
+      "domains": ["https://www.predictz.com/"],
+      "paths": {
+        "today": "https://www.predictz.com/predictions/",
+        "tomorrow": "https://www.predictz.com/predictions/tomorrow/"
+      },
+      "notes": "PredictZ today + tomorrow tips. Scraped every 12 hours (TIPS_CRON)."
     }
   ]
 }

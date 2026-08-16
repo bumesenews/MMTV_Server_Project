@@ -61,7 +61,7 @@ function buildEngineStreamingSources(sourcesDoc, { browserManager, normalizer, i
 
 function listManageableSourceNames(sourcesDoc) {
   const fromConfig = (sourcesDoc?.sources || [])
-    .filter((s) => ['streaming', 'highlights', 'channels'].includes(s.type))
+    .filter((s) => ['streaming', 'highlights', 'channels', 'tips'].includes(s.type))
     .map((s) => s.name);
   const defaults = [
     'cakhia',
@@ -70,6 +70,7 @@ function listManageableSourceNames(sourcesDoc) {
     'socolive',
     'highlight',
     'myanmartv',
+    'tips',
   ];
   return [...new Set([...defaults, ...fromConfig])];
 }

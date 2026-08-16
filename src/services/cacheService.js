@@ -14,6 +14,7 @@ class CacheService {
       matches: path.join(this.deliveryDir, 'matches.json'),
       highlight: path.join(this.deliveryDir, 'highlight.json'),
       myanmartv: path.join(this.deliveryDir, 'myanmartv.json'),
+      tips: path.join(this.deliveryDir, 'tips.json'),
     };
     this.ensureDir();
   }
@@ -57,6 +58,7 @@ class CacheService {
       matches: this.readJson(this.deliveryFiles.matches),
       highlight: this.readJson(this.deliveryFiles.highlight),
       myanmartv: this.readJson(this.deliveryFiles.myanmartv),
+      tips: this.readJson(this.deliveryFiles.tips),
     };
   }
 
@@ -74,7 +76,7 @@ class CacheService {
     this.ensureDir();
     const previous = this.getDeliveryBundle();
     const changed = {};
-    const keys = ['mainlive', 'matches', 'highlight', 'myanmartv'];
+    const keys = ['mainlive', 'matches', 'highlight', 'myanmartv', 'tips'];
 
     for (const key of keys) {
       if (bundle[key] == null) {
@@ -99,6 +101,7 @@ class CacheService {
         ? bundle.highlight.highlights.length
         : 0,
       channels: Array.isArray(bundle.myanmartv) ? bundle.myanmartv.length : 0,
+      tips: Number(bundle.tips?.count) || 0,
     });
 
     return { previous, changed };

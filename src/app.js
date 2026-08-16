@@ -24,7 +24,8 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
       (req.path === '/matches' ||
         req.path.startsWith('/flutter/') ||
         req.path === '/highlights' ||
-        req.path === '/channels')
+        req.path === '/channels' ||
+        req.path === '/tips')
     ) {
       return true;
     }
@@ -60,6 +61,7 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         matches: '/flutter/matches.json',
         highlight: '/flutter/highlight.json',
         myanmartv: '/flutter/myanmartv.json',
+        tips: '/flutter/tips.json',
       },
       endpoints: [
         'GET /api/health',
@@ -68,6 +70,7 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         'GET /flutter/matches.json',
         'GET /flutter/highlight.json',
         'GET /flutter/myanmartv.json',
+        'GET /flutter/tips.json',
         'POST /api/pipeline/run',
         'POST /api/admin/auth/login',
         'GET /api/admin/dashboard',
@@ -128,6 +131,11 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
   app.get('/flutter/highlights.json', (req, res) => {
     if (!publicJson && !requireApiKey(req, res)) return;
     return sendDelivery(res, 'highlight');
+  });
+
+  app.get('/flutter/tips.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    return sendDelivery(res, 'tips');
   });
 
   app.use('/api', createApiRouter({ pipeline, cache, requireApiKey }));

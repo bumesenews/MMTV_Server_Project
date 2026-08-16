@@ -91,6 +91,56 @@ function formatChannelsDelivery(channels = []) {
   }));
 }
 
+function mapTipRow(tip = {}) {
+  return {
+    id: tip.id || null,
+    day: tip.day || null,
+    date: tip.date || null,
+    league: tip.league || null,
+    homeTeam: tip.homeTeam || '',
+    awayTeam: tip.awayTeam || '',
+    match: tip.match || `${tip.homeTeam || ''} v ${tip.awayTeam || ''}`.trim(),
+    prediction: tip.prediction || '',
+    predictionSide: tip.predictionSide || null,
+    odds: {
+      home: tip.odds?.home ?? null,
+      draw: tip.odds?.draw ?? null,
+      away: tip.odds?.away ?? null,
+    },
+    homeForm: Array.isArray(tip.homeForm) ? tip.homeForm : [],
+    awayForm: Array.isArray(tip.awayForm) ? tip.awayForm : [],
+    url: tip.url || null,
+  };
+}
+
+function formatDayTips(dayPayload = {}, fallbackDay = 'today') {
+  const tips = (dayPayload.tips || []).map(mapTipRow);
+  return {
+    day: dayPayload.day || fallbackDay,
+    date: dayPayload.date || null,
+    label: dayPayload.label || (fallbackDay === 'tomorrow' ? "Tomorrow's Tips" : "Today's Tips"),
+    pageUrl: dayPayload.pageUrl || null,
+    count: tips.length,
+    tips,
+  };
+}
+
+/**
+ * PredictZ today + tomorrow tips feed.
+ */
+function formatTipsDelivery(payload = {}) {
+  const today = formatDayTips(payload.today, 'today');
+  const tomorrow = formatDayTips(payload.tomorrow, 'tomorrow');
+  return {
+    source: payload.source || 'https://www.predictz.com/',
+    scraped_at: payload.scraped_at || new Date().toISOString(),
+    timezone: payload.timezone || 'Asia/Yangon',
+    today,
+    tomorrow,
+    count: today.count + tomorrow.count,
+  };
+}
+
 /**
  * Build scraper delivery files from pipeline outputs.
  * mainlive.json is admin-owned and omitted here so publish does not overwrite it.
@@ -108,5 +158,6 @@ module.exports = {
   formatMainLiveDelivery,
   formatHighlightsDelivery,
   formatChannelsDelivery,
+  formatTipsDelivery,
   buildDeliveryBundle,
 };

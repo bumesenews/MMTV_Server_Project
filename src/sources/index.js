@@ -4,6 +4,7 @@ const { SocoliveSource } = require('./socolive');
 const { XoilacSource } = require('./xoilac');
 const { HighlightSource } = require('./highlight');
 const { MyanmarTvSource } = require('./myanmartv');
+const { TipsSource } = require('./tips');
 const { GenericStreamingSource } = require('./genericStreamingSource');
 const {
   PARSER_REGISTRY,
@@ -20,6 +21,7 @@ module.exports = {
   XoilacSource,
   HighlightSource,
   MyanmarTvSource,
+  TipsSource,
   GenericStreamingSource,
   PARSER_REGISTRY,
   resolveStreamingParser,

@@ -8,11 +8,12 @@ const { StreamEngine } = require('./streamEngine');
 const { CacheService } = require('./cacheService');
 const { GitHubService } = require('./githubService');
 const { generateFlutterJson } = require('./jsonGenerator');
-const { buildDeliveryBundle, formatChannelsDelivery } = require('./deliveryFormats');
+const { buildDeliveryBundle, formatChannelsDelivery, formatTipsDelivery } = require('./deliveryFormats');
 const { enrichMatchState } = require('./statusService');
 const { hasDataChanged } = require('../utils/compare');
 const { HighlightSource } = require('../sources/highlight');
 const { MyanmarTvSource } = require('../sources/myanmartv');
+const { TipsSource } = require('../sources/tips');
 const { buildEngineStreamingSources } = require('../sources/registry');
 const { HighlightManager } = require('./highlightManager');
 const { getScraperMonitor, isTimeoutError } = require('../monitor/scraper.monitor');
@@ -49,7 +50,9 @@ class Pipeline {
     this.lastRun = null;
     this.lastHighlightRun = null;
     this.lastChannelsRun = null;
+    this.lastTipsRun = null;
     this.channelsRunning = false;
+    this.tipsRunning = false;
     /** FotMob fixtures cached once per Yangon calendar day (today + tomorrow). */
     this.fixtureCache = { dayKey: null, fixtures: [] };
   }
@@ -91,6 +94,10 @@ class Pipeline {
     if (this.channelsRunning) {
       logger.warn('MyanmarTV job active — skip pipeline');
       return { ok: false, reason: 'channels_running' };
+    }
+    if (this.tipsRunning) {
+      logger.warn('Tips job active — skip pipeline');
+      return { ok: false, reason: 'tips_running' };
     }
 
     this.running = true;
@@ -333,7 +340,7 @@ class Pipeline {
     } finally {
       this.running = false;
       // Only tear down Chromium when no other scrape owns it
-      if (!this.highlightRunning && !this.channelsRunning) {
+      if (!this.highlightRunning && !this.channelsRunning && !this.tipsRunning) {
         try {
           await this.browser.close();
         } catch {
@@ -586,6 +593,10 @@ class Pipeline {
       logger.warn('MyanmarTV job active — skip highlight job');
       return { ok: false, reason: 'channels_running' };
     }
+    if (this.tipsRunning) {
+      logger.warn('Tips job active — skip highlight job');
+      return { ok: false, reason: 'tips_running' };
+    }
 
     this.highlightRunning = true;
     const startedAt = Date.now();
@@ -821,7 +832,7 @@ class Pipeline {
       return { ok: false, reason: err.message };
     } finally {
       this.highlightRunning = false;
-      if (!this.running && !this.channelsRunning) {
+      if (!this.running && !this.channelsRunning && !this.tipsRunning) {
         try {
           await this.browser.close();
         } catch {
@@ -847,6 +858,10 @@ class Pipeline {
     if (this.highlightRunning) {
       logger.warn('Highlight job active — skip MyanmarTV job');
       return { ok: false, reason: 'highlight_running' };
+    }
+    if (this.tipsRunning) {
+      logger.warn('Tips job active — skip MyanmarTV job');
+      return { ok: false, reason: 'tips_running' };
     }
 
     this.channelsRunning = true;
@@ -1015,6 +1030,151 @@ class Pipeline {
       return { ok: false, reason: err.message };
     } finally {
       this.channelsRunning = false;
+    }
+  }
+
+  /**
+   * Dedicated PredictZ tips job (today + tomorrow).
+   * Axios first, Puppeteer if blocked. Never overwrite with empty on failure.
+   */
+  async runTips({ force = false } = {}) {
+    if (this.tipsRunning) {
+      logger.warn('Tips job already running — skip overlapping run');
+      return { ok: false, reason: 'already_running' };
+    }
+    if (this.running) {
+      logger.warn('Pipeline active — skip tips job');
+      return { ok: false, reason: 'pipeline_running' };
+    }
+    if (this.highlightRunning) {
+      logger.warn('Highlight job active — skip tips job');
+      return { ok: false, reason: 'highlight_running' };
+    }
+    if (this.channelsRunning) {
+      logger.warn('MyanmarTV job active — skip tips job');
+      return { ok: false, reason: 'channels_running' };
+    }
+
+    this.tipsRunning = true;
+    const startedAt = Date.now();
+    logEvent(events.SCRAPER_START, 'PredictZ tips scraper started', {
+      force,
+      timezone: 'Asia/Yangon',
+    });
+
+    try {
+      const config = await this.configLoader.load(true);
+      if (!this._isSourceEnabled(config.sources, 'tips')) {
+        logger.info('Tips source disabled — skip');
+        return { ok: true, reason: 'disabled' };
+      }
+
+      const cfg = this.configLoader.getSourceConfig(config.sources, 'tips') || {
+        name: 'tips',
+        domains: ['https://www.predictz.com/'],
+      };
+
+      const previousDelivery = this.cache.getDelivery('tips');
+
+      let scraped = null;
+      try {
+        const source = new TipsSource({ config: cfg, browserManager: this.browser });
+        scraped = await source.collect();
+      } catch (err) {
+        logEvent(events.SCRAPER_ERROR, 'Tips scrape failed — keep previous data', {
+          error: err.message,
+        });
+        if (this.admin?.sources) this.admin.sources.recordError('tips', err.message);
+        this.lastTipsRun = {
+          ok: false,
+          reason: 'scrape_failed',
+          error: err.message,
+          at: new Date().toISOString(),
+        };
+        return {
+          ok: false,
+          reason: 'scrape_failed',
+          kept: previousDelivery,
+          error: err.message,
+        };
+      }
+
+      const nextDelivery = formatTipsDelivery(scraped);
+      if (!nextDelivery.count && previousDelivery?.count) {
+        logger.warn('Tips scrape returned empty — keep previous tips.json');
+        logEvent(events.GITHUB_SKIPPED, 'No tips changes detected. GitHub upload skipped.', {
+          feed: 'tips',
+        });
+        return { ok: true, reason: 'empty_keep_previous', kept: previousDelivery };
+      }
+
+      if (!nextDelivery.count && !previousDelivery?.count) {
+        logger.warn('Tips scrape returned empty and no previous data — skip upload');
+        return { ok: false, reason: 'empty', uploaded: false };
+      }
+
+      const bundle = this.cache.getDeliveryBundle();
+      bundle.tips = nextDelivery;
+      this.cache.saveDeliveryBundle(bundle);
+
+      let github = { uploaded: false, reason: 'skipped' };
+      try {
+        github = await this.github.uploadJsonIfChanged(this.github.paths.tips, nextDelivery, {
+          previousLocal: previousDelivery,
+          feedKey: 'tips',
+        });
+        if (!github.uploaded) {
+          logEvent(
+            events.GITHUB_SKIPPED,
+            github.reason === 'unchanged'
+              ? 'No tips changes detected. GitHub upload skipped.'
+              : `Tips GitHub skipped (${github.reason})`
+          );
+        }
+      } catch (err) {
+        logEvent(events.SCRAPER_ERROR, 'Tips GitHub upload failed', { error: err.message });
+        github = { uploaded: false, reason: 'github_error', error: err.message };
+      }
+      await getGithubMonitor().inspectResult(github).catch(() => {});
+
+      if (this.admin?.sources) {
+        this.admin.sources.recordSuccess('tips', nextDelivery.count);
+      }
+
+      this.lastTipsRun = {
+        ok: true,
+        uploaded: Boolean(github.uploaded),
+        today: nextDelivery.today.count,
+        tomorrow: nextDelivery.tomorrow.count,
+        count: nextDelivery.count,
+        durationMs: Date.now() - startedAt,
+        at: new Date().toISOString(),
+      };
+
+      logEvent(events.SCRAPER_SUCCESS, 'Tips job completed', this.lastTipsRun);
+      return {
+        ok: true,
+        uploaded: Boolean(github.uploaded),
+        delivery: nextDelivery,
+        github,
+      };
+    } catch (err) {
+      logEvent(events.SCRAPER_ERROR, 'Tips job fatal error', { error: err.message });
+      this.lastTipsRun = {
+        ok: false,
+        reason: err.message,
+        at: new Date().toISOString(),
+      };
+      return { ok: false, reason: err.message };
+    } finally {
+      this.tipsRunning = false;
+      if (!this.running && !this.highlightRunning && !this.channelsRunning) {
+        try {
+          await this.browser.close();
+        } catch {
+          // ignore
+        }
+      }
     }
   }
 }
