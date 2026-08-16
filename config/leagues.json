@@ -111,6 +111,7 @@
     {
       "standardName": "ASEAN Championship",
       "fotmobIds": [938330],
+      "logoFotmobId": 9265,
       "aliases": [
         "ASEAN Championship",
         "ASEAN Championship Grp. A",
@@ -186,6 +187,7 @@
     {
       "standardName": "Club Friendlies",
       "fotmobIds": [915708],
+      "logoFotmobId": 489,
       "aliases": [
         "Club Friendlies",
         "Club Friendly",

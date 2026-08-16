@@ -472,6 +472,49 @@ async function run() {
       retry.Referer === 'https://soco.textliveupdaterz.com/'
     );
   }
+
+  console.log('\n=== CDN Referer fallback after 403 ===');
+  {
+    const xoilacCfg = {
+      name: 'xoilac',
+      domains: ['https://xoilacxtr.tv'],
+      playbackHeaders: {
+        'User-Agent': PLAYBACK_UA_MOBILE,
+        Referer: 'https://xoilacxtr.tv/',
+      },
+    };
+    const referers = [];
+    const validator = new StreamValidator({
+      sourceConfigs: { xoilac: xoilacCfg, socolive: SOCO_CONFIG },
+      http: {
+        get: async (url, opts) => {
+          referers.push(opts.headers.Referer);
+          if (opts.headers.Referer === 'https://soco.textliveupdaterz.com/') {
+            return {
+              status: 200,
+              headers: { 'content-type': 'application/vnd.apple.mpegurl' },
+              data: mediaPlaylist(),
+            };
+          }
+          return { status: 403, headers: {}, data: 'denied' };
+        },
+      },
+    });
+    const result = await validator.validate(
+      {
+        url: 'https://live2.livefeedtextbox.com/live/channel1.m3u8',
+        source: 'xoilac',
+        matchPageUrl: 'https://xoilacxtr.tv/truc-tiep/malaysia-vs-viet-nam/',
+      },
+      { sourceConfig: xoilacCfg }
+    );
+    assert('Xoilac 403 then Socolive Referer becomes AVAILABLE', result.validation.ok === true);
+    assert(
+      'Flutter gets the working Referer',
+      result.headers.Referer === 'https://soco.textliveupdaterz.com/'
+    );
+    assert('tried more than one Referer', referers.length >= 2);
+  }
 }
 
 run()

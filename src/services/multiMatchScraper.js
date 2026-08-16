@@ -2,6 +2,7 @@ const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
 const { axiosGetHtml } = require('../sources/httpStreamExtractor');
 const { sleep } = require('../sources/baseStreamingSource');
+const { runExclusivePuppeteerTask } = require('../browser/puppeteerManager');
 const {
   parseStreamUrl,
   scoreStreamMatch,
@@ -15,6 +16,7 @@ const {
   resolveMatchUrlSearchSlot,
 } = require('../utils/time');
 const { cleanText } = require('../utils/normalize');
+const { needsMatchUrlDiscovery } = require('../utils/matchUrlDiscovery');
 
 /** Default match-detail path pattern (Vietnamese live sites). */
 const DEFAULT_LINK_PATTERN = /truc-tiep\/[^\s"'<>#?]+/gi;
@@ -26,7 +28,7 @@ const CLOUDFLARE_MARKERS =
  * Efficient multi-match discovery for 15–20 FotMob fixtures:
  * 1) One Axios GET of the live list HTML
  * 2) Extract all `truc-tiep/...` detail URLs
- * 3) Match only fixtures in Match URL slots (−30/−15/−5) via scoreStreamMatch
+ * 3) Match only fixtures in Match URL slots (−60/−45/−30) via scoreStreamMatch
  * 4) Puppeteer fallback (memory-optimized browser) if Axios/Cloudflare/empty
  */
 class MultiMatchScraper {
@@ -60,7 +62,7 @@ class MultiMatchScraper {
   async discoverForFixtures({ listUrls = [], fixtures = [], config = {} } = {}) {
     const due = (fixtures || []).filter((f) => this.isFixtureDue(f));
     if (!due.length) {
-      logger.debug(`${this.sourceName} multi-match: no fixtures in −30m window`);
+      logger.debug(`${this.sourceName} multi-match: no fixtures in Match URL window`);
       return [];
     }
 
@@ -107,13 +109,17 @@ class MultiMatchScraper {
   }
 
   /**
-   * Match URL discovery window: Today-page slots −30 / −15 / −5 only.
+   * Match URL discovery window: Today-page slots −60 / −45 / −30 only.
    */
   isFixtureDue(fixture) {
     if (!fixture?.kickoff) return false;
     const kickoff = toYangon(fixture.kickoff);
     if (!kickoff || !isTodayOrTomorrow(kickoff)) return false;
-    return Boolean(resolveMatchUrlSearchSlot(fixture.kickoff));
+    if (!resolveMatchUrlSearchSlot(fixture.kickoff)) return false;
+    const sources = fixture?.matchUrlSearch?.sources || {};
+    const names = Object.keys(sources);
+    if (!names.length) return true;
+    return names.some((name) => needsMatchUrlDiscovery(fixture, name));
   }
 
   async fetchListEntriesAxios(listUrls, config) {
@@ -152,6 +158,7 @@ class MultiMatchScraper {
   async fetchListEntriesPuppeteer(listUrls, config) {
     if (!this.browser) return [];
 
+    return runExclusivePuppeteerTask(async () => {
     const page = await this.browser.newPage();
     const all = [];
     const waitUntil = config.discover?.waitUntil || 'domcontentloaded';
@@ -198,6 +205,7 @@ class MultiMatchScraper {
     }
 
     return dedupeEntries(all);
+    });
   }
 
   looksBlockedOrEmpty(html) {
@@ -322,7 +330,11 @@ class MultiMatchScraper {
         const $el = $(el);
         const href =
           $el.attr('href') ||
+          $el.attr('data-href') ||
+          $el.attr('data-url') ||
+          $el.attr('data-link') ||
           $el.find('a[href*="truc-tiep"]').attr('href') ||
+          $el.find('[data-href*="truc-tiep"]').attr('data-href') ||
           $el.closest('a[href*="truc-tiep"]').attr('href') ||
           '';
         consider(href, $el);
@@ -334,6 +346,16 @@ class MultiMatchScraper {
       const $el = $(el);
       consider($el.attr('href'), $el.parent());
     });
+
+    $('[data-href*="truc-tiep"], [data-url*="truc-tiep"], [data-link*="truc-tiep"]').each(
+      (_, el) => {
+        const $el = $(el);
+        consider(
+          $el.attr('data-href') || $el.attr('data-url') || $el.attr('data-link'),
+          $el.parent()
+        );
+      }
+    );
 
     return out;
   }
@@ -374,7 +396,7 @@ class MultiMatchScraper {
     const scoredRows = [];
 
     for (const fixture of fixtures || []) {
-      const candidates = [];
+      const byUrl = new Map();
       for (const entry of entries || []) {
         if (!entry?.url) continue;
         const streamData = {
@@ -394,10 +416,13 @@ class MultiMatchScraper {
           normalizer: this.normalizer,
           timeToleranceMinutes: this.timeToleranceMinutes,
         });
-        if (scored.accepted) {
-          candidates.push({ entry, scored });
+        if (!scored.accepted) continue;
+        const prev = byUrl.get(entry.url);
+        if (!prev || scored.score > prev.scored.score) {
+          byUrl.set(entry.url, { entry, scored });
         }
       }
+      const candidates = [...byUrl.values()];
 
       candidates.sort((a, b) => b.scored.score - a.scored.score);
       if (!candidates.length) continue;

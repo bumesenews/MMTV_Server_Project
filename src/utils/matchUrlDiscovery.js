@@ -1,13 +1,136 @@
+const { logger } = require('./logger');
 const {
   resolveMatchUrlSearchSlot,
   minutesUntilKickoff,
   MATCH_URL_MAX_ATTEMPTS,
+  MATCH_URL_SEARCH_SLOTS,
+  STREAM_SEARCH_INTERVAL_MINUTES,
 } = require('./time');
 const { MATCH_URL_STATUS } = require('./streamUrlHelper');
 
+function isConfirmedMatchUrlStatus(status) {
+  return (
+    status === MATCH_URL_STATUS.CONFIRMED ||
+    status === MATCH_URL_STATUS.CONFIRMED_LEGACY
+  );
+}
+
+function isSavedMatchUrlStatus(status) {
+  return status === MATCH_URL_STATUS.FOUND || isConfirmedMatchUrlStatus(status);
+}
+
+function isFailedMatchUrlStatus(status) {
+  return status === MATCH_URL_STATUS.FAILED;
+}
+
+/**
+ * Unique Match URL job: matchId + source + operation + attempt.
+ * Same attempt must not run twice simultaneously.
+ */
+function matchUrlJobKey(matchId, sourceName, attemptOrSlot) {
+  let attemptLabel = 'attempt1';
+  if (attemptOrSlot && typeof attemptOrSlot === 'object') {
+    const n = Number(attemptOrSlot.attempt);
+    attemptLabel = n > 0 ? `attempt${n}` : `attempt:${attemptOrSlot.id || 'none'}`;
+  } else if (typeof attemptOrSlot === 'number' && attemptOrSlot > 0) {
+    attemptLabel = `attempt${attemptOrSlot}`;
+  } else if (attemptOrSlot) {
+    const raw = String(attemptOrSlot);
+    attemptLabel = raw.startsWith('attempt') ? raw : `attempt:${raw}`;
+  }
+  return `${matchId || 'unknown'}:${sourceName || 'source'}:match-url:${attemptLabel}`;
+}
+
+function isTransientDiscoverError(err) {
+  const msg = String(err?.message || err || '').toLowerCase();
+  const code = String(err?.code || err?.cause?.code || '').toUpperCase();
+  if (
+    [
+      'ETIMEDOUT',
+      'ESOCKETTIMEDOUT',
+      'ECONNRESET',
+      'ENOTFOUND',
+      'EAI_AGAIN',
+      'ECONNREFUSED',
+      'ENETUNREACH',
+      'EHOSTUNREACH',
+      'UND_ERR_CONNECT_TIMEOUT',
+    ].includes(code)
+  ) {
+    return true;
+  }
+  if (
+    /timeout|timed out|dns|enotfound|econnreset|econnrefused|eai_again|socket hang up|network|ehostunreach/.test(
+      msg
+    )
+  ) {
+    return true;
+  }
+  if (/\b(403|404|429|502|503)\b/.test(msg) || /status code 40[34]/.test(msg)) {
+    return true;
+  }
+  if (/antibot|cloudflare|access denied|just a moment/.test(msg)) {
+    return true;
+  }
+  return false;
+}
+
+function slotLeadLabel(slot) {
+  if (!slot) return 'unknown';
+  if (slot.early) return 'early';
+  const n = Number(slot.maxInclusive);
+  return Number.isFinite(n) ? `-${n} minutes` : String(slot.id || 'unknown');
+}
+
+function nextMatchUrlSlot(slot) {
+  if (!slot?.id) return null;
+  const slots = MATCH_URL_SEARCH_SLOTS || [];
+  const idx = slots.findIndex((s) => s.id === slot.id);
+  if (idx < 0 || idx + 1 >= slots.length) return null;
+  return slots[idx + 1];
+}
+
+function logMatchUrlDiscovery({
+  fixture,
+  sourceName,
+  slot,
+  attempt,
+  result,
+  matchUrl = null,
+} = {}) {
+  const home = fixture?.homeTeam || '?';
+  const away = fixture?.awayTeam || '?';
+  const time = fixture?.kickoffTime || fixture?.time || '';
+  logger.info(
+    `[ MATCH URL DISCOVERY ] Match: ${home} vs ${away} Kickoff: ${time} Source: ${sourceName} Attempt: ${attempt}/${MATCH_URL_MAX_ATTEMPTS} Scheduled: ${slotLeadLabel(slot)} Result: ${result}`
+  );
+  if (matchUrl && (result === 'FOUND' || result === 'CONFIRMED')) {
+    logger.info(
+      `[ MATCH URL FOUND ] Source: ${sourceName} Match: ${home} vs ${away} Match URL: ${matchUrl} Attempt: ${attempt}/${MATCH_URL_MAX_ATTEMPTS} Status: ${
+        result === 'CONFIRMED'
+          ? MATCH_URL_STATUS.CONFIRMED
+          : MATCH_URL_STATUS.FOUND
+      }`
+    );
+  }
+}
+
+function logMatchUrlFallback({ sourceName, previousSlot, nextSlot } = {}) {
+  if (!nextSlot) return;
+  logger.info(
+    `[ MATCH URL FALLBACK ] Source: ${sourceName} Previous attempt: ${slotLeadLabel(previousSlot)} NOT_FOUND Next attempt: ${slotLeadLabel(nextSlot)}`
+  );
+}
+
+function logMatchUrlFailed({ sourceName, attempts } = {}) {
+  logger.info(
+    `[ MATCH URL FAILED ] Source: ${sourceName} Attempts: ${attempts}/${MATCH_URL_MAX_ATTEMPTS} Result: ${MATCH_URL_STATUS.FAILED}`
+  );
+}
+
 /**
  * Per-source Match URL discovery state on a FotMob fixture.
- * Today-page search runs at most 3 times: −30 / −15 / −5. Once a URL is saved,
+ * Today-page search runs at most 3 times: −60 / −45 / −30. Once a URL is saved,
  * that source is not searched again.
  */
 function ensureMatchUrlSearch(fixture) {
@@ -21,6 +144,18 @@ function ensureMatchUrlSearch(fixture) {
   };
 }
 
+function repairSlotsDone(slotsDone, attempts, hasUrl) {
+  const next = { ...(slotsDone || {}) };
+  const n = Number(attempts) || 0;
+  if (hasUrl || n >= MATCH_URL_MAX_ATTEMPTS) return next;
+  // Legacy tEarly rows marked t30 done after one miss and never ran −60/−45.
+  if (next.tEarly && !next.t60 && !next.t45) {
+    delete next.tEarly;
+    delete next.t30;
+  }
+  return next;
+}
+
 function getSourceMatchUrlState(fixture, sourceName) {
   const search = ensureMatchUrlSearch(fixture);
   const raw = search.sources?.[sourceName] || {};
@@ -30,24 +165,39 @@ function getSourceMatchUrlState(fixture, sourceName) {
     null;
   let status = raw.status || null;
   if (!status) {
-    status = url ? MATCH_URL_STATUS.FOUND : MATCH_URL_STATUS.NOT_FOUND;
+    status = url ? MATCH_URL_STATUS.FOUND : MATCH_URL_STATUS.PENDING;
+  } else if (status === MATCH_URL_STATUS.NOT_FOUND && url) {
+    status = MATCH_URL_STATUS.FOUND;
+  } else if (status === MATCH_URL_STATUS.NOT_FOUND && !url) {
+    const attempts = Number(raw.attempts) || 0;
+    status =
+      attempts >= MATCH_URL_MAX_ATTEMPTS
+        ? MATCH_URL_STATUS.FAILED
+        : MATCH_URL_STATUS.PENDING;
+  } else if (status === MATCH_URL_STATUS.CONFIRMED_LEGACY) {
+    status = MATCH_URL_STATUS.CONFIRMED;
   }
+  const attempts = Number(raw.attempts) || 0;
   return {
     matchUrl: url || null,
     status,
-    attempts: Number(raw.attempts) || 0,
+    attempts,
     lastAttemptAt: raw.lastAttemptAt || null,
-    slotsDone: { ...(raw.slotsDone || {}) },
+    slotsDone: repairSlotsDone(raw.slotsDone, attempts, Boolean(url)),
     confidence: Number(raw.confidence) || 0,
   };
 }
 
 function sourceHasSavedMatchUrl(state) {
   if (!state?.matchUrl) return false;
-  return (
-    state.status === MATCH_URL_STATUS.FOUND ||
-    state.status === MATCH_URL_STATUS.CONFIRMED
-  );
+  return isSavedMatchUrlStatus(state.status);
+}
+
+function lastAttemptAgeSec(lastAttemptAt, nowSec) {
+  if (!lastAttemptAt) return Number.POSITIVE_INFINITY;
+  const ms = Date.parse(lastAttemptAt);
+  if (!Number.isFinite(ms)) return Number.POSITIVE_INFINITY;
+  return nowSec - Math.floor(ms / 1000);
 }
 
 /**
@@ -56,19 +206,24 @@ function sourceHasSavedMatchUrl(state) {
 function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
   const st = getSourceMatchUrlState(fixture, sourceName);
   if (sourceHasSavedMatchUrl(st)) return false;
+  if (isFailedMatchUrlStatus(st.status)) return false;
   if (st.attempts >= MATCH_URL_MAX_ATTEMPTS) return false;
   const slot = resolveMatchUrlSearchSlot(fixture?.kickoff, nowSec);
   if (!slot) return false;
-  // Keep retrying the early list scrape until a URL is saved (or −30 window).
-  if (slot.early && !st.matchUrl) return true;
-  if (st.slotsDone[slot.id]) return false;
-  return true;
+  if (slot.early) {
+    return !st.slotsDone[slot.id];
+  }
+  if (!st.slotsDone[slot.id]) return true;
+
+  // Leftover budget: old tEarly/t30 rows marked the slot done after 1 miss,
+  // skipping −60/−45. Keep searching until 3 attempts, with interval cooldown.
+  const cooldownSec = Math.max(1, STREAM_SEARCH_INTERVAL_MINUTES) * 60;
+  return lastAttemptAgeSec(st.lastAttemptAt, nowSec) >= cooldownSec;
 }
 
 function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
   const search = ensureMatchUrlSearch(fixture);
   const prev = getSourceMatchUrlState(fixture, sourceName);
-  // Early list scrape must not burn the −30/−15/−5 attempt budget.
   const attempts = slot?.early
     ? prev.attempts
     : Math.min(MATCH_URL_MAX_ATTEMPTS, prev.attempts + 1);
@@ -78,18 +233,22 @@ function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
   let status = prev.status;
   let matchUrl = prev.matchUrl;
   let confidence = prev.confidence;
+  let resultLabel = 'NOT_FOUND';
 
   if (hit?.matchUrl && hit.accepted !== false) {
     matchUrl = hit.matchUrl;
     confidence = Number(hit.confidence || hit.score || 0) || confidence;
-    status =
-      hit.status === MATCH_URL_STATUS.CONFIRMED
-        ? MATCH_URL_STATUS.CONFIRMED
-        : MATCH_URL_STATUS.FOUND;
+    const confirmed =
+      isConfirmedMatchUrlStatus(hit.status) ||
+      Number(confidence) >= 90;
+    status = confirmed ? MATCH_URL_STATUS.CONFIRMED : MATCH_URL_STATUS.FOUND;
+    resultLabel = confirmed ? 'CONFIRMED' : 'FOUND';
   } else if (!matchUrl && attempts >= MATCH_URL_MAX_ATTEMPTS) {
-    status = MATCH_URL_STATUS.NOT_FOUND;
+    status = MATCH_URL_STATUS.FAILED;
+    resultLabel = 'FAILED';
   } else if (!matchUrl) {
-    status = MATCH_URL_STATUS.NOT_FOUND;
+    status = MATCH_URL_STATUS.PENDING;
+    resultLabel = 'NOT_FOUND';
   }
 
   search.sources[sourceName] = {
@@ -104,6 +263,25 @@ function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
 
   const sourcePages = { ...(fixture.sourcePages || {}) };
   if (matchUrl) sourcePages[sourceName] = matchUrl;
+
+  logMatchUrlDiscovery({
+    fixture,
+    sourceName,
+    slot,
+    attempt: attempts,
+    result: resultLabel,
+    matchUrl,
+  });
+  if (resultLabel === 'NOT_FOUND') {
+    logMatchUrlFallback({
+      sourceName,
+      previousSlot: slot,
+      nextSlot: nextMatchUrlSlot(slot),
+    });
+  }
+  if (resultLabel === 'FAILED') {
+    logMatchUrlFailed({ sourceName, attempts });
+  }
 
   return aggregateMatchUrlFields({
     ...fixture,
@@ -130,7 +308,7 @@ function skipDiscoveryKeepKnown(fixture, sourceName) {
  */
 function finalizeMatchUrlStatus(fixture, nowSec) {
   const next = aggregateMatchUrlFields(fixture);
-  if (next.matchUrl && next.matchUrlStatus !== MATCH_URL_STATUS.NOT_FOUND) {
+  if (next.matchUrl && next.matchUrlStatus !== MATCH_URL_STATUS.FAILED) {
     return next;
   }
   const mins = minutesUntilKickoff(fixture?.kickoff, nowSec);
@@ -138,12 +316,12 @@ function finalizeMatchUrlStatus(fixture, nowSec) {
   if ((mins != null && mins <= 0) || attempts >= MATCH_URL_MAX_ATTEMPTS) {
     return {
       ...next,
-      matchUrlStatus: MATCH_URL_STATUS.NOT_FOUND,
+      matchUrlStatus: MATCH_URL_STATUS.FAILED,
     };
   }
   return {
     ...next,
-    matchUrlStatus: next.matchUrlStatus || MATCH_URL_STATUS.NOT_FOUND,
+    matchUrlStatus: next.matchUrlStatus || MATCH_URL_STATUS.PENDING,
   };
 }
 
@@ -152,12 +330,20 @@ function aggregateMatchUrlFields(fixture) {
   const sourcePages = { ...(fixture.sourcePages || {}) };
 
   let bestUrl = fixture.matchUrl || null;
-  let bestStatus = MATCH_URL_STATUS.NOT_FOUND;
-  let bestScore = -1;
+  let bestStatus = isSavedMatchUrlStatus(fixture.matchUrlStatus)
+    ? isConfirmedMatchUrlStatus(fixture.matchUrlStatus)
+      ? MATCH_URL_STATUS.CONFIRMED
+      : MATCH_URL_STATUS.FOUND
+    : MATCH_URL_STATUS.PENDING;
+  let bestScore = bestUrl ? 1 : -1;
+  let bestSource = fixture.matchUrlSource || null;
   let maxAttempts = 0;
   let lastAt = fixture.lastMatchUrlAttemptAt || null;
+  let anyFailed = false;
+  let sourceCount = 0;
 
   for (const [name, raw] of Object.entries(search.sources || {})) {
+    sourceCount += 1;
     const url = raw.matchUrl || sourcePages[name] || null;
     if (url) sourcePages[name] = url;
     const attempts = Number(raw.attempts) || 0;
@@ -166,25 +352,36 @@ function aggregateMatchUrlFields(fixture) {
       lastAt = raw.lastAttemptAt;
     }
     const conf = Number(raw.confidence) || 0;
-    const status = raw.status || (url ? MATCH_URL_STATUS.FOUND : MATCH_URL_STATUS.NOT_FOUND);
-    const rank =
-      status === MATCH_URL_STATUS.CONFIRMED
-        ? 200 + conf
-        : status === MATCH_URL_STATUS.FOUND
-          ? 100 + conf
-          : 0;
+    let status = raw.status || (url ? MATCH_URL_STATUS.FOUND : MATCH_URL_STATUS.PENDING);
+    if (status === MATCH_URL_STATUS.CONFIRMED_LEGACY) status = MATCH_URL_STATUS.CONFIRMED;
+    if (status === MATCH_URL_STATUS.NOT_FOUND && !url) {
+      status =
+        attempts >= MATCH_URL_MAX_ATTEMPTS
+          ? MATCH_URL_STATUS.FAILED
+          : MATCH_URL_STATUS.PENDING;
+    }
+    if (status === MATCH_URL_STATUS.FAILED) anyFailed = true;
+    const rank = isConfirmedMatchUrlStatus(status)
+      ? 200 + conf
+      : status === MATCH_URL_STATUS.FOUND
+        ? 100 + conf
+        : 0;
     if (url && rank > bestScore) {
       bestUrl = url;
-      bestStatus = status;
+      bestStatus = isConfirmedMatchUrlStatus(status)
+        ? MATCH_URL_STATUS.CONFIRMED
+        : status;
       bestScore = rank;
+      bestSource = name;
     }
   }
 
   if (!bestUrl) {
-    for (const url of Object.values(sourcePages)) {
+    for (const [name, url] of Object.entries(sourcePages)) {
       if (url) {
         bestUrl = url;
         bestStatus = MATCH_URL_STATUS.FOUND;
+        bestSource = name;
         break;
       }
     }
@@ -194,14 +391,20 @@ function aggregateMatchUrlFields(fixture) {
     maxAttempts = fixture.matchUrlAttempts;
   }
 
+  let matchUrlStatus = bestUrl ? bestStatus : MATCH_URL_STATUS.PENDING;
+  if (!bestUrl && (anyFailed || maxAttempts >= MATCH_URL_MAX_ATTEMPTS) && sourceCount) {
+    matchUrlStatus = MATCH_URL_STATUS.FAILED;
+  }
+
   return {
     ...fixture,
     sourcePages,
     matchUrlSearch: search,
     matchUrl: bestUrl || null,
-    matchUrlStatus: bestUrl ? bestStatus : MATCH_URL_STATUS.NOT_FOUND,
+    matchUrlStatus,
     matchUrlAttempts: maxAttempts,
     lastMatchUrlAttemptAt: lastAt || null,
+    matchUrlSource: bestUrl ? bestSource : null,
   };
 }
 
@@ -216,4 +419,10 @@ module.exports = {
   skipDiscoveryKeepKnown,
   finalizeMatchUrlStatus,
   aggregateMatchUrlFields,
+  matchUrlJobKey,
+  isTransientDiscoverError,
+  isConfirmedMatchUrlStatus,
+  isSavedMatchUrlStatus,
+  slotLeadLabel,
+  nextMatchUrlSlot,
 };

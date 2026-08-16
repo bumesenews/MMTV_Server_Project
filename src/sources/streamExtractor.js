@@ -2,6 +2,52 @@ const { logger, logEvent, events } = require('../utils/logger');
 const { mergePlaybackHeaders, playbackHeadersForClient } = require('../utils/streamHeaders');
 const { sleep } = require('./baseStreamingSource');
 const { cleanText } = require('../utils/normalize');
+const { isBrowserProtocolError } = require('../utils/streamExtractPolicy');
+
+const IFRAME_SRC_ATTRS = [
+  'src',
+  'data-src',
+  'data-lazy-src',
+  'data-url',
+  'data-src-player',
+  'data-play',
+  'data-link',
+];
+
+function isFrameUsable(frame) {
+  if (!frame) return false;
+  try {
+    if (typeof frame.isDetached === 'function' && frame.isDetached()) return false;
+    if (frame.detached === true) return false;
+  } catch {
+    return false;
+  }
+  try {
+    const url = frame.url();
+    if (!url || url === 'about:blank') return false;
+  } catch {
+    return false;
+  }
+  return true;
+}
+
+async function safeEvaluate(target, fn, arg) {
+  if (!target) return null;
+  try {
+    if (typeof target.isClosed === 'function' && target.isClosed()) return null;
+  } catch {
+    return null;
+  }
+  if (typeof target.url === 'function' && typeof target.isDetached === 'function') {
+    if (!isFrameUsable(target)) return null;
+  }
+  try {
+    return arg === undefined ? await target.evaluate(fn) : await target.evaluate(fn, arg);
+  } catch (err) {
+    if (isBrowserProtocolError(err)) return null;
+    throw err;
+  }
+}
 
 /**
  * Shared stream extraction pipeline used by each source module:
@@ -20,15 +66,17 @@ async function extractStreamsFromPage({
   const selectors = config.selectors || {};
   const detection = config.streamDetection || {};
   const playerRules = config.playerRules || {};
-  // Defaults tuned for 1GB EC2 — sources.json can still override per site
   const waitAfterLoad = Number(detection.waitAfterLoadMs || 4000);
   const waitAfterClick = Number(detection.waitAfterClickMs || 2000);
+  const iframeRetries = Number(detection.iframeRetries || 2);
+  const iframeRetryDelayMs = Number(detection.iframeRetryDelayMs || 400);
   const streams = [];
 
   const sourcePriority = Number(config.priority || 0);
 
   const pushStream = (url, quality = 'HD', extra = {}) => {
-    if (!url || !/\.m3u8/i.test(url)) return;
+    if (!url) return;
+    if (!/\.m3u8/i.test(url) && !/\/hls\//i.test(url)) return;
     streams.push({
       source: sourceName,
       type: 'm3u8',
@@ -57,12 +105,11 @@ async function extractStreamsFromPage({
     });
   };
 
-  // 1) Auto-play / network interception after load
+  try {
   await sleep(waitAfterLoad);
   collectFromCapture(page, pushStream, 'Auto', config);
 
-  // Optional play button if nothing yet
-  if (!streams.length && Array.isArray(playerRules.clickPlaySelectors)) {
+  if (!streams.length && Array.isArray(playerRules.clickPlaySelectors) && !page.isClosed()) {
     for (const sel of playerRules.clickPlaySelectors) {
       try {
         const btn = await page.$(sel);
@@ -77,14 +124,16 @@ async function extractStreamsFromPage({
     }
   }
 
-  // 2) iframe detection
-  if (!hasUniqueUrl(streams)) {
-    await extractFromIframes(page, selectors.iframe || ['iframe'], pushStream);
+  if (!hasUniqueUrl(streams) && !page.isClosed()) {
+    await extractFromIframes(page, selectors.iframe || ['iframe'], pushStream, {
+      retries: iframeRetries,
+      retryDelayMs: iframeRetryDelayMs,
+    });
   }
 
-  // 3) video source detection
-  if (!hasUniqueUrl(streams)) {
-    const videoUrls = await page.evaluate((videoSelectors) => {
+  if (!hasUniqueUrl(streams) && !page.isClosed()) {
+    try {
+    const videoUrls = await safeEvaluate(page, (videoSelectors) => {
       const out = [];
       const sels = videoSelectors || ['video', 'video source'];
       for (const sel of sels) {
@@ -96,12 +145,14 @@ async function extractStreamsFromPage({
       return out;
     }, selectors.video || ['video', 'video source']);
 
-    for (const url of videoUrls) pushStream(url, 'HD', { meta: { via: 'video' } });
+    for (const url of videoUrls || []) pushStream(url, 'HD', { meta: { via: 'video' } });
+    } catch (err) {
+      logger.debug('video source extract failed', { source: sourceName, error: err.message });
+    }
   }
 
-  // 4) quality / server buttons
   const qualitySelectors = selectors.qualityButton || [];
-  const buttons = await discoverQualityButtons(page, qualitySelectors);
+  const buttons = page.isClosed() ? [] : await discoverQualityButtons(page, qualitySelectors);
 
   for (const button of buttons) {
     try {
@@ -111,10 +162,9 @@ async function extractStreamsFromPage({
       await button.handle.click({ delay: 30 });
       await sleep(waitAfterClick);
 
-      // iframe refresh after quality change
       await extractFromIframes(page, selectors.iframe || ['iframe'], (url, q, extra) => {
         pushStream(url, button.label || q, extra);
-      });
+      }, { retries: 1, retryDelayMs: iframeRetryDelayMs });
 
       const after = page.__streamCapture?.getUniqueStreams() || [];
       for (const item of after) {
@@ -132,18 +182,35 @@ async function extractStreamsFromPage({
     }
   }
 
-  // Final sweep of capture buffer
   collectFromCapture(page, pushStream, 'HD', config);
 
   return dedupeStreams(streams);
+  } catch (err) {
+    logger.warn('Stream page extract interrupted', {
+      source: sourceName,
+      error: err.message,
+    });
+    collectFromCapture(page, pushStream, 'HD', config);
+    return dedupeStreams(streams);
+  }
 }
 
 function collectFromCapture(page, pushStream, defaultQuality, config) {
-  const items = page.__streamCapture?.getUniqueStreams() || [];
-  for (const item of items) {
-    pushStream(item.url, defaultQuality, {
-      headers: buildHeaders(item, page.url(), config),
-    });
+  try {
+    const items = page.__streamCapture?.getUniqueStreams() || [];
+    let referer = '';
+    try {
+      referer = page.isClosed() ? '' : page.url();
+    } catch {
+      referer = '';
+    }
+    for (const item of items) {
+      pushStream(item.url, defaultQuality, {
+        headers: buildHeaders(item, referer, config),
+      });
+    }
+  } catch {
+    // page/frame already gone
   }
 }
 
@@ -161,7 +228,77 @@ function buildHeaders(item, referer, config = {}) {
   });
 }
 
-async function extractFromIframes(page, iframeSelectors, pushStream) {
+async function extractFromIframes(page, iframeSelectors, pushStream, options = {}) {
+  const retries = Math.max(1, Number(options.retries || 2));
+  const retryDelayMs = Number(options.retryDelayMs || 400);
+
+  for (let attempt = 0; attempt < retries; attempt += 1) {
+    if (page.isClosed()) return;
+    const foundBefore = { n: 0 };
+    const countedPush = (url, q, extra) => {
+      foundBefore.n += 1;
+      pushStream(url, q, extra);
+    };
+
+    const srcs = await collectIframeSrcsFromPage(page);
+    for (const src of srcs) {
+      if (/\.m3u8/i.test(src) || /\/hls\//i.test(src)) {
+        countedPush(src, 'HD', { meta: { via: 'iframe-src' } });
+      }
+    }
+
+    await extractFromChildFrames(page, countedPush);
+    await extractFromIframeHandles(page, iframeSelectors, countedPush);
+
+    if (foundBefore.n > 0) return;
+    if (attempt < retries - 1) {
+      await sleep(retryDelayMs * 2 ** attempt);
+    }
+  }
+
+  await extractM3u8FromMainDocument(page, pushStream);
+}
+
+async function collectIframeSrcsFromPage(page) {
+  const srcs = await safeEvaluate(page, (attrs) => {
+    const out = [];
+    document.querySelectorAll('iframe, embed, object').forEach((el) => {
+      for (const name of attrs) {
+        const value = el.getAttribute(name);
+        if (value && !/about:blank|chatboxn\.com|javascript:/i.test(value)) {
+          out.push(value);
+        }
+      }
+    });
+    return out;
+  }, IFRAME_SRC_ATTRS);
+  return Array.isArray(srcs) ? [...new Set(srcs)] : [];
+}
+
+async function extractFromChildFrames(page, pushStream) {
+  let frames = [];
+  try {
+    frames = page.frames() || [];
+  } catch {
+    return;
+  }
+  for (const frame of frames) {
+    if (!isFrameUsable(frame)) continue;
+    try {
+      if (frame === page.mainFrame()) continue;
+    } catch {
+      continue;
+    }
+    const urls = await safeEvaluate(frame, collectPlayerUrlsInDocument);
+    for (const url of urls || []) {
+      if (/\.m3u8/i.test(url) || /\/hls\//i.test(url)) {
+        pushStream(url, 'HD', { meta: { via: 'iframe' } });
+      }
+    }
+  }
+}
+
+async function extractFromIframeHandles(page, iframeSelectors, pushStream) {
   const list = Array.isArray(iframeSelectors) ? iframeSelectors : [iframeSelectors];
   for (const selector of list.filter(Boolean)) {
     let frames = [];
@@ -173,33 +310,56 @@ async function extractFromIframes(page, iframeSelectors, pushStream) {
 
     for (const frameEl of frames) {
       try {
-        const src = await frameEl.evaluate((el) => el.src || el.getAttribute('src') || '');
-        if (src && /\.m3u8/i.test(src)) {
+        const src = await safeEvaluate(frameEl, (el) => {
+          const attrs = ['src', 'data-src', 'data-lazy-src', 'data-url'];
+          for (const name of attrs) {
+            const value = el.getAttribute(name) || el[name];
+            if (value) return value;
+          }
+          return '';
+        });
+        if (src && (/\.m3u8/i.test(src) || /\/hls\//i.test(src))) {
           pushStream(src, 'HD', { meta: { via: 'iframe-src' } });
         }
 
-        const frame = await frameEl.contentFrame();
-        if (!frame) continue;
+        let frame = null;
+        try {
+          frame = await frameEl.contentFrame();
+        } catch {
+          frame = null;
+        }
+        if (!isFrameUsable(frame)) continue;
 
-        const urls = await frame.evaluate(() => {
-          const found = [];
-          document.querySelectorAll('video, video source, source').forEach((el) => {
-            const s = el.currentSrc || el.src || el.getAttribute('src');
-            if (s) found.push(s);
-          });
-          // common player config blobs
-          const html = document.documentElement?.innerHTML || '';
-          const re = /https?:\/\/[^"'\s]+\.m3u8[^"'\s]*/gi;
-          const matches = html.match(re) || [];
-          return [...found, ...matches];
-        });
-
-        for (const url of urls) {
-          if (/\.m3u8/i.test(url)) pushStream(url, 'HD', { meta: { via: 'iframe' } });
+        const urls = await safeEvaluate(frame, collectPlayerUrlsInDocument);
+        for (const url of urls || []) {
+          if (/\.m3u8/i.test(url) || /\/hls\//i.test(url)) {
+            pushStream(url, 'HD', { meta: { via: 'iframe' } });
+          }
         }
       } catch (err) {
         logger.debug('iframe extract failed', { error: err.message });
       }
+    }
+  }
+}
+
+function collectPlayerUrlsInDocument() {
+  const found = [];
+  document.querySelectorAll('video, video source, source').forEach((el) => {
+    const s = el.currentSrc || el.src || el.getAttribute('src');
+    if (s) found.push(s);
+  });
+  const html = document.documentElement?.innerHTML || '';
+  const re = /https?:\/\/[^"'\s<>]+?(?:\.m3u8|\/hls\/)[^"'\s<>]*/gi;
+  const matches = html.match(re) || [];
+  return [...found, ...matches];
+}
+
+async function extractM3u8FromMainDocument(page, pushStream) {
+  const urls = await safeEvaluate(page, collectPlayerUrlsInDocument);
+  for (const url of urls || []) {
+    if (/\.m3u8/i.test(url) || /\/hls\//i.test(url)) {
+      pushStream(url, 'HD', { meta: { via: 'page-html' } });
     }
   }
 }
@@ -260,4 +420,6 @@ module.exports = {
   extractStreamsFromPage,
   discoverQualityButtons,
   dedupeStreams,
+  isFrameUsable,
+  IFRAME_SRC_ATTRS,
 };

@@ -1,6 +1,7 @@
 const express = require('express');
 const { authRequired, requireRole, ROLES } = require('../auth/middleware');
 const { formatDate, formatTime, toYangon } = require('../../utils/time');
+const { collectSourceFailuresFromMatches } = require('../services/dashboardService');
 
 function createAdminRouter(ctx) {
   const router = express.Router();
@@ -565,9 +566,22 @@ function createAdminRouter(ctx) {
         remote = null;
       }
       const local = ctx.sources.list(remote?.content || null);
+      const matchFailures = collectSourceFailuresFromMatches(
+        ctx.cache?.getCurrent?.()?.matches || []
+      );
+      const sources = local.map((s) => {
+        const extra = matchFailures.get(s.name);
+        return {
+          ...s,
+          lastError: s.lastError || extra?.lastError || null,
+          lastErrorAt: s.lastErrorAt || extra?.lastErrorAt || null,
+          failedMatchCount: extra?.matches.length || 0,
+          failedMatches: extra?.matches.slice(0, 12) || [],
+        };
+      });
       res.json({
         ok: true,
-        sources: local,
+        sources,
         config: remote?.content || null,
         configOrigin: remote?.origin || null,
       });

@@ -11,9 +11,19 @@ const {
   decideSourceExtract,
   nextSourceStateAfterAttempt,
   aggregateStreamStatus,
+  aggregateValidationFields,
+  isBrowserProtocolError,
+  normalizeValidationReason,
 } = require('../src/utils/streamExtractPolicy');
 const { MATCH_URL_STATUS } = require('../src/utils/streamUrlHelper');
-const { runAxiosThenPuppeteer } = require('../src/sources/httpStreamExtractor');
+const {
+  runAxiosThenPuppeteer,
+  findStreamPatterns,
+  extractIframeSrcs,
+} = require('../src/sources/httpStreamExtractor');
+const { isFrameUsable } = require('../src/sources/streamExtractor');
+const { resolvePlayerWait } = require('../src/sources/baseStreamingSource');
+const { gotoMatchPage } = require('../src/browser/puppeteerManager');
 const { StreamEngine } = require('../src/services/streamEngine');
 const { generateFlutterJson } = require('../src/services/jsonGenerator');
 const { isStreamSearchStopped } = require('../src/utils/time');
@@ -234,6 +244,77 @@ console.log('\n=== Source skip / retry policy ===');
     'LIVE match can have streamStatus=SEARCHING',
     liveSearching === STREAM_SOURCE_STATUS.SEARCHING
   );
+  assert(
+    'detached Frame is a browser error, not HLS validation',
+    isBrowserProtocolError("Attempted to use detached Frame 'ABC'") === true
+  );
+  const browserFail = aggregateValidationFields(
+    {
+      streams: [],
+      streamSearch: {
+        sources: {
+          colatv: {
+            status: 'SEARCHING',
+            lastError: "Attempted to use detached Frame 'ABC'",
+            lastAttemptAt: 'z',
+          },
+        },
+      },
+    },
+    'SEARCHING'
+  );
+  assert(
+    'Flutter validationStatus is not the raw Frame id',
+    browserFail.validationStatus === 'VALIDATING' &&
+      browserFail.validationReason === 'BROWSER_ERROR'
+  );
+  assert(
+    'unknown error text is NOT_FOUND, not leaked',
+    normalizeValidationReason('something exploded in chromium internals xyz') === 'NOT_FOUND'
+  );
+  const afterMiss = nextSourceStateAfterAttempt({
+    previous: {},
+    slot: { id: 't0', postKickoff: true },
+    error: "Attempted to use detached Frame 'ABC'",
+  });
+  assert(
+    'source lastError is BROWSER_ERROR code',
+    afterMiss.lastError === 'BROWSER_ERROR'
+  );
+
+  const hlsHits = findStreamPatterns(
+    'const x = "https://cdn.livecdn.tv/live/abc/index.m3u8?token=1"; playurl="https://a.com/hls/master.m3u8"',
+    'https://xoilacxtr.tv/'
+  );
+  assert('Vietnamese HLS URL patterns are detected', hlsHits.length >= 1);
+
+  const iframes = extractIframeSrcs(
+    '<iframe data-src="https://player.example/embed/1"></iframe>',
+    'https://colatv65.live/'
+  );
+  assert(
+    'iframe data-src is detected',
+    iframes.includes('https://player.example/embed/1')
+  );
+
+  const xoilacWait = resolvePlayerWait({ name: 'xoilac' }, 25000);
+  assert(
+    'xoilac gets a longer player wait than default',
+    xoilacWait.playerWaitTimeoutMs >= 10000 && xoilacWait.navigationTimeoutMs >= 28000
+  );
+
+  assert(
+    'detached frame is skipped',
+    isFrameUsable({ isDetached: () => true, url: () => 'https://cdn/player' }) === false
+  );
+  assert(
+    'about:blank frame is skipped',
+    isFrameUsable({ isDetached: () => false, url: () => 'about:blank' }) === false
+  );
+  assert(
+    'attached player frame is usable',
+    isFrameUsable({ isDetached: () => false, url: () => 'https://cdn/player' }) === true
+  );
 }
 
 console.log('\n=== +15m stop ===');
@@ -251,6 +332,49 @@ console.log('\n=== +15m stop ===');
 }
 
 async function runAsyncTests() {
+  console.log('\n=== Player wait (networkidle2 after DOM) ===');
+  {
+    const calls = [];
+    const page = {
+      isClosed: () => false,
+      goto: async (_url, opts) => {
+        calls.push(['goto', opts.waitUntil]);
+      },
+      waitForNetworkIdle: async (opts) => {
+        calls.push(['idle', opts.concurrency]);
+      },
+      waitForSelector: async () => {
+        calls.push(['selector']);
+      },
+    };
+    await gotoMatchPage(page, 'https://xoilacxtr.tv/match', {
+      waitUntil: 'domcontentloaded',
+      playerWaitUntil: 'networkidle2',
+      playerWaitTimeoutMs: 1000,
+      timeout: 5000,
+    });
+    assert('goto uses domcontentloaded first', calls[0][0] === 'goto' && calls[0][1] === 'domcontentloaded');
+    assert(
+      'player wait uses networkidle2 (2 in-flight connections)',
+      calls[1][0] === 'idle' && calls[1][1] === 2
+    );
+    const idleFailPage = {
+      isClosed: () => false,
+      goto: async () => {},
+      waitForNetworkIdle: async () => {
+        throw new Error('TimeoutError');
+      },
+      waitForSelector: async () => {
+        throw new Error('TimeoutError');
+      },
+    };
+    await gotoMatchPage(idleFailPage, 'https://colatv65.live/match', {
+      playerWaitUntil: 'networkidle2',
+      playerWaitTimeoutMs: 10,
+    });
+    assert('networkidle timeout does not fail extraction', true);
+  }
+
   console.log('\n=== Axios first / Puppeteer fallback ===');
   {
     let puppeteerLaunched = false;

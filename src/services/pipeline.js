@@ -26,8 +26,8 @@ const {
 /**
  * Main AWS processing pipeline (matches.json):
  * Load config → FotMob fixtures once/day (today+tomorrow) →
- * kickoff-relative Match URL discovery (−30/−15/−5) then stream extract
- * status from fixture kickoff (LIVE until +120m, then END + drop streams) →
+ * kickoff-relative Match URL discovery (−60/−45/−30) then stream extract
+ * starting at kickoff−30m; LIVE until +120m, then END + drop streams →
  * sync matches.json (expire kickoff+2h, merge streams) → GitHub PUT if changed
  *
  * Separate jobs:
@@ -433,6 +433,7 @@ class Pipeline {
         ),
         lastMatchUrlAttemptAt:
           repaired.lastMatchUrlAttemptAt || prev.lastMatchUrlAttemptAt || null,
+        matchUrlSource: repaired.matchUrlSource || prev.matchUrlSource || null,
         matchUrlSearch:
           repaired.matchUrlSearch && typeof repaired.matchUrlSearch === 'object'
             ? repaired.matchUrlSearch

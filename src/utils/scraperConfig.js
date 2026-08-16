@@ -61,7 +61,7 @@ function buildStreamSearchSlots(offsets, stopAfterMin) {
 function loadScraperConfig(env = process.env) {
   const matchUrlPreKickoffMinutes = parseMinutesList(
     env.MATCH_URL_PRE_KICKOFF_MINUTES,
-    [45, 30, 15, 5]
+    [60, 45, 30]
   );
   const streamMaxAttempts = parsePositiveInt(env.STREAM_MAX_ATTEMPTS, 3);
   const streamPostKickoffMaxMinutes = parsePositiveInt(
@@ -89,7 +89,7 @@ function loadScraperConfig(env = process.env) {
   );
   const streamExtractLeadMin = streamExtractPreKickoffMinutes[0] || 30;
   const matchUrlEarlyDiscovery =
-    String(env.MATCH_URL_EARLY_DISCOVERY || 'true').toLowerCase() !== 'false';
+    String(env.MATCH_URL_EARLY_DISCOVERY || 'false').toLowerCase() === 'true';
   const matchUrlEarlySlot = matchUrlEarlyDiscovery
     ? {
         id: 'tEarly',
@@ -126,6 +126,7 @@ function loadScraperConfig(env = process.env) {
     streamSearchSlots,
     scraperConcurrency,
     streamFindLeadMin: streamExtractLeadMin,
+    puppeteerConcurrency: parsePositiveInt(env.PUPPETEER_CONCURRENCY, 1),
   };
 }
 
@@ -150,4 +151,5 @@ module.exports = {
   MATCH_URL_EARLY_SLOT: CONFIG.matchUrlEarlySlot,
   MAX_POST_KICKOFF_ATTEMPTS: CONFIG.streamMaxAttempts,
   SCRAPER_CONCURRENCY: CONFIG.scraperConcurrency,
+  PUPPETEER_CONCURRENCY: CONFIG.puppeteerConcurrency,
 };

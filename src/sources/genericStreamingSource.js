@@ -234,7 +234,7 @@ class GenericStreamingSource extends BaseStreamingSource {
           sourceName: this.name,
           config: this.config,
           browser: this.browser,
-          waitUntil: this.discoverOptions.waitUntil || 'domcontentloaded',
+          waitUntil: this.config.streamDetection?.waitUntil || 'domcontentloaded',
           getM3u8Patterns: () => this.getM3u8Patterns(),
           validateStreams: options.validateStreams,
           shouldAbort: options.shouldAbort,

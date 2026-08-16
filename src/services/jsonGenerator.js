@@ -1,3 +1,4 @@
+const { resolveLeagueIcon } = require('../utils/fotmobLogos');
 const { nowYangon, formatTime12 } = require('../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../utils/compare');
 const { enrichMatchState } = require('./statusService');
@@ -49,7 +50,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
     return {
     matchId: m.matchId,
     league: m.league,
-    leagueIcon: m.leagueIcon || null,
+    leagueIcon: resolveLeagueIcon(m),
     homeTeam: m.homeTeam,
     awayTeam: m.awayTeam,
     homeTeamId: m.homeTeamId || null,
@@ -98,9 +99,10 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
       })),
     streamAttempts: m.streamAttempts || {},
     matchUrl: m.matchUrl || null,
-    matchUrlStatus: m.matchUrlStatus || 'MATCH_URL_NOT_FOUND',
+    matchUrlStatus: m.matchUrlStatus || 'MATCH_URL_PENDING',
     matchUrlAttempts: Number(m.matchUrlAttempts) || 0,
     lastMatchUrlAttemptAt: m.lastMatchUrlAttemptAt || null,
+    matchUrlSource: m.matchUrlSource || null,
     streamUrl: m.streamUrl || firstValidatedStreamUrl(m) || null,
     streamHeaders: (() => {
       const raw = m.streamHeaders || firstValidatedStreamHeaders(m);

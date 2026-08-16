@@ -5,16 +5,19 @@ const {
   nowUtcUnixSeconds,
   MATCH_URL_LEAD_MIN,
   MATCH_LIVE_DURATION_MIN,
+  STREAM_SEARCH_STOP_AFTER_MIN,
 } = require('../utils/time');
 
 /**
  * Final status for Flutter matches.json:
  * Scheduled | PREPARING_STREAM | LIVE | END
  *
- * Driven strictly by fixture kickoff vs current time (UTC unix seconds):
- * - current < kickoff − 45m → Scheduled
- * - kickoff − 45m ≤ current < kickoff → PREPARING_STREAM
- * - kickoff ≤ current < kickoff + 2h → LIVE
+ * Driven by fixture kickoff vs current time (UTC unix seconds):
+ * - current < kickoff − MATCH_URL_LEAD_MIN → Scheduled
+ * - kickoff − lead ≤ current < kickoff → PREPARING_STREAM
+ * - kickoff ≤ current < kickoff + 15m → LIVE (stream search still running)
+ * - kickoff + 15m ≤ current < kickoff + 2h → LIVE only if a stream URL exists;
+ *   otherwise END so Flutter does not keep showing a dead live match
  * - current ≥ kickoff + 2h → END (streams stripped)
  */
 function hasPlayableStream(match) {
@@ -68,7 +71,12 @@ function resolveMatchStatus(match, options = {}) {
     } else if (nowSec < kickSec) {
       status = 'PREPARING_STREAM';
     } else if (nowSec < liveUntil) {
-      status = 'LIVE';
+      const searchStopAt = kickSec + STREAM_SEARCH_STOP_AFTER_MIN * 60;
+      if (nowSec >= searchStopAt && !hasPlayableStream(match)) {
+        status = 'END';
+      } else {
+        status = 'LIVE';
+      }
     } else {
       status = 'END';
     }
@@ -86,6 +94,15 @@ function resolveMatchStatus(match, options = {}) {
       nowUnix: nowSec,
       liveDurationMin: MATCH_LIVE_DURATION_MIN,
       preparingLeadMin: MATCH_URL_LEAD_MIN,
+      searchStopAfterMin: STREAM_SEARCH_STOP_AFTER_MIN,
+      reason:
+        status === 'END' &&
+        previous !== 'END' &&
+        kickSec != null &&
+        nowSec < kickSec + MATCH_LIVE_DURATION_MIN * 60 &&
+        !hasPlayableStream(match)
+          ? 'no_stream_after_search_window'
+          : undefined,
     });
   }
 

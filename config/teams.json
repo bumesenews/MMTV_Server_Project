@@ -87,6 +87,14 @@
     {
       "standardName": "Ho Chi Minh City FC",
       "aliases": ["Ho Chi Minh City FC", "HCMC FC", "TP.HCM", "胡志明市FC", "Ho Chi Minh City"]
+    },
+    {
+      "standardName": "Nottingham Forest",
+      "aliases": ["Nottingham Forest", "Nottm Forest", "Notts Forest", "Nott'm Forest", "Forest FC"]
+    },
+    {
+      "standardName": "Brest",
+      "aliases": ["Brest", "Stade Brestois", "Stade Brestois 29", "Brestois"]
     }
   ]
 }

@@ -3,6 +3,7 @@ const { buildDeliveryBundle } = require('../../services/deliveryFormats');
 const { priorityMapFromSourcesDoc } = require('../../sources/registry');
 const { getGithubMonitor } = require('../../monitor/github.monitor');
 const { enrichMatchState } = require('../../services/statusService');
+const { resolveLeagueIcon } = require('../../utils/fotmobLogos');
 const {
   syncMatchesForDelivery,
   readExistingMatches,
@@ -117,7 +118,9 @@ class PublishService {
         ? this.normalizer.repairMatchLeague(m)
         : m;
       const leagueIcon =
-        repaired.leagueIcon || this.leagues.getIcon?.(repaired.league) || null;
+        repaired.leagueIcon ||
+        this.leagues.getIcon?.(repaired.league) ||
+        resolveLeagueIcon(repaired);
       const homeLogo =
         repaired.homeLogo || this.teams?.findLogo?.(repaired.homeTeam) || null;
       const awayLogo =

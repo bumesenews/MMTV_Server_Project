@@ -10,6 +10,77 @@ const {
   nowYangon,
 } = require('../utils/time');
 
+/** Extra intercept / HTML patterns for Vietnamese HLS CDNs. */
+const DEFAULT_M3U8_PATTERNS = [
+  '\\.m3u8',
+  'master\\.m3u8',
+  'playlist\\.m3u8',
+  'index\\.m3u8',
+  'chunklist',
+  '/hls/',
+  'live\\.m3u8',
+];
+
+const SOURCE_PLAYER_WAIT = {
+  xoilac: {
+    waitAfterLoadMs: 5500,
+    playerWaitTimeoutMs: 10000,
+    navigationTimeoutMs: 28000,
+    iframeRetries: 3,
+    retryBackoffMs: 800,
+  },
+  colatv: {
+    waitAfterLoadMs: 5000,
+    playerWaitTimeoutMs: 8000,
+    navigationTimeoutMs: 25000,
+    iframeRetries: 3,
+    retryBackoffMs: 800,
+  },
+  cakhia: {
+    waitAfterLoadMs: 4000,
+    playerWaitTimeoutMs: 7000,
+    navigationTimeoutMs: 22000,
+    iframeRetries: 2,
+    retryBackoffMs: 1500,
+  },
+  socolive: {
+    waitAfterLoadMs: 4000,
+    playerWaitTimeoutMs: 7000,
+    navigationTimeoutMs: 22000,
+    iframeRetries: 2,
+    retryBackoffMs: 1500,
+  },
+};
+
+function resolvePlayerWait(config = {}, browserTimeout = 25000) {
+  const detection = config.streamDetection || {};
+  const name = String(config.name || '').toLowerCase();
+  const preset = SOURCE_PLAYER_WAIT[name] || {
+    waitAfterLoadMs: 4000,
+    playerWaitTimeoutMs: 7000,
+    navigationTimeoutMs: browserTimeout,
+    iframeRetries: 2,
+    retryBackoffMs: 1500,
+  };
+  const navigationTimeoutMs = Math.min(
+    30000,
+    Number(detection.navigationTimeoutMs || preset.navigationTimeoutMs || browserTimeout)
+  );
+  return {
+    waitUntil: detection.waitUntil || 'domcontentloaded',
+    playerWaitUntil: detection.playerWaitUntil || 'networkidle2',
+    playerWaitTimeoutMs: Number(
+      detection.playerWaitTimeoutMs || preset.playerWaitTimeoutMs
+    ),
+    navigationTimeoutMs,
+    waitAfterLoadMs: Number(detection.waitAfterLoadMs || preset.waitAfterLoadMs),
+    waitAfterClickMs: Number(detection.waitAfterClickMs || 2000),
+    iframeRetries: Number(detection.iframeRetries || preset.iframeRetries),
+    iframeRetryDelayMs: Number(detection.iframeRetryDelayMs || 400),
+    retryBackoffMs: Number(detection.retryBackoffMs || preset.retryBackoffMs),
+  };
+}
+
 /**
  * Shared helpers for streaming sources. Each website still has its own module.
  */
@@ -57,8 +128,9 @@ class BaseStreamingSource {
   }
 
   getM3u8Patterns() {
-    const patterns = this.streamDetection.m3u8Patterns || ['\\.m3u8'];
-    return patterns.map((p) => new RegExp(p, 'i'));
+    const extra = this.streamDetection.m3u8Patterns || [];
+    const merged = [...new Set([...DEFAULT_M3U8_PATTERNS, ...extra])];
+    return merged.map((p) => new RegExp(p, 'i'));
   }
 
   async withRetries(fn, label = 'task') {
@@ -74,7 +146,7 @@ class BaseStreamingSource {
         lastError = err;
         const msg = String(err.message || '');
         const hardCrash =
-          /Target closed|Session closed|Browser disconnected|Protocol error|net::ERR/i.test(
+          /Target closed|Session closed|Browser disconnected|Protocol error|detached Frame|BROWSER_ERROR|net::ERR/i.test(
             msg
           );
         logEvent(events.SCRAPER_ERROR, `${this.name} ${label} failed`, {
@@ -97,7 +169,8 @@ class BaseStreamingSource {
               // ignore
             }
           }
-          await sleep(1500 * attempt);
+          const backoffMs = Number(this.streamDetection.retryBackoffMs || 1500);
+          await sleep(Math.min(4000, backoffMs * 2 ** (attempt - 1)));
         }
       }
     }
@@ -266,4 +339,9 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-module.exports = { BaseStreamingSource, sleep };
+module.exports = {
+  BaseStreamingSource,
+  sleep,
+  DEFAULT_M3U8_PATTERNS,
+  resolvePlayerWait,
+};

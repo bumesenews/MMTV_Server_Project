@@ -12,6 +12,7 @@ const {
   nowYangon,
 } = require('../utils/time');
 const { DEFAULT_UA } = require('../browser/puppeteerManager');
+const { teamLogoUrl, resolveLeagueIcon } = require('../utils/fotmobLogos');
 
 /**
  * FotMob fixture source ONLY — never collect streaming URLs here.
@@ -220,6 +221,10 @@ class FotMobSource {
       awayTeamId,
       homeLogo: teamLogoUrl(homeTeamId),
       awayLogo: teamLogoUrl(awayTeamId),
+      leagueIcon: resolveLeagueIcon({
+        league: standardLeague,
+        leagueFotmobId,
+      }),
       date: formatDate(kickoff),
       time: formatTime(kickoff),
       kickoff: kickoff.toISO(),
@@ -287,9 +292,4 @@ class FotMobSource {
   }
 }
 
-function teamLogoUrl(teamId) {
-  if (teamId == null || teamId === '') return null;
-  return `https://images.fotmob.com/image_resources/logo/teamlogo/${teamId}.png`;
-}
-
-module.exports = { FotMobSource, teamLogoUrl };
+module.exports = { FotMobSource };

@@ -46,7 +46,7 @@ FotMob (fixtures, today + tomorrow)     ← source of truth for teams / date / k
         │
         ▼
 Match URL discovery (Today page only)
-   · −30 / −15 / −5 minutes before kickoff (max 3 attempts per source)
+   · −60 / −45 / −30 minutes before kickoff (max 3 attempts per source)
    · identity: home + away + Yangon date + kickoff
    · stop that source once a URL is saved
         │
@@ -75,12 +75,14 @@ Example for kickoff **20:00 Yangon**:
 
 | Time | Match URL | Stream extract |
 |------|-----------|----------------|
-| 19:30 | attempt 1 | — |
-| 19:45 | attempt 2 | — |
-| 19:55 | attempt 3 | — |
-| 20:00 | stopped (kickoff) | attempt 1 |
-| 20:05 | — | attempt 2 |
-| 20:10 | — | attempt 3 |
+| 19:00 | attempt 1 (−60m) | — |
+| 19:15 | attempt 2 (−45m) if still missing | — |
+| 19:30 | attempt 3 (−30m) if still missing | starts (read saved Match URL) |
+| 19:45 | stopped | retry if needed |
+| 19:55 | — | retry if needed |
+| 20:00 | — | kickoff extract |
+| 20:05 | — | +5 |
+| 20:10 | — | +10 |
 | 20:15 | — | **STOP** — cancel pending jobs |
 
 ---
@@ -171,9 +173,10 @@ These must not be hard-coded in business logic. `src/utils/scraperConfig.js` is 
 | `STREAM_MAX_ATTEMPTS` | `3` | Post-kickoff extract attempts per source (kickoff / +5 / +10) |
 | `STREAM_POST_KICKOFF_MAX_MINUTES` | `15` | Hard stop; cancel pending extract jobs |
 | `SCRAPER_CONCURRENCY` | `2` | Max simultaneous extract jobs (1GB) |
-| `MATCH_URL_PRE_KICKOFF_MINUTES` | `30,15,5` | Today-page Match URL discovery schedule |
+| `MATCH_URL_PRE_KICKOFF_MINUTES` | `60,45,30` | Today-page Match URL discovery schedule |
 | `MATCH_TIME_TOLERANCE_MIN` | `10` | Max \|FotMob kickoff − URL kickoff\| after both are Yangon |
-| `PUPPETEER_MAX_PAGES` | `2` (or `SCRAPER_CONCURRENCY`) | Max Chromium pages |
+| `PUPPETEER_CONCURRENCY` | `1` | Global Puppeteer task queue for Match URL browser fallback |
+| `PUPPETEER_MAX_PAGES` | `2` (or `SCRAPER_CONCURRENCY`) | Max Chromium pages for stream extract |
 | `STREAM_VALIDATION_TIMEOUT_MS` | `12000` | HLS playlist GET timeout |
 | `MAX_STREAM_RETRIES` | `1` | **Not** stream-search attempts. Per-request Puppeteer/HTTP retry only. |
 
@@ -221,11 +224,11 @@ ConfigLoader.load(true)
   → Build enabled streaming sources (priority desc)
   → StreamEngine.collectForFixtures
        · Match URL discovery: one Today-page fetch per source, only for
-         fixtures in −30/−15/−5 that do not already have a saved URL
+         fixtures in −60/−45/−30 that do not already have a saved URL
        · process matches sequentially (Match 1 → 2 → …)
        · enqueue extract jobs only when:
            confirmed Match URL exists
-           current slot is kickoff / +5 / +10
+           current slot is −30 / −15 / −5 / kickoff / +5 / +10
            source is not already AVAILABLE or permanently FAILED
            search has not stopped (+15)
        · JobQueue at SCRAPER_CONCURRENCY=2
@@ -257,19 +260,21 @@ Search is driven by each match’s **existing `kickoff`**. There are **no fixed 
 
 | When (vs kickoff) | Slot | Attempt |
 |-------------------|------|---------|
-| −30 min | `t30` | 1 |
-| −15 min | `t15` | 2 |
-| −5 min | `t5` | 3 |
-| Kickoff and after | — | no more Today-page search |
+| −60 min | `t60` | 1 |
+| −45 min | `t45` | 2 |
+| −30 min | `t30` | 3 |
+| After a URL is saved, or after kickoff | — | no more Today-page search |
 
 Rules:
 
 - Max 3 attempts per source (`MATCH_URL_PRE_KICKOFF_MINUTES` length).
-- **Stop that source** as soon as a Match URL is saved (`MATCH_URL_FOUND` or `MATCH_CONFIRMED`).
-- After kickoff or 3 misses → `matchUrlStatus = MATCH_URL_NOT_FOUND` (never left unknown).
+- **Stop that source** as soon as a Match URL is saved (`MATCH_URL_FOUND` or `MATCH_URL_CONFIRMED`).
+- After kickoff or 3 misses → `matchUrlStatus = MATCH_URL_FAILED` (never left unknown).
 - List-page scrape is gated: if no fixture in this cycle still needs discovery, the Today page is not fetched.
+- Transient HTTP/DNS/timeout/403/404 errors do **not** burn an attempt; the next scheduled slot still runs.
+- `MATCH_CONFIRMED` from older `matches.json` rows is treated as `MATCH_URL_CONFIRMED`.
 
-States: `MATCH_URL_NOT_FOUND` | `MATCH_URL_FOUND` | `MATCH_CONFIRMED`.
+States: `MATCH_URL_PENDING` | `MATCH_URL_SEARCHING` | `MATCH_URL_FOUND` | `MATCH_URL_CONFIRMED` | `MATCH_URL_FAILED` (legacy: `MATCH_URL_NOT_FOUND`, `MATCH_CONFIRMED`).
 
 ### 8b. Stream extract (m3u8)
 
@@ -280,7 +285,7 @@ States: `MATCH_URL_NOT_FOUND` | `MATCH_URL_FOUND` | `MATCH_CONFIRMED`.
 | +10 min | `tP10` | 3 |
 | +15 min | — | **STOP** — cancel pending jobs for that match |
 
-Pre-kickoff extract does **not** run, even if a Match URL was already saved. That keeps Puppeteer off the 1GB host until kickoff.
+Pre-kickoff extract **does** run from −30m once a Match URL is saved. Match URL discovery still runs first in the same tick, then stream extract.
 
 | Rule | Detail |
 |------|--------|
@@ -330,7 +335,7 @@ FotMob fixture is the identity. Streaming sites only supply a page URL.
 
 | Total | Result |
 |-------|--------|
-| 90–100 | `MATCH_CONFIRMED` — accepted |
+| 90–100 | `MATCH_URL_CONFIRMED` — accepted |
 | 75–89 | `POSSIBLE_MATCH` — extra league check |
 | &lt; 75 | reject |
 
@@ -346,7 +351,7 @@ Helpers: `parseStreamUrl`, `scoreStreamMatch`.
 
 ### MultiMatchScraper (`src/services/multiMatchScraper.js`)
 
-1. Only fixtures that still need Match URL discovery in −30/−15/−5
+1. Only fixtures that still need Match URL discovery in −60/−45/−30
 2. Axios GET list pages (`home` + `schedule`)
 3. Extract `truc-tiep/...` style links (Cheerio + regex)
 4. If list empty / Cloudflare → **Puppeteer** fallback for the list page
@@ -414,8 +419,8 @@ Keep these independent. Flutter `status` is **match** status (kickoff clock). Pl
 
 | Field | Values | Meaning |
 |-------|--------|---------|
-| `status` (match) | `Scheduled` · `PREPARING_STREAM` · `LIVE` · `END` | Kickoff vs now. **LIVE does not require a stream.** |
-| `matchUrlStatus` | `MATCH_URL_NOT_FOUND` · `MATCH_URL_FOUND` · `MATCH_CONFIRMED` | Today-page result |
+| `status` (match) | `Scheduled` · `PREPARING_STREAM` · `LIVE` · `END` | Kickoff vs now. After kickoff+15m, **LIVE requires a stream URL**; otherwise `END`. |
+| `matchUrlStatus` | `MATCH_URL_PENDING` · `MATCH_URL_FOUND` · `MATCH_URL_CONFIRMED` · `MATCH_URL_FAILED` | Today-page result |
 | `streamStatus` | `PREPARING_STREAM` · `SEARCHING` · `AVAILABLE` · `FAILED` | Extract/search outcome |
 | `validationStatus` | `VALIDATING` · `AVAILABLE` · `HTTP_403` · `NOT_HLS` · … | Last HLS check |
 
@@ -423,7 +428,7 @@ Example while a match is on and the scraper is still looking:
 
 ```
 status            = LIVE
-matchUrlStatus    = MATCH_CONFIRMED
+matchUrlStatus    = MATCH_URL_CONFIRMED
 streamStatus      = SEARCHING
 validationStatus  = VALIDATING   (or HTTP_403 after a failed try)
 ```
@@ -434,9 +439,11 @@ validationStatus  = VALIDATING   (or HTTP_403 after a failed try)
 
 | Condition | `status` |
 |-----------|----------|
-| Before kickoff − 30m | `Scheduled` |
-| Kickoff − 30m … kickoff | `PREPARING_STREAM` |
-| Kickoff … kickoff + 120m | `LIVE` |
+| Before kickoff − lead | `Scheduled` |
+| Kickoff − lead … kickoff | `PREPARING_STREAM` |
+| Kickoff … kickoff + 15m | `LIVE` (stream search may still be running) |
+| Kickoff + 15m … +120m, with a stream URL | `LIVE` |
+| Kickoff + 15m … +120m, **no stream URL** | `END` (so Flutter does not keep it live) |
 | After +120m | `END` (streams stripped) |
 
 Admin / `statusLocked` can freeze match status. Live window: `MATCH_LIVE_DURATION_MIN = 120`.
@@ -755,13 +762,14 @@ GITHUB_BRANCH=main
 
 PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser   # or /snap/bin/chromium
 PUPPETEER_MAX_PAGES=2
+PUPPETEER_CONCURRENCY=1
 PUPPETEER_TIMEOUT_MS=25000
 BROWSER_RESTART_EVERY_N_PAGES=5
 SCRAPER_CONCURRENCY=2
 STREAM_SEARCH_INTERVAL_MINUTES=5
 STREAM_MAX_ATTEMPTS=3
 STREAM_POST_KICKOFF_MAX_MINUTES=15
-MATCH_URL_PRE_KICKOFF_MINUTES=30,15,5
+MATCH_URL_PRE_KICKOFF_MINUTES=60,45,30
 MATCH_TIME_TOLERANCE_MIN=10
 STREAM_VALIDATION_TIMEOUT_MS=12000
 MAX_STREAM_RETRIES=1
@@ -796,7 +804,7 @@ PM2 (`ecosystem.config.js`): 1 fork instance, `max_memory_restart: 350M`, Node h
 | `src/services/streamValidator.js` | Header-aware HLS validation |
 | `src/services/multiMatchScraper.js` | Today page → candidate Match URLs |
 | `src/utils/streamUrlHelper.js` | URL parse + home/away/date/time score |
-| `src/utils/matchUrlDiscovery.js` | Per-source Match URL state (−30/−15/−5) |
+| `src/utils/matchUrlDiscovery.js` | Per-source Match URL state (−60/−45/−30) |
 | `src/utils/streamExtractPolicy.js` | AVAILABLE / SEARCHING / FAILED policy |
 | `src/utils/streamHeaders.js` | Playback header merge + log redaction |
 | `src/utils/scraperConfig.js` | `.env` search/concurrency settings |

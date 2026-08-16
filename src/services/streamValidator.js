@@ -7,6 +7,7 @@ const {
   playbackHeadersForClient,
   headerPresence,
   headersEqual,
+  PLAYBACK_UA_MOBILE,
 } = require('../utils/streamHeaders');
 
 const VALIDATION_STATE = {
@@ -177,6 +178,38 @@ class StreamValidator {
     );
   }
 
+  /**
+   * Some CDNs (livefeedtextbox) accept Socolive Referer but reject Xoilac's.
+   * After 401/403, try other configured playback Referers, then a known CDN map.
+   */
+  authFallbackHeaders({ sourceConfig, matchPageUrl, retryHeaders, streamUrl } = {}) {
+    const out = [];
+    const push = (headers) => {
+      if (!headers?.Referer) return;
+      if (out.some((h) => headersEqual(h, headers))) return;
+      out.push(headers);
+    };
+    push(retryHeaders);
+    try {
+      const host = new URL(streamUrl).hostname;
+      if (/livefeedtextbox\.com$/i.test(host)) {
+        push({
+          Accept: '*/*',
+          'User-Agent': PLAYBACK_UA_MOBILE,
+          Referer: 'https://soco.textliveupdaterz.com/',
+        });
+      }
+    } catch {
+      // ignore bad stream URL
+    }
+    for (const cfg of Object.values(this.sourceConfigs || {})) {
+      if (!cfg || cfg === sourceConfig) continue;
+      if (cfg.type && cfg.type !== 'streaming') continue;
+      push(sourceOnlyPlaybackHeaders(cfg, matchPageUrl));
+    }
+    return out.slice(0, 5);
+  }
+
   async fetchPlaylist(url, headers) {
     try {
       const response = await this.http.get(url, {
@@ -332,22 +365,38 @@ class StreamValidator {
     let retried = false;
     let fetched = await this.fetchPlaylist(stream.url, headers);
 
-    if (!fetched.error && isAuthDenied(fetched.response?.status)) {
-      if (!headersEqual(mergedHeaders, retryHeaders)) {
+    const tryAuthFallbacks = async () => {
+      const tried = [headers];
+      const fallbacks = this.authFallbackHeaders({
+        sourceConfig,
+        matchPageUrl,
+        current: headers,
+        retryHeaders,
+        streamUrl: stream.url,
+      });
+      for (const next of fallbacks) {
+        if (tried.some((h) => headersEqual(h, next))) continue;
         this.logValidation({
           source: stream.source,
           url: stream.url,
           headers,
-          httpStatus: fetched.response.status,
+          httpStatus: fetched.response?.status,
           hls: 'invalid',
           playlist: 'unusable',
           result: 'RETRY',
           retried: true,
         });
         retried = true;
-        headers = retryHeaders;
+        headers = next;
+        tried.push(next);
         fetched = await this.fetchPlaylist(stream.url, headers);
+        if (fetched.error) return;
+        if (!isAuthDenied(fetched.response?.status)) return;
       }
+    };
+
+    if (!fetched.error && isAuthDenied(fetched.response?.status)) {
+      await tryAuthFallbacks();
     }
 
     if (fetched.error) {
@@ -355,7 +404,7 @@ class StreamValidator {
         ? VALIDATION_STATE.TIMEOUT
         : VALIDATION_STATE.INVALID;
       const result = this.failResult(stream, state, {
-        reason: fetched.error.code || fetched.error.message || 'error',
+        reason: state === VALIDATION_STATE.TIMEOUT ? 'timeout' : 'fetch_failed',
         retried,
       });
       this.logValidation({

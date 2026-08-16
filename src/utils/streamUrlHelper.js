@@ -21,9 +21,13 @@ const MATCH_SCORE_WEIGHTS = {
 };
 
 const MATCH_URL_STATUS = {
+  PENDING: 'MATCH_URL_PENDING',
+  SEARCHING: 'MATCH_URL_SEARCHING',
   NOT_FOUND: 'MATCH_URL_NOT_FOUND',
   FOUND: 'MATCH_URL_FOUND',
-  CONFIRMED: 'MATCH_CONFIRMED',
+  CONFIRMED: 'MATCH_URL_CONFIRMED',
+  CONFIRMED_LEGACY: 'MATCH_CONFIRMED',
+  FAILED: 'MATCH_URL_FAILED',
   REJECTED: 'REJECTED',
   POSSIBLE: 'POSSIBLE_MATCH',
 };
@@ -640,6 +644,34 @@ function canonicalizeTeamForMatch(rawName, normalizer) {
  * exact = 40, fuzzy (multi-token containment / full token overlap) = 32, else 0.
  * Single-token containment is rejected (Inter Milan vs Milan / AC Milan).
  */
+function tokenAbbrevCompatible(a, b) {
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  return short.length >= 4 && long.startsWith(short);
+}
+
+/** Nottm Forest ↔ Nottingham Forest: every shorter-list token equals or abbreviates a longer-list token. */
+function tokensMatchWithAbbreviations(aTok, bTok) {
+  if (!aTok.length || !bTok.length) return false;
+  const [shortList, longList] = aTok.length <= bTok.length ? [aTok, bTok] : [bTok, aTok];
+  if (shortList.length < 2) return false;
+  const used = new Set();
+  for (const token of shortList) {
+    let hit = -1;
+    for (let i = 0; i < longList.length; i += 1) {
+      if (used.has(i)) continue;
+      if (tokenAbbrevCompatible(token, longList[i])) {
+        hit = i;
+        break;
+      }
+    }
+    if (hit < 0) return false;
+    used.add(hit);
+  }
+  return true;
+}
+
 function compareTeamIdentity(fotmobName, streamName, normalizer) {
   const a = canonicalizeTeamForMatch(fotmobName, normalizer);
   const b = canonicalizeTeamForMatch(streamName, normalizer);
@@ -666,6 +698,10 @@ function compareTeamIdentity(fotmobName, streamName, normalizer) {
 
   const aTok = a.split(' ').filter((t) => t.length >= 2);
   const bTok = b.split(' ').filter((t) => t.length >= 2);
+
+  if (tokensMatchWithAbbreviations(aTok, bTok)) {
+    return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };
+  }
   const shorter = a.length <= b.length ? a : b;
   const longer = a.length <= b.length ? b : a;
   const shortTok = shorter.split(' ').filter((t) => t.length >= 2);

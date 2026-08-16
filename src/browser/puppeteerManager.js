@@ -178,6 +178,12 @@ class PuppeteerManager {
           2
       )
     );
+    // --single-process Chromium cannot host two pages; overlapping extracts
+    // produce "detached Frame" and kill stream URL discovery.
+    const exclusive = Math.max(1, Number(process.env.PUPPETEER_CONCURRENCY || 1));
+    if (this.lowMemory) {
+      this.maxConcurrentPages = Math.min(this.maxConcurrentPages, exclusive);
+    }
     this.executablePath =
       options.executablePath !== undefined
         ? options.executablePath
@@ -451,8 +457,13 @@ class PuppeteerManager {
     const onResponse = async (response) => {
       try {
         const url = response.url();
-        if (!patterns.some((re) => re.test(url))) return;
-        const headers = response.headers();
+        const headers = response.headers() || {};
+        const contentType = String(headers['content-type'] || '');
+        const looksHls =
+          patterns.some((re) => re.test(url)) ||
+          /mpegurl|x-mpegURL|vnd\.apple\.mpegurl/i.test(contentType);
+        if (!looksHls) return;
+        if (/vd\.apisportpulse\.com|tvc-wc-2026/i.test(url)) return;
         captured.push({
           url,
           type: 'm3u8',
@@ -462,7 +473,7 @@ class PuppeteerManager {
             Referer: page.url(),
             ...(headers['set-cookie'] ? { Cookie: headers['set-cookie'] } : {}),
           },
-          contentType: headers['content-type'] || '',
+          contentType,
           at: new Date().toISOString(),
         });
       } catch {
@@ -629,6 +640,107 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Load the match page quickly, then wait briefly for player network idle.
+ * networkidle0 is never used — ads keep sockets open and would burn the 1GB timeout.
+ * A player-wait timeout is not a failure; extraction continues on the loaded DOM.
+ */
+async function gotoMatchPage(page, url, options = {}) {
+  if (!page || page.isClosed()) {
+    throw new Error('BROWSER_ERROR');
+  }
+  const waitUntil = options.waitUntil || 'domcontentloaded';
+  const timeout = Number(options.timeout || 25000);
+  const playerWaitUntil = options.playerWaitUntil || 'networkidle2';
+  const playerWaitTimeoutMs = Number(options.playerWaitTimeoutMs || 8000);
+
+  await page.goto(url, { waitUntil, timeout });
+
+  if (page.isClosed()) throw new Error('BROWSER_ERROR');
+
+  if (playerWaitUntil === 'networkidle2' || playerWaitUntil === 'networkidle0') {
+    const concurrency = playerWaitUntil === 'networkidle0' ? 0 : 2;
+    try {
+      if (typeof page.waitForNetworkIdle === 'function') {
+        await page.waitForNetworkIdle({
+          idleTime: 500,
+          timeout: playerWaitTimeoutMs,
+          concurrency,
+        });
+      }
+    } catch {
+      // Player ads / websocket keep the page "busy" — DOM is still usable.
+    }
+  }
+
+  try {
+    await page.waitForSelector('iframe, video, #player, .player', {
+      timeout: Math.min(4000, playerWaitTimeoutMs),
+    });
+  } catch {
+    // Some pages inject the player after a click; continue to extract.
+  }
+}
+
+/**
+ * Process-wide Puppeteer task queue. Match URL discovery must never open
+ * four browsers at once; default PUPPETEER_CONCURRENCY=1.
+ */
+class PuppeteerTaskQueue {
+  constructor(concurrency = 1) {
+    this.concurrency = Math.max(1, Number(concurrency) || 1);
+    this.active = 0;
+    this.maxActiveSeen = 0;
+    this.pending = [];
+  }
+
+  run(fn) {
+    return new Promise((resolve, reject) => {
+      this.pending.push({ fn, resolve, reject });
+      this.pump();
+    });
+  }
+
+  pump() {
+    while (this.active < this.concurrency && this.pending.length) {
+      const job = this.pending.shift();
+      this.active += 1;
+      this.maxActiveSeen = Math.max(this.maxActiveSeen, this.active);
+      Promise.resolve()
+        .then(() => job.fn())
+        .then(job.resolve, job.reject)
+        .finally(() => {
+          this.active -= 1;
+          this.pump();
+        });
+    }
+  }
+}
+
+let globalPuppeteerQueue = null;
+
+function puppeteerConcurrency() {
+  const fromEnv = Number(process.env.PUPPETEER_CONCURRENCY);
+  if (Number.isFinite(fromEnv) && fromEnv > 0) return Math.floor(fromEnv);
+  try {
+    const { PUPPETEER_CONCURRENCY } = require('../utils/scraperConfig');
+    return Math.max(1, Number(PUPPETEER_CONCURRENCY) || 1);
+  } catch {
+    return 1;
+  }
+}
+
+function getGlobalPuppeteerQueue() {
+  if (!globalPuppeteerQueue) {
+    globalPuppeteerQueue = new PuppeteerTaskQueue(puppeteerConcurrency());
+  }
+  return globalPuppeteerQueue;
+}
+
+function runExclusivePuppeteerTask(fn) {
+  return getGlobalPuppeteerQueue().run(fn);
+}
+
 module.exports = {
   PuppeteerManager,
   DEFAULT_UA,
@@ -636,4 +748,9 @@ module.exports = {
   LINUX_CHROMIUM_DEFAULT,
   lowMemoryMode,
   buildChromeArgs,
+  puppeteerConcurrency,
+  getGlobalPuppeteerQueue,
+  runExclusivePuppeteerTask,
+  PuppeteerTaskQueue,
+  gotoMatchPage,
 };

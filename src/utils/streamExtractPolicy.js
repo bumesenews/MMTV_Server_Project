@@ -17,23 +17,41 @@ const VALIDATION_REASON = {
   EMPTY_PLAYLIST: 'EMPTY_PLAYLIST',
   NO_SEGMENTS: 'NO_SEGMENTS',
   INVALID_URL: 'INVALID_URL',
+  NOT_FOUND: 'NOT_FOUND',
+  BROWSER_ERROR: 'BROWSER_ERROR',
+  INVALID: 'INVALID',
 };
+
+function isBrowserProtocolError(raw) {
+  const msg = String(raw?.message || raw || '');
+  return /detached Frame|Target closed|Session closed|Protocol error|Browser disconnected|Execution context was destroyed|Cannot find context/i.test(
+    msg
+  );
+}
 
 function normalizeValidationReason(raw) {
   const value = String(raw || '').trim();
   if (!value) return null;
-  const upper = value.toUpperCase();
+  if (isBrowserProtocolError(value)) return VALIDATION_REASON.BROWSER_ERROR;
+  const upper = value.toUpperCase().replace(/[\s-]+/g, '_');
   if (VALIDATION_REASON[upper]) return VALIDATION_REASON[upper];
   if (upper === 'HTTP_401') return VALIDATION_REASON.HTTP_403;
-  if (upper === 'INVALID' || /invalid_url|empty_url|invalid_protocol/i.test(value)) {
+  if (/invalid_url|empty_url|invalid_protocol/i.test(value)) {
     return VALIDATION_REASON.INVALID_URL;
   }
-  if (value === '403') return VALIDATION_REASON.HTTP_403;
-  if (value === '404') return VALIDATION_REASON.HTTP_404;
+  if (value === '403' || /http_403/i.test(value)) return VALIDATION_REASON.HTTP_403;
+  if (value === '404' || /http_404/i.test(value)) return VALIDATION_REASON.HTTP_404;
   if (/not_hls|not_m3u8/i.test(value)) return VALIDATION_REASON.NOT_HLS;
   if (/empty_playlist/i.test(value)) return VALIDATION_REASON.EMPTY_PLAYLIST;
   if (/no_segments/i.test(value)) return VALIDATION_REASON.NO_SEGMENTS;
-  return value;
+  if (/timeout|etimedout|econnaborted/i.test(value)) return VALIDATION_REASON.TIMEOUT;
+  if (/no_valid_stream|not_found|no stream/i.test(value)) return VALIDATION_REASON.NOT_FOUND;
+  // Never leak Puppeteer / stack text into Flutter validationStatus
+  return VALIDATION_REASON.NOT_FOUND;
+}
+
+function normalizeExtractError(raw) {
+  return normalizeValidationReason(raw) || VALIDATION_REASON.NOT_FOUND;
 }
 
 function isKnownValidationReason(raw) {
@@ -182,7 +200,7 @@ function nextSourceStateAfterAttempt({
     status: exhausted ? STREAM_SOURCE_STATUS.FAILED : STREAM_SOURCE_STATUS.SEARCHING,
     attempts,
     postKickoffAttempts,
-    lastError: error || 'no_valid_stream',
+    lastError: normalizeExtractError(error || 'NOT_FOUND'),
     lastAttemptAt: nowIso,
     updatedAt: nowIso,
     slotsDone,
@@ -221,14 +239,21 @@ function aggregateStreamStatus(
 }
 
 function firstValidatedStreamUrl(match) {
-  const hit = (match?.streams || []).find((s) => isValidatedStream(s));
+  const hit = firstClientStream(match);
   return hit?.url || null;
 }
 
 function firstValidatedStreamHeaders(match) {
-  const hit = (match?.streams || []).find((s) => isValidatedStream(s));
+  const hit = firstClientStream(match);
   if (!hit) return null;
   return hit.streamHeaders || hit.headers || null;
+}
+
+function firstClientStream(match) {
+  const validated = (match?.streams || []).find((s) => isValidatedStream(s));
+  if (validated) return validated;
+  if (String(match?.streamStatus || '') !== STREAM_SOURCE_STATUS.AVAILABLE) return null;
+  return (match?.streams || []).find((s) => s?.url && s.active !== false) || null;
 }
 
 function latestSourceExtractState(streamSearch) {
@@ -268,8 +293,9 @@ function aggregateValidationFields(match, streamStatus) {
   const lastError = normalizeValidationReason(latest?.lastError);
 
   if (streamStatus === STREAM_SOURCE_STATUS.SEARCHING) {
+    const hideStatus = ['BROWSER_ERROR', 'NOT_FOUND', 'TIMEOUT', 'INVALID'];
     return {
-      validationStatus: lastError || 'VALIDATING',
+      validationStatus: hideStatus.includes(lastError) ? 'VALIDATING' : lastError || 'VALIDATING',
       validationReason: lastError,
     };
   }
@@ -303,10 +329,13 @@ module.exports = {
   aggregateStreamStatus,
   firstValidatedStreamUrl,
   firstValidatedStreamHeaders,
+  firstClientStream,
   latestSourceExtractState,
   maxSourceAttempts,
   aggregateValidationFields,
   normalizeValidationReason,
   isKnownValidationReason,
+  isBrowserProtocolError,
+  normalizeExtractError,
   shouldAbortExtract,
 };

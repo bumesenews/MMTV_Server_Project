@@ -145,6 +145,7 @@ function mergeIncomingMatches(existingMatches, incomingMatches) {
       ),
       lastMatchUrlAttemptAt:
         incoming.lastMatchUrlAttemptAt || prev.lastMatchUrlAttemptAt || null,
+      matchUrlSource: incoming.matchUrlSource || prev.matchUrlSource || null,
       matchUrlSearch: incoming.matchUrlSearch || prev.matchUrlSearch,
       sourcePages: {
         ...(prev.sourcePages || {}),

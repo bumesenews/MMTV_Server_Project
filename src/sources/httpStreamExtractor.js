@@ -1,11 +1,12 @@
 const axios = require('axios');
 const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
-const { DEFAULT_UA } = require('../browser/puppeteerManager');
+const { DEFAULT_UA, runExclusivePuppeteerTask, gotoMatchPage } = require('../browser/puppeteerManager');
 const { mergePlaybackHeaders, playbackHeadersForClient } = require('../utils/streamHeaders');
-const { extractStreamsFromPage, dedupeStreams } = require('./streamExtractor');
-const { sleep } = require('./baseStreamingSource');
+const { extractStreamsFromPage, dedupeStreams, IFRAME_SRC_ATTRS } = require('./streamExtractor');
+const { sleep, DEFAULT_M3U8_PATTERNS, resolvePlayerWait } = require('./baseStreamingSource');
 const { cleanText } = require('../utils/normalize');
+const { isBrowserProtocolError } = require('../utils/streamExtractPolicy');
 
 const AXIOS_TIMEOUT_MS = Number(process.env.HTTP_STREAM_TIMEOUT_MS || 20000);
 const MAX_EMBEDS = Number(process.env.HTTP_STREAM_MAX_EMBEDS || 6);
@@ -69,10 +70,15 @@ function findStreamPatterns(text, baseUrl) {
   const found = new Set();
   const regexes = [
     /https?:\/\/[^\s"'<>]+?\.m3u8(?:\?[^\s"'<>]*)?/gi,
+    /https?:\/\/[^\s"'<>]+?\/hls\/[^\s"'<>]*/gi,
     /https?:\/\/[^\s"'<>]+?\.flv(?:\?[^\s"'<>]*)?/gi,
+    /https?:\/\/[^\s"'<>]+?(?:livecdn|hlscdn|liveplay)[^\s"'<>]*\.m3u8[^\s"'<>]*/gi,
     /streamingurl\s*[:=]\s*["']([^"']+)["']/gi,
     /urlStream\s*=\s*["']([^"']+)["']/gi,
+    /playurl\s*[:=]\s*["']([^"']+)["']/gi,
+    /getM3u8\s*[:=]\s*["']([^"']+)["']/gi,
     /["']file["']\s*:\s*["']([^"']+\.(?:m3u8|flv)[^"']*)["']/gi,
+    /["'](?:source|src|file_url|hls)["']\s*:\s*["'](https?:[^"']+\.m3u8[^"']*)["']/gi,
   ];
   for (const regex of regexes) {
     for (const patternMatch of String(text || '').matchAll(regex)) {
@@ -110,6 +116,8 @@ function pickStreamUrl(urls) {
     const score = (url) => {
       let s = /\.m3u8(?:\?|$)/i.test(url) ? 10 : 0;
       if (/master|index\.m3u8|manifest/i.test(url)) s += 5;
+      if (/livefeedtextbox/i.test(url)) s += 8;
+      if (/buzzscorelinez|apisportpulse/i.test(url)) s -= 4;
       if (/1080|720/i.test(url)) s += 2;
       return s;
     };
@@ -146,13 +154,18 @@ function parseStreamButtons(html, config = {}) {
 function extractIframeSrcs(html, baseUrl) {
   const $ = load(html);
   const out = [];
-  $('iframe[src], embed[src]').each((_, el) => {
-    const src = $(el).attr('src') || '';
-    if (!src || src.includes('${') || /about:blank|chatboxn\.com/i.test(src)) return;
-    try {
-      out.push(new URL(src, baseUrl).href);
-    } catch {
-      // ignore
+  $('iframe, embed, object').each((_, el) => {
+    const node = $(el);
+    for (const attr of IFRAME_SRC_ATTRS) {
+      const src = node.attr(attr) || '';
+      if (!src || src.includes('${') || /about:blank|chatboxn\.com|javascript:/i.test(src)) {
+        continue;
+      }
+      try {
+        out.push(new URL(src, baseUrl).href);
+      } catch {
+        // ignore
+      }
     }
   });
   return [...new Set(out)];
@@ -374,7 +387,7 @@ async function extractStreamsAxiosThenPuppeteer({
   sourceName,
   config,
   browser,
-  waitUntil = 'domcontentloaded',
+  waitUntil,
   puppeteerSettleMs = 0,
   getM3u8Patterns,
   validateStreams,
@@ -384,6 +397,9 @@ async function extractStreamsAxiosThenPuppeteer({
     source: sourceName,
     url: matchPageUrl,
   });
+
+  const playerWait = resolvePlayerWait(config, browser?.timeout);
+  const navWaitUntil = waitUntil || playerWait.waitUntil;
 
   const result = await runAxiosThenPuppeteer({
     shouldAbort,
@@ -403,35 +419,67 @@ async function extractStreamsAxiosThenPuppeteer({
       return axiosStreams;
     },
     puppeteerExtract: browser
-      ? async () => {
+      ? async () =>
+          runExclusivePuppeteerTask(async () => {
           logger.info(`${sourceName} axios found no valid streams — falling back to puppeteer`, {
             source: sourceName,
             url: matchPageUrl,
           });
-          const patterns =
+          const extraPatterns =
             typeof getM3u8Patterns === 'function'
               ? getM3u8Patterns()
-              : (config.streamDetection?.m3u8Patterns || ['\\.m3u8']).map(
-                  (p) => new RegExp(p, 'i')
-                );
-          const page = await browser.newInterceptPage(patterns);
+              : (config.streamDetection?.m3u8Patterns || []).map((p) => new RegExp(p, 'i'));
+          const patterns = [
+            ...DEFAULT_M3U8_PATTERNS.map((p) => new RegExp(p, 'i')),
+            ...extraPatterns,
+          ];
+          const extractConfig = {
+            ...config,
+            streamDetection: {
+              ...(config.streamDetection || {}),
+              waitAfterLoadMs: playerWait.waitAfterLoadMs,
+              waitAfterClickMs: playerWait.waitAfterClickMs,
+              iframeRetries: playerWait.iframeRetries,
+              iframeRetryDelayMs: playerWait.iframeRetryDelayMs,
+            },
+          };
+          let page = null;
           try {
-            await page.goto(matchPageUrl, {
-              waitUntil,
-              timeout: browser.timeout,
+            page = await browser.newInterceptPage(patterns);
+            if (page.isClosed()) return [];
+            await page.setDefaultNavigationTimeout(playerWait.navigationTimeoutMs);
+            await gotoMatchPage(page, matchPageUrl, {
+              waitUntil: navWaitUntil,
+              timeout: playerWait.navigationTimeoutMs,
+              playerWaitUntil: playerWait.playerWaitUntil,
+              playerWaitTimeoutMs: playerWait.playerWaitTimeoutMs,
             });
             if (puppeteerSettleMs > 0) await sleep(puppeteerSettleMs);
             return extractStreamsFromPage({
               page,
               sourceName,
-              config,
+              config: extractConfig,
               matchPageUrl,
               browserManager: browser,
             });
+          } catch (err) {
+            const captured = streamsFromCapture(page, sourceName, config, matchPageUrl);
+            if (isBrowserProtocolError(err)) {
+              logger.warn(`${sourceName} puppeteer frame detached — using captured streams`, {
+                source: sourceName,
+                error: err.message,
+              });
+              if (captured.length) return captured;
+              const retryErr = new Error('BROWSER_ERROR');
+              retryErr.cause = err;
+              throw retryErr;
+            }
+            if (captured.length) return captured;
+            throw err;
           } finally {
             await browser.safeClosePage(page);
           }
-        }
+          })
       : null,
   });
 
@@ -478,6 +526,31 @@ function asList(value) {
   return Array.isArray(value) ? value : [value];
 }
 
+function streamsFromCapture(page, sourceName, config, matchPageUrl) {
+  const captured = page?.__streamCapture?.getUniqueStreams?.() || [];
+  return captured
+    .filter((item) => item?.url && (/\.m3u8/i.test(item.url) || /\/hls\//i.test(item.url)))
+    .map((item) => ({
+      source: sourceName,
+      type: 'm3u8',
+      quality: 'HD',
+      url: item.url,
+      headers: playbackHeadersForClient(
+        mergePlaybackHeaders({
+          streamHeaders: {
+            Referer: matchPageUrl,
+            ...(item.headers || {}),
+          },
+          sourceConfig: config,
+          matchPageUrl,
+        })
+      ),
+      matchPageUrl,
+      active: true,
+      via: 'puppeteer-capture',
+    }));
+}
+
 module.exports = {
   axiosGetHtml,
   parseListStreamGroups,
@@ -489,4 +562,5 @@ module.exports = {
   extractStreamsViaAxios,
   extractStreamsAxiosThenPuppeteer,
   runAxiosThenPuppeteer,
+  extractIframeSrcs,
 };

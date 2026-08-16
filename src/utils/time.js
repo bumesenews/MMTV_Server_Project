@@ -147,7 +147,7 @@ function isKickoffStarted(kickoff, nowSec = nowUtcUnixSeconds()) {
 }
 
 /** Legacy alias — second pre-kickoff Match URL checkpoint. */
-const STREAM_RETRY_LEAD_MIN = MATCH_URL_SEARCH_SLOTS[1]?.maxInclusive || 15;
+const STREAM_RETRY_LEAD_MIN = MATCH_URL_SEARCH_SLOTS[1]?.maxInclusive || 45;
 /** Match stays LIVE until this many minutes after kickoff; then END + drop streams. */
 const MATCH_LIVE_DURATION_MIN = 120;
 /**
@@ -161,7 +161,7 @@ const MATCH_TIME_TOLERANCE_MIN = Math.max(
 
 /**
  * Resolve which Match URL discovery slot the fixture is in.
- * tEarly = today/tomorrow before −45m. Then −45 / −30 / −15 / −5.
+ * Default: −60 / −45 / −30 (max 3). Optional tEarly only if enabled.
  * Null at/after kickoff.
  */
 function resolveMatchUrlSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
@@ -221,7 +221,7 @@ function getCheckIntervalMinutes(kickoff, status, nowSec = nowUtcUnixSeconds()) 
     return null;
   }
 
-  // Inside Match URL / stream-search window (−45 .. +15)
+  // Inside Match URL / stream-search window (−60 .. +15)
   if (mins <= MATCH_URL_LEAD_MIN) return STREAM_SEARCH_INTERVAL_MINUTES;
 
   // Far from kickoff
@@ -232,8 +232,8 @@ function getCheckIntervalMinutes(kickoff, status, nowSec = nowUtcUnixSeconds()) 
  * Time-only phase helper (no stream knowledge).
  * Full match status (incl. PREPARING_STREAM / LIVE) lives in statusService.
  *
- * Scheduled → more than 45m before kickoff
- * PREPARING → kickoff−45m .. kickoff
+ * Scheduled → more than MATCH_URL_LEAD_MIN before kickoff
+ * PREPARING → kickoff−lead .. kickoff
  * POST_KICKOFF / LIVE window → kickoff .. kickoff+120m
  * END → after +120m
  */

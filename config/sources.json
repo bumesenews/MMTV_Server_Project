@@ -54,9 +54,16 @@
         "video": ["video", "video source", "#player video"]
       },
       "streamDetection": {
-        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8"],
+        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8", "/hls/", "chunklist"],
+        "waitUntil": "domcontentloaded",
+        "playerWaitUntil": "networkidle2",
+        "playerWaitTimeoutMs": 7000,
+        "navigationTimeoutMs": 22000,
         "waitAfterLoadMs": 4000,
-        "waitAfterClickMs": 2000
+        "waitAfterClickMs": 2000,
+        "iframeRetries": 2,
+        "iframeRetryDelayMs": 400,
+        "retryBackoffMs": 1500
       },
       "playerRules": {
         "autoPlay": true,
@@ -101,9 +108,16 @@
         "video": ["video", "video source"]
       },
       "streamDetection": {
-        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8"],
-        "waitAfterLoadMs": 4500,
-        "waitAfterClickMs": 2500
+        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8", "/hls/", "chunklist", "livecdn"],
+        "waitUntil": "domcontentloaded",
+        "playerWaitUntil": "networkidle2",
+        "playerWaitTimeoutMs": 10000,
+        "navigationTimeoutMs": 28000,
+        "waitAfterLoadMs": 5500,
+        "waitAfterClickMs": 2500,
+        "iframeRetries": 3,
+        "iframeRetryDelayMs": 500,
+        "retryBackoffMs": 800
       },
       "playerRules": {
         "autoPlay": true,
@@ -150,9 +164,16 @@
         "video": ["video", "video source", "#player video"]
       },
       "streamDetection": {
-        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8"],
-        "waitAfterLoadMs": 4000,
-        "waitAfterClickMs": 2000
+        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8", "/hls/", "chunklist"],
+        "waitUntil": "domcontentloaded",
+        "playerWaitUntil": "networkidle2",
+        "playerWaitTimeoutMs": 8000,
+        "navigationTimeoutMs": 25000,
+        "waitAfterLoadMs": 5000,
+        "waitAfterClickMs": 2000,
+        "iframeRetries": 3,
+        "iframeRetryDelayMs": 500,
+        "retryBackoffMs": 800
       },
       "playerRules": {
         "autoPlay": true,
@@ -197,9 +218,16 @@
         "video": ["video", "video source"]
       },
       "streamDetection": {
-        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8"],
+        "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "/hls/", "chunklist"],
+        "waitUntil": "domcontentloaded",
+        "playerWaitUntil": "networkidle2",
+        "playerWaitTimeoutMs": 7000,
+        "navigationTimeoutMs": 22000,
         "waitAfterLoadMs": 4000,
-        "waitAfterClickMs": 2000
+        "waitAfterClickMs": 2000,
+        "iframeRetries": 2,
+        "iframeRetryDelayMs": 400,
+        "retryBackoffMs": 1500
       },
       "playerRules": {
         "autoPlay": true,

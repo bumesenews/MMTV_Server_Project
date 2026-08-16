@@ -33,10 +33,12 @@ const {
   applySourceDiscoveryResult,
   needsMatchUrlDiscovery,
   finalizeMatchUrlStatus,
+  matchUrlJobKey,
 } = require('../src/utils/matchUrlDiscovery');
 const { JobQueue, scraperConcurrency } = require('../src/utils/jobQueue');
 const { StreamEngine } = require('../src/services/streamEngine');
 const { generateFlutterJson } = require('../src/services/jsonGenerator');
+const { enrichMatchState } = require('../src/services/statusService');
 const { hasDataChanged } = require('../src/utils/compare');
 const { TelegramService } = require('../src/services/telegram.service');
 const { runAxiosThenPuppeteer } = require('../src/sources/httpStreamExtractor');
@@ -153,15 +155,16 @@ async function run() {
       STREAM_MAX_ATTEMPTS: '3',
       STREAM_POST_KICKOFF_MAX_MINUTES: '15',
       SCRAPER_CONCURRENCY: '2',
-      MATCH_URL_PRE_KICKOFF_MINUTES: '30,15,5',
+      MATCH_URL_PRE_KICKOFF_MINUTES: '60,45,30',
+      MATCH_URL_EARLY_DISCOVERY: 'false',
     });
     assert('STREAM_SEARCH_INTERVAL_MINUTES=5', cfg.streamSearchIntervalMinutes === 5);
     assert('STREAM_MAX_ATTEMPTS=3', cfg.streamMaxAttempts === 3);
     assert('STREAM_POST_KICKOFF_MAX_MINUTES=15', cfg.streamPostKickoffMaxMinutes === 15);
     assert('SCRAPER_CONCURRENCY=2', cfg.scraperConcurrency === 2);
     assert(
-      'MATCH_URL_PRE_KICKOFF_MINUTES=30,15,5',
-      cfg.matchUrlPreKickoffMinutes.join(',') === '30,15,5'
+      'MATCH_URL_PRE_KICKOFF_MINUTES=60,45,30',
+      cfg.matchUrlPreKickoffMinutes.join(',') === '60,45,30'
     );
     assert('stream offsets are 0,5,10', cfg.streamAttemptOffsets.join(',') === '0,5,10');
     assert('defaults match exported constants', STREAM_MAX_ATTEMPTS === 3 && STREAM_SEARCH_STOP_AFTER_MIN === 15);
@@ -178,17 +181,17 @@ async function run() {
       { year: 2026, month: 8, day: 15, hour: 20, minute: 0 },
       { zone: ZONE }
     ).toISO();
+    const at1900 = slotAt(kickoff, 60);
     const at1915 = slotAt(kickoff, 45);
     const at1930 = slotAt(kickoff, 30);
     const at1945 = slotAt(kickoff, 15);
-    const at1955 = slotAt(kickoff, 5);
     const at2000 = slotAt(kickoff, 0);
-    assert('19:15 → Match URL attempt 1 (t45)', at1915.matchUrl?.id === 't45' && at1915.matchUrl.attempt === 1);
-    assert('19:30 → Match URL attempt 2 (t30)', at1930.matchUrl?.id === 't30');
-    assert('19:45 → Match URL attempt 3 (t15)', at1945.matchUrl?.id === 't15');
-    assert('19:55 → Match URL attempt 4 (t5)', at1955.matchUrl?.id === 't5');
+    assert('19:00 → Match URL attempt 1 (t60)', at1900.matchUrl?.id === 't60' && at1900.matchUrl.attempt === 1);
+    assert('19:15 → Match URL attempt 2 (t45)', at1915.matchUrl?.id === 't45' && at1915.matchUrl.attempt === 2);
+    assert('19:30 → Match URL attempt 3 (t30)', at1930.matchUrl?.id === 't30');
+    assert('19:45 → still t30 Match URL window (no extra attempt)', at1945.matchUrl?.id === 't30');
     assert('20:00 → no Match URL discovery', at2000.matchUrl == null);
-    assert('max Match URL attempts is 4', MATCH_URL_MAX_ATTEMPTS === 4);
+    assert('max Match URL attempts is 3', MATCH_URL_MAX_ATTEMPTS === 3);
     assert('Match URL slots are only pre-kickoff', MATCH_URL_SEARCH_SLOTS.every((s) => s.maxInclusive > 0));
   }
 
@@ -198,7 +201,8 @@ async function run() {
       { year: 2026, month: 8, day: 15, hour: 20, minute: 0 },
       { zone: ZONE }
     ).toISO();
-    assert('11:00 → early Match URL slot, no stream extract', slotAt(kickoff, 9 * 60).matchUrl?.id === 'tEarly' && slotAt(kickoff, 9 * 60).stream == null);
+    assert('11:00 → no Match URL slot yet, no stream extract', slotAt(kickoff, 9 * 60).matchUrl == null && slotAt(kickoff, 9 * 60).stream == null);
+    assert('19:00 → Match URL t60, no stream extract yet', slotAt(kickoff, 60).matchUrl?.id === 't60' && slotAt(kickoff, 60).stream == null);
     assert('19:15 → Match URL t45, no stream extract yet', slotAt(kickoff, 45).matchUrl?.id === 't45' && slotAt(kickoff, 45).stream == null);
     assert('19:30 → stream extract from Match URL (t30)', slotAt(kickoff, 30).stream?.id === 't30');
     assert('19:45 → stream extract t15', slotAt(kickoff, 15).stream?.id === 't15');
@@ -240,6 +244,9 @@ async function run() {
     );
     assert('same attempt never runs twice', seen.filter((k) => k === k1).length === 1);
     assert('attempt2 still runs', seen.includes(k2));
+    const mk = matchUrlJobKey('match123', 'soco', { attempt: 1 });
+    assert('match-url job key shape', mk === 'match123:soco:match-url:attempt1');
+    assert('match-url and stream jobs are separate', mk !== k1);
   }
 
   console.log('\n=== 1 match / successful stream / status separation ===');
@@ -365,11 +372,69 @@ async function run() {
     assert('+15 does not start a new stream search', stoppedMatch[0].streams.length === 0);
   }
 
-  console.log('\n=== Match URL found at -30 / -15 / -5 / never ===');
+  console.log('\n=== No stream after +15m → not LIVE in Flutter ===');
+  {
+    const kickoff = kickoffIso(-16);
+    const nowSec = toUtcUnixSeconds(kickoffIso(0));
+    const ended = enrichMatchState(
+      {
+        matchId: 'no-stream',
+        kickoff,
+        homeTeam: 'Inter',
+        awayTeam: 'Juventus',
+        streams: [],
+        status: 'LIVE',
+      },
+      { nowSec }
+    );
+    assert('no stream URL after +15m → END', ended.status === 'END');
+
+    const stillLive = enrichMatchState(
+      {
+        matchId: 'has-stream',
+        kickoff,
+        homeTeam: 'Inter',
+        awayTeam: 'Juventus',
+        streams: [{ source: 'socolive', url: 'https://cdn.example/live.m3u8', active: true }],
+        status: 'LIVE',
+      },
+      { nowSec }
+    );
+    assert('stream URL after +15m stays LIVE', stillLive.status === 'LIVE');
+
+    const searching = enrichMatchState(
+      {
+        matchId: 'searching',
+        kickoff: kickoffIso(-10),
+        homeTeam: 'Inter',
+        awayTeam: 'Juventus',
+        streams: [],
+        status: 'LIVE',
+      },
+      { nowSec }
+    );
+    assert('inside 15m search window without stream stays LIVE', searching.status === 'LIVE');
+
+    const locked = enrichMatchState(
+      {
+        matchId: 'locked',
+        kickoff,
+        homeTeam: 'Inter',
+        awayTeam: 'Juventus',
+        streams: [],
+        status: 'LIVE',
+        statusLocked: true,
+      },
+      { nowSec }
+    );
+    assert('admin-locked LIVE is preserved', locked.status === 'LIVE');
+  }
+
+  console.log('\n=== Match URL found at -60 / -45 / -30 / never ===');
   {
     const base = {
       matchId: 'url1',
-      kickoff: kickoffIso(30),
+      kickoff: kickoffIso(60),
       homeTeam: 'Inter',
       awayTeam: 'Juventus',
       sourcePages: {},
@@ -378,39 +443,39 @@ async function run() {
       { ...base },
       'socolive',
       { matchUrl: 'https://socolivepp.tv/a', accepted: true, status: MATCH_URL_STATUS.CONFIRMED, confidence: 100 },
-      { id: 't30' },
+      { id: 't60', attempt: 1 },
       't1'
     );
-    assert('Match URL found at −30m', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrl);
+    assert('Match URL found at −60m', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrl);
     assert(
       'stops discovery after URL saved',
-      needsMatchUrlDiscovery(m, 'socolive', toUtcUnixSeconds(kickoffIso(15))) === false
+      needsMatchUrlDiscovery(m, 'socolive', toUtcUnixSeconds(kickoffIso(45))) === false
     );
 
-    m = applySourceDiscoveryResult({ ...base }, 'socolive', null, { id: 't30' }, 't1');
+    m = applySourceDiscoveryResult({ ...base }, 'socolive', null, { id: 't60', attempt: 1 }, 't1');
     m = applySourceDiscoveryResult(m, 'socolive', {
       matchUrl: 'https://socolivepp.tv/b',
       accepted: true,
       status: MATCH_URL_STATUS.CONFIRMED,
       confidence: 90,
-    }, { id: 't15' }, 't2');
-    assert('Match URL found at −15m', m.matchUrlAttempts === 2 && Boolean(m.matchUrl));
+    }, { id: 't45', attempt: 2 }, 't2');
+    assert('Match URL found at −45m', m.matchUrlAttempts === 2 && Boolean(m.matchUrl));
 
-    m = applySourceDiscoveryResult({ ...base }, 'socolive', null, { id: 't30' }, 't1');
-    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't15' }, 't2');
+    m = applySourceDiscoveryResult({ ...base }, 'socolive', null, { id: 't60', attempt: 1 }, 't1');
+    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't45', attempt: 2 }, 't2');
     m = applySourceDiscoveryResult(m, 'socolive', {
       matchUrl: 'https://socolivepp.tv/c',
       accepted: true,
       status: MATCH_URL_STATUS.CONFIRMED,
       confidence: 80,
-    }, { id: 't5' }, 't3');
-    assert('Match URL found at −5m', m.matchUrlAttempts === 3 && Boolean(m.matchUrl));
+    }, { id: 't30', attempt: 3 }, 't3');
+    assert('Match URL found at −30m', m.matchUrlAttempts === 3 && Boolean(m.matchUrl));
 
-    m = applySourceDiscoveryResult({ ...base }, 'socolive', null, { id: 't30' }, 't1');
-    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't15' }, 't2');
-    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't5' }, 't3');
+    m = applySourceDiscoveryResult({ ...base }, 'socolive', null, { id: 't60', attempt: 1 }, 't1');
+    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't45', attempt: 2 }, 't2');
+    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't30', attempt: 3 }, 't3');
     m = finalizeMatchUrlStatus(m, toUtcUnixSeconds(kickoffIso(0)));
-    assert('Match URL never found → MATCH_URL_NOT_FOUND', m.matchUrlStatus === MATCH_URL_STATUS.NOT_FOUND);
+    assert('Match URL never found → MATCH_URL_FAILED', m.matchUrlStatus === MATCH_URL_STATUS.FAILED);
   }
 
   console.log('\n=== 10 matches × 4 sources + concurrency ===');
@@ -435,6 +500,21 @@ async function run() {
       'successful streams validated',
       results.every((m) => m.streamStatus === 'AVAILABLE')
     );
+    const { PuppeteerTaskQueue } = require('../src/browser/puppeteerManager');
+    const pq = new PuppeteerTaskQueue(1);
+    let max = 0;
+    let current = 0;
+    await Promise.all(
+      [1, 2, 3, 4].map(() =>
+        pq.run(async () => {
+          current += 1;
+          max = Math.max(max, current);
+          await new Promise((r) => setTimeout(r, 15));
+          current -= 1;
+        })
+      )
+    );
+    assert('20. Puppeteer task queue concurrency remains 1', max === 1 && pq.maxActiveSeen === 1);
   }
 
   console.log('\n=== Referer/UA + Axios→Puppeteer + browser cleanup ===');
@@ -563,6 +643,47 @@ async function run() {
     const second = await tg.sendAlert('scraper_failed:soco', 'test');
     assert('Telegram stays disabled when unconfigured', first.reason === 'not_configured');
     assert('unconfigured alerts do not send duplicates', second.reason === 'not_configured');
+  }
+
+  console.log('\n=== FotMob league icons ===');
+  {
+    const {
+      resolveLeagueIcon,
+      resolveLeagueLogoId,
+    } = require('../src/utils/fotmobLogos');
+    assert(
+      'Club Friendlies uses page id 489 not feed id 915708',
+      resolveLeagueLogoId({ league: 'Club Friendlies', leagueId: 915708 }) === 489
+    );
+    assert(
+      'Basel fixture gets Club Friendlies logo URL',
+      resolveLeagueIcon({
+        league: 'Club Friendlies',
+        leagueId: 915708,
+        leagueIcon: null,
+      }) === 'https://images.fotmob.com/image_resources/logo/leaguelogo/489.png'
+    );
+    const payload = generateFlutterJson([
+      {
+        matchId: 'basel_barcelona_20260816',
+        league: 'Club Friendlies',
+        leagueIcon: null,
+        homeTeam: 'Basel',
+        awayTeam: 'Barcelona',
+        kickoff: DateTime.now().setZone(ZONE).plus({ hours: 1 }).toISO(),
+        timezone: ZONE,
+        status: 'Scheduled',
+        leagueId: 915708,
+        streams: [],
+        originalNames: {},
+        sourcePages: {},
+      },
+    ]);
+    assert(
+      'Flutter leagueIcon is filled for Club Friendlies',
+      payload.matches[0].leagueIcon ===
+        'https://images.fotmob.com/image_resources/logo/leaguelogo/489.png'
+    );
   }
 }
 

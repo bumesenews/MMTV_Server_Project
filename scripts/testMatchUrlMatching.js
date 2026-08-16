@@ -18,7 +18,6 @@ const {
   needsMatchUrlDiscovery,
   applySourceDiscoveryResult,
   finalizeMatchUrlStatus,
-  MATCH_URL_MAX_ATTEMPTS,
 } = require('../src/utils/matchUrlDiscovery');
 const { MultiMatchScraper } = require('../src/services/multiMatchScraper');
 
@@ -255,6 +254,23 @@ console.log('\n=== Matching identity (home + away + date + kickoff) ===');
   );
 }
 
+{
+  const url =
+    'https://cakhiazvm.tv/truc-tiep/nottingham-forest-vs-brest-luc-2000-ngay-16-08-2026/';
+  const parsed = parseStreamUrl(url);
+  const fotmob = fotmobFromParsed(parsed, {
+    homeTeam: 'Nottm Forest',
+    awayTeam: 'Brest',
+    league: 'Club Friendlies',
+  });
+  const r = scoreUrl(fotmob, url);
+  assert(
+    '13d. Nottm Forest vs Nottingham Forest slug matches',
+    r.accepted,
+    JSON.stringify({ reason: r.reason, home: r.home, away: r.away, status: r.status })
+  );
+}
+
 console.log('\n=== Multiple matches at the same time ===');
 {
   const kick = yangonKickoff('2026-08-15T19:30:00');
@@ -305,7 +321,7 @@ console.log('\n=== Multiple matches at the same time ===');
   assert('14b. Does not assign the other same-time URL', wrong.length === 0);
 }
 
-console.log('\n=== Match URL discovery timing (−30 / −15 / −5) ===');
+console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
 {
   const kickoffDt = yangonKickoff('2026-08-15T20:00:00');
   const kickSec = toUtcUnixSeconds(kickoffDt.toISO());
@@ -314,55 +330,24 @@ console.log('\n=== Match URL discovery timing (−30 / −15 / −5) ===');
     kickoff: kickoffDt.toISO(),
     homeTeam: 'Inter',
     awayTeam: 'Juventus',
+    kickoffTime: '20:00',
   };
 
   const slotAt = (minsBefore) =>
     resolveMatchUrlSearchSlot(kickoffDt.toISO(), kickSec - minsBefore * 60);
 
-  assert('8a0. −45m is t45 slot', slotAt(45)?.id === 't45', JSON.stringify(slotAt(45)));
-  assert('8a. −30m is t30 slot', slotAt(30)?.id === 't30', JSON.stringify(slotAt(30)));
-  assert('9a. −15m is t15 slot', slotAt(15)?.id === 't15', JSON.stringify(slotAt(15)));
-  assert('10a. −5m is t5 slot', slotAt(5)?.id === 't5', JSON.stringify(slotAt(5)));
+  assert('8a0. −60m is t60 slot', slotAt(60)?.id === 't60', JSON.stringify(slotAt(60)));
+  assert('8a. −45m is t45 slot', slotAt(45)?.id === 't45', JSON.stringify(slotAt(45)));
+  assert('9a. −30m is t30 slot', slotAt(30)?.id === 't30', JSON.stringify(slotAt(30)));
+  assert('10a. −15m still in t30 (final Match URL window)', slotAt(15)?.id === 't30', JSON.stringify(slotAt(15)));
   assert('10b. kickoff is not a Match URL slot', slotAt(0) == null);
   assert('10c. +5m is not a Match URL slot', slotAt(-5) == null);
-  assert('10d. −60m is tEarly (before −45m window)', slotAt(60)?.id === 'tEarly', JSON.stringify(slotAt(60)));
+  assert('10d. −90m is not a Match URL slot', slotAt(90) == null, JSON.stringify(slotAt(90)));
   assert(
     '10d2. Cloudflare script mention is not a block when truc-tiep links exist',
     scraper.looksBlockedOrEmpty(
       `${'x'.repeat(6000)} cloudflare truc-tiep/malaysia-vs-viet-nam-luc-2000-ngay-16-08-2026/`
     ) === false
-  );
-
-  let early = applySourceDiscoveryResult(
-    { ...fixtureBase },
-    'cakhia',
-    null,
-    { id: 'tEarly', early: true },
-    '2026-08-15T11:00:00.000Z'
-  );
-  assert(
-    '10e. Early miss does not burn −30/−15/−5 attempts',
-    early.matchUrlAttempts === 0 &&
-      needsMatchUrlDiscovery(early, 'cakhia', kickSec - 30 * 60) === true,
-    JSON.stringify({ attempts: early.matchUrlAttempts })
-  );
-  early = applySourceDiscoveryResult(
-    { ...fixtureBase },
-    'cakhia',
-    {
-      matchUrl: 'https://cakhiazvm.tv/truc-tiep/inter-vs-juventus-luc-2000-ngay-15-08-2026/',
-      status: MATCH_URL_STATUS.CONFIRMED,
-      confidence: 100,
-      accepted: true,
-    },
-    { id: 'tEarly', early: true },
-    '2026-08-15T11:00:00.000Z'
-  );
-  assert(
-    '10f. Early hit saves Match URL on the fixture',
-    early.matchUrl &&
-      early.sourcePages.cakhia &&
-      needsMatchUrlDiscovery(early, 'cakhia', kickSec - 30 * 60) === false
   );
 
   const hit = {
@@ -372,62 +357,184 @@ console.log('\n=== Match URL discovery timing (−30 / −15 / −5) ===');
     accepted: true,
   };
 
-  // 8. Found at −30m → stop searching
   let m = applySourceDiscoveryResult(
     { ...fixtureBase },
     'cakhia',
     hit,
-    { id: 't30' },
-    '2026-08-15T19:30:00.000Z'
+    { id: 't60', attempt: 1, maxInclusive: 60 },
+    '2026-08-15T19:00:00.000Z'
   );
-  assert('8. Match URL found at −30m saved as CONFIRMED', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrl);
+  assert('1. Match URL found at −60m saved as CONFIRMED', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrl);
   assert(
-    '8b. After −30m hit, Today page is not searched again',
-    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 15 * 60) === false
+    '1b. After −60m hit, Today page is not searched again',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 45 * 60) === false
   );
+  assert('1c. matchUrlSource is cakhia', m.matchUrlSource === 'cakhia');
 
-  // 9. Found at −15m (missed −30)
   m = applySourceDiscoveryResult(
     { ...fixtureBase },
     'cakhia',
     null,
-    { id: 't30' },
-    '2026-08-15T19:30:00.000Z'
+    { id: 't60', attempt: 1, maxInclusive: 60 },
+    '2026-08-15T19:00:00.000Z'
   );
-  assert('9b. Miss at −30m stays NOT_FOUND and attempts=1', m.matchUrlStatus === MATCH_URL_STATUS.NOT_FOUND && m.matchUrlAttempts === 1);
+  assert('2a. Miss at −60m stays PENDING and attempts=1', m.matchUrlStatus === MATCH_URL_STATUS.PENDING && m.matchUrlAttempts === 1);
   assert(
-    '9c. −15m slot still due after −30 miss',
-    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 15 * 60) === true
+    '2b. −45m slot still due after −60 miss',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 45 * 60) === true
   );
-  m = applySourceDiscoveryResult(m, 'cakhia', hit, { id: 't15' }, '2026-08-15T19:45:00.000Z');
-  assert('9. Match URL found at −15m', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrlAttempts === 2);
+  m = applySourceDiscoveryResult(m, 'cakhia', hit, { id: 't45', attempt: 2, maxInclusive: 45 }, '2026-08-15T19:15:00.000Z');
+  assert('2. Match URL found at −45m', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrlAttempts === 2);
 
-  // 10. Found at −5m
-  m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't30' }, 't1');
-  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't15' }, 't2');
+  m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't60', attempt: 1 }, 't1');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't45', attempt: 2 }, 't2');
   assert(
-    '10e. After two misses, −5m still due',
-    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 5 * 60) === true
+    '3a. After two misses, −30m still due',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 30 * 60) === true
   );
-  m = applySourceDiscoveryResult(m, 'cakhia', hit, { id: 't5' }, 't3');
-  assert('10. Match URL found at −5m', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrlAttempts === 3);
+  m = applySourceDiscoveryResult(m, 'cakhia', hit, { id: 't30', attempt: 3 }, 't3');
+  assert('3. Match URL found at −30m', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrlAttempts === 3);
 
-  // 11. Never found
-  m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't45' }, 't0');
-  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't30' }, 't1');
-  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't15' }, 't2');
-  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't5' }, 't3');
+  m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't60', attempt: 1 }, 't1');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't45', attempt: 2 }, 't2');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't30', attempt: 3 }, 't3');
   m = finalizeMatchUrlStatus(m, kickSec);
   assert(
-    '11. Match URL never found → MATCH_URL_NOT_FOUND after 4 attempts',
-    m.matchUrlStatus === MATCH_URL_STATUS.NOT_FOUND &&
-      m.matchUrlAttempts === MATCH_URL_MAX_ATTEMPTS &&
+    '4. Match URL never found → MATCH_URL_FAILED after 3 attempts',
+    m.matchUrlStatus === MATCH_URL_STATUS.FAILED &&
+      m.matchUrlAttempts === 3 &&
       !m.matchUrl,
     JSON.stringify({ status: m.matchUrlStatus, attempts: m.matchUrlAttempts })
   );
   assert(
-    '11b. Not stuck unknown — no further Today-page search',
-    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 5 * 60) === false
+    '4b. Not stuck unknown — no further Today-page search',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 30 * 60) === false
+  );
+
+  const leftover = {
+    ...fixtureBase,
+    matchUrlSearch: {
+      slotsDone: { tEarly: true, t30: true },
+      sources: {
+        cakhia: {
+          matchUrl: null,
+          status: MATCH_URL_STATUS.PENDING,
+          attempts: 1,
+          lastAttemptAt: new Date((kickSec - 26 * 60) * 1000).toISOString(),
+          slotsDone: { tEarly: true, t30: true },
+          confidence: 0,
+        },
+      },
+    },
+  };
+  assert(
+    '4c. Leftover attempts after tEarly/t30 still search at −20m',
+    needsMatchUrlDiscovery(leftover, 'cakhia', kickSec - 20 * 60) === true
+  );
+  leftover.matchUrlSearch.sources.cakhia.lastAttemptAt = new Date(
+    (kickSec - 21 * 60) * 1000
+  ).toISOString();
+  assert(
+    '4d. tEarly leftover reopens t30 immediately (no cooldown trap)',
+    needsMatchUrlDiscovery(leftover, 'cakhia', kickSec - 20 * 60) === true
+  );
+
+  const genuineT30 = applySourceDiscoveryResult(
+    { ...fixtureBase },
+    'cakhia',
+    null,
+    { id: 't30', attempt: 3, maxInclusive: 30 },
+    new Date((kickSec - 21 * 60) * 1000).toISOString()
+  );
+  assert(
+    '4e. Genuine t30 miss still uses cooldown',
+    needsMatchUrlDiscovery(genuineT30, 'cakhia', kickSec - 20 * 60) === false
+  );
+}
+
+console.log('\n=== Independent sources + duplicate candidates ===');
+{
+  const kickoffDt = yangonKickoff('2026-08-15T20:00:00');
+  const kickSec = toUtcUnixSeconds(kickoffDt.toISO());
+  const fixtureBase = {
+    matchId: 'src-ind',
+    kickoff: kickoffDt.toISO(),
+    homeTeam: 'Inter',
+    awayTeam: 'Juventus',
+  };
+  const hit = (host) => ({
+    matchUrl: `https://${host}/truc-tiep/inter-vs-juventus-luc-2000-ngay-15-08-2026/`,
+    status: MATCH_URL_STATUS.CONFIRMED,
+    confidence: 100,
+    accepted: true,
+  });
+
+  let m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', hit('cakhiazvm.tv'), { id: 't60', attempt: 1 }, 't1');
+  m = applySourceDiscoveryResult(m, 'colatv', null, { id: 't60', attempt: 1 }, 't1');
+  m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't60', attempt: 1 }, 't1');
+  m = applySourceDiscoveryResult(m, 'socolive', hit('socolivepp.tv'), { id: 't60', attempt: 1 }, 't1');
+  assert(
+    '14. Found sources stop; unresolved sources still due at −45m',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 45 * 60) === false &&
+      needsMatchUrlDiscovery(m, 'socolive', kickSec - 45 * 60) === false &&
+      needsMatchUrlDiscovery(m, 'colatv', kickSec - 45 * 60) === true &&
+      needsMatchUrlDiscovery(m, 'xoilac', kickSec - 45 * 60) === true
+  );
+
+  m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't45', attempt: 2 }, 't2');
+  m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't30', attempt: 3 }, 't3');
+  assert(
+    '15. One source FAILED while others remain FOUND',
+    m.matchUrlSearch.sources.xoilac.status === MATCH_URL_STATUS.FAILED &&
+      m.matchUrlSearch.sources.cakhia.status === MATCH_URL_STATUS.CONFIRMED &&
+      Boolean(m.matchUrl)
+  );
+
+  const entries = [
+    parseStreamUrl('https://cakhiazvm.tv/truc-tiep/inter-vs-juventus-luc-2000-ngay-15-08-2026/'),
+    parseStreamUrl('https://cakhiazvm.tv/truc-tiep/inter-vs-juventus-luc-2000-ngay-15-08-2026/'),
+    parseStreamUrl('https://cakhiazvm.tv/truc-tiep/ac-milan-vs-napoli-luc-2000-ngay-15-08-2026/'),
+  ].map((p, i) => ({
+    ...p,
+    url:
+      i === 2
+        ? 'https://cakhiazvm.tv/truc-tiep/ac-milan-vs-napoli-luc-2000-ngay-15-08-2026/'
+        : 'https://cakhiazvm.tv/truc-tiep/inter-vs-juventus-luc-2000-ngay-15-08-2026/',
+  }));
+  const fot = fotmobFromParsed(entries[0], {
+    matchId: 'inter-juve-dup',
+    homeTeam: 'Inter',
+    awayTeam: 'Juventus',
+  });
+  const matched = scraper.matchFixturesToEntries([fot], entries);
+  assert('12. Duplicate candidate URLs assign once', matched.length === 1 && matched[0].matchUrl.includes('inter-vs-juventus'));
+}
+
+console.log('\n=== Transient error does not burn the attempt ===');
+{
+  const { isTransientDiscoverError, matchUrlJobKey } = require('../src/utils/matchUrlDiscovery');
+  assert('16a. timeout is transient', isTransientDiscoverError({ code: 'ETIMEDOUT', message: 'timeout' }) === true);
+  assert('16b. DNS is transient', isTransientDiscoverError({ code: 'ENOTFOUND', message: 'getaddrinfo' }) === true);
+  assert('16c. 403 is transient', isTransientDiscoverError(new Error('Request failed with status code 403')) === true);
+  assert('16d. empty today page is a completed miss', isTransientDiscoverError(new Error('empty_match_links')) === false);
+  assert(
+    '18. job key is matchId+source+match-url+attempt',
+    matchUrlJobKey('match123', 'soco', { attempt: 1 }) === 'match123:soco:match-url:attempt1'
+  );
+}
+
+console.log('\n=== Empty Today page / domain-agnostic matching ===');
+{
+  const empty = scraper.extractMatchEntries('<html><body>no matches</body></html>', 'https://example-new-domain.tv');
+  assert('17. Empty Today page yields no candidates', empty.length === 0);
+  const url = 'https://brand-new-domain.example/truc-tiep/inter-vs-juventus-luc-2000-ngay-15-08-2026/';
+  const parsed = parseStreamUrl(url);
+  const fotmob = fotmobFromParsed(parsed, { homeTeam: 'Inter', awayTeam: 'Juventus' });
+  const r = scoreUrl(fotmob, url);
+  assert(
+    '18b. Matcher does not hard-code source domains',
+    parsed.ok && r.accepted,
+    JSON.stringify({ ok: parsed.ok, reason: r.reason, host: parsed })
   );
 }
 

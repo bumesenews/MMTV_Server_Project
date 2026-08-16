@@ -1,439 +1,13 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-16T15:19:06.468+06:30",
+  "generatedAt": "2026-08-16T20:21:19.147+06:30",
   "timezone": "Asia/Yangon",
-  "matchCount": 17,
+  "matchCount": 14,
   "matches": [
-    {
-      "matchId": "liverpool_como_20260816",
-      "league": "Club Friendlies",
-      "leagueIcon": null,
-      "homeTeam": "Liverpool",
-      "awayTeam": "Como",
-      "homeTeamId": 8650,
-      "awayTeamId": 10171,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8650.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10171.png",
-      "date": "2026-08-16",
-      "time": "5:00 PM",
-      "kickoff": "2026-08-16T17:00:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "fotmobMatchId": 5973785,
-      "leagueId": 915708,
-      "leagueName": "Club Friendlies",
-      "source": "fotmob",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "INT Club Friendlies",
-          "country": "INT",
-          "leagueId": 915708,
-          "homeTeam": "Liverpool",
-          "awayTeam": "Como"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "matchUrl": null,
-      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
-      "matchUrlAttempts": 0,
-      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.323Z",
-      "streamUrl": null,
-      "streamHeaders": null,
-      "streamStatus": "PREPARING_STREAM",
-      "attempts": 0,
-      "validationStatus": null,
-      "validationReason": null,
-      "lastAttemptAt": null,
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "matchUrlSearch": {
-        "slotsDone": {
-          "tEarly": true
-        },
-        "sources": {
-          "cakhia": {
-            "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.323Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 0
-          },
-          "xoilac": {
-            "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.323Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 0
-          },
-          "colatv": {
-            "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.323Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 0
-          },
-          "socolive": {
-            "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.323Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 0
-          }
-        }
-      },
-      "updatedAt": "2026-08-16T08:49:06.461Z"
-    },
-    {
-      "matchId": "bucheon_fc_1995_jeonbuk_hyundai_motors_fc_20260816",
-      "league": "K League 1 (KOR D1)",
-      "leagueIcon": null,
-      "homeTeam": "Bucheon FC 1995",
-      "awayTeam": "Jeonbuk Hyundai Motors FC",
-      "homeTeamId": 429441,
-      "awayTeamId": 46038,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/429441.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/46038.png",
-      "date": "2026-08-16",
-      "time": "5:00 PM",
-      "kickoff": "2026-08-16T17:00:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "fotmobMatchId": 5139997,
-      "leagueId": 919356,
-      "leagueName": "K League 1 (KOR D1)",
-      "source": "fotmob",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "KOR K-League 1",
-          "country": "KOR",
-          "leagueId": 919356,
-          "homeTeam": "Bucheon FC 1995",
-          "awayTeam": "Jeonbuk Hyundai Motors FC"
-        }
-      },
-      "sourcePages": {
-        "xoilac": "https://xoilacxtr.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/",
-        "colatv": "https://colatv65.live/truc-tiep/bucheon-fc-1995-vs-jeonbuk-hyundai-motors-luc-1730-ngay-16-08-2026-xvkjoi80m11t879",
-        "socolive": "https://socolivepp.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/",
-        "cakhia": "https://cakhiazvm.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/"
-      },
-      "streams": [],
-      "streamAttempts": {},
-      "matchUrl": "https://colatv65.live/truc-tiep/bucheon-fc-1995-vs-jeonbuk-hyundai-motors-luc-1730-ngay-16-08-2026-xvkjoi80m11t879",
-      "matchUrlStatus": "MATCH_CONFIRMED",
-      "matchUrlAttempts": 0,
-      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.325Z",
-      "streamUrl": null,
-      "streamHeaders": null,
-      "streamStatus": "PREPARING_STREAM",
-      "attempts": 0,
-      "validationStatus": null,
-      "validationReason": null,
-      "lastAttemptAt": null,
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "matchUrlSearch": {
-        "slotsDone": {
-          "tEarly": true
-        },
-        "sources": {
-          "cakhia": {
-            "matchUrl": "https://cakhiazvm.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/",
-            "status": "MATCH_URL_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.325Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 84
-          },
-          "xoilac": {
-            "matchUrl": "https://xoilacxtr.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/",
-            "status": "MATCH_URL_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T05:24:01.867Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 84
-          },
-          "colatv": {
-            "matchUrl": "https://colatv65.live/truc-tiep/bucheon-fc-1995-vs-jeonbuk-hyundai-motors-luc-1730-ngay-16-08-2026-xvkjoi80m11t879",
-            "status": "MATCH_CONFIRMED",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T05:24:01.867Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 100
-          },
-          "socolive": {
-            "matchUrl": "https://socolivepp.tv/truc-tiep/bucheon-1995-vs-jeonbuk-hyundai-luc-1730-ngay-16-08-2026/",
-            "status": "MATCH_URL_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:35:34.225Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 84
-          }
-        }
-      },
-      "updatedAt": "2026-08-16T08:49:06.461Z"
-    },
-    {
-      "matchId": "incheon_united_gimcheon_sangmu_20260816",
-      "league": "K League 1 (KOR D1)",
-      "leagueIcon": null,
-      "homeTeam": "Incheon United",
-      "awayTeam": "Gimcheon Sangmu",
-      "homeTeamId": 133895,
-      "awayTeamId": 133901,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/133895.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/133901.png",
-      "date": "2026-08-16",
-      "time": "5:00 PM",
-      "kickoff": "2026-08-16T17:00:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "fotmobMatchId": 5139998,
-      "leagueId": 919356,
-      "leagueName": "K League 1 (KOR D1)",
-      "source": "fotmob",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "KOR K-League 1",
-          "country": "KOR",
-          "leagueId": 919356,
-          "homeTeam": "Incheon United",
-          "awayTeam": "Gimcheon Sangmu"
-        }
-      },
-      "sourcePages": {
-        "xoilac": "https://xoilacxtr.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
-        "colatv": "https://colatv65.live/truc-tiep/incheon-united-vs-gimcheon-sangmu-fc-luc-1730-ngay-16-08-2026-jr7owiprly0bgq0",
-        "socolive": "https://socolivepp.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
-        "cakhia": "https://cakhiazvm.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/"
-      },
-      "streams": [],
-      "streamAttempts": {},
-      "matchUrl": "https://cakhiazvm.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
-      "matchUrlStatus": "MATCH_CONFIRMED",
-      "matchUrlAttempts": 0,
-      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.326Z",
-      "streamUrl": null,
-      "streamHeaders": null,
-      "streamStatus": "PREPARING_STREAM",
-      "attempts": 0,
-      "validationStatus": null,
-      "validationReason": null,
-      "lastAttemptAt": null,
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "matchUrlSearch": {
-        "slotsDone": {
-          "tEarly": true
-        },
-        "sources": {
-          "cakhia": {
-            "matchUrl": "https://cakhiazvm.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
-            "status": "MATCH_CONFIRMED",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.326Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 100
-          },
-          "xoilac": {
-            "matchUrl": "https://xoilacxtr.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
-            "status": "MATCH_CONFIRMED",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T05:24:01.868Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 100
-          },
-          "colatv": {
-            "matchUrl": "https://colatv65.live/truc-tiep/incheon-united-vs-gimcheon-sangmu-fc-luc-1730-ngay-16-08-2026-jr7owiprly0bgq0",
-            "status": "MATCH_CONFIRMED",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T05:24:01.868Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 100
-          },
-          "socolive": {
-            "matchUrl": "https://socolivepp.tv/truc-tiep/incheon-united-vs-gimcheon-sangmu-luc-1730-ngay-16-08-2026/",
-            "status": "MATCH_CONFIRMED",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:35:34.228Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 100
-          }
-        }
-      },
-      "updatedAt": "2026-08-16T08:49:06.462Z"
-    },
-    {
-      "matchId": "ulsan_hd_fc_gangwon_fc_20260816",
-      "league": "K League 1 (KOR D1)",
-      "leagueIcon": null,
-      "homeTeam": "Ulsan HD FC",
-      "awayTeam": "Gangwon FC",
-      "homeTeamId": 133896,
-      "awayTeamId": 164734,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/133896.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/164734.png",
-      "date": "2026-08-16",
-      "time": "5:00 PM",
-      "kickoff": "2026-08-16T17:00:00.000+06:30",
-      "timezone": "Asia/Yangon",
-      "status": "Scheduled",
-      "fotmobMatchId": 5139999,
-      "leagueId": 919356,
-      "leagueName": "K League 1 (KOR D1)",
-      "source": "fotmob",
-      "manual": false,
-      "statusLocked": false,
-      "pinned": false,
-      "featured": false,
-      "hasStreams": false,
-      "streamCount": 0,
-      "originalNames": {
-        "fotmob": {
-          "league": "KOR K-League 1",
-          "country": "KOR",
-          "leagueId": 919356,
-          "homeTeam": "Ulsan HD FC",
-          "awayTeam": "Gangwon FC"
-        }
-      },
-      "sourcePages": {},
-      "streams": [],
-      "streamAttempts": {},
-      "matchUrl": null,
-      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
-      "matchUrlAttempts": 0,
-      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.327Z",
-      "streamUrl": null,
-      "streamHeaders": null,
-      "streamStatus": "PREPARING_STREAM",
-      "attempts": 0,
-      "validationStatus": null,
-      "validationReason": null,
-      "lastAttemptAt": null,
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "matchUrlSearch": {
-        "slotsDone": {
-          "tEarly": true
-        },
-        "sources": {
-          "cakhia": {
-            "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.327Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 0
-          },
-          "xoilac": {
-            "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.327Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 0
-          },
-          "colatv": {
-            "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.327Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 0
-          },
-          "socolive": {
-            "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.327Z",
-            "slotsDone": {
-              "tEarly": true
-            },
-            "confidence": 0
-          }
-        }
-      },
-      "updatedAt": "2026-08-16T08:49:06.462Z"
-    },
     {
       "matchId": "malaysia_vietnam_20260816",
       "league": "ASEAN Championship",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/9265.png",
       "homeTeam": "Malaysia",
       "awayTeam": "Vietnam",
       "homeTeamId": 5823,
@@ -444,7 +18,7 @@
       "time": "7:30 PM",
       "kickoff": "2026-08-16T19:30:00.000+06:30",
       "timezone": "Asia/Yangon",
-      "status": "Scheduled",
+      "status": "END",
       "fotmobMatchId": 5844766,
       "leagueId": 938330,
       "leagueName": "ASEAN Championship",
@@ -469,37 +43,82 @@
         "colatv": "https://colatv65.live/truc-tiep/malaysia-vs-viet-nam-luc-2000-ngay-16-08-2026-o07dni5l4l4cmkn"
       },
       "streams": [],
-      "streamAttempts": {},
+      "streamAttempts": {
+        "t30": true,
+        "t15": true,
+        "t5": true,
+        "t0": true,
+        "tP5": true,
+        "tP10": true
+      },
       "matchUrl": "https://xoilacxtr.tv/truc-tiep/malaysia-vs-viet-nam-luc-2000-ngay-16-08-2026/",
-      "matchUrlStatus": "MATCH_CONFIRMED",
-      "matchUrlAttempts": 0,
-      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.328Z",
+      "matchUrlStatus": "MATCH_URL_CONFIRMED",
+      "matchUrlAttempts": 2,
+      "lastMatchUrlAttemptAt": "2026-08-16T12:49:49.249Z",
+      "matchUrlSource": "xoilac",
       "streamUrl": null,
       "streamHeaders": null,
-      "streamStatus": "PREPARING_STREAM",
-      "attempts": 0,
-      "validationStatus": null,
-      "validationReason": null,
-      "lastAttemptAt": null,
+      "streamStatus": "SEARCHING",
+      "attempts": 1,
+      "validationStatus": "VALIDATING",
+      "validationReason": "BROWSER_ERROR",
+      "lastAttemptAt": "2026-08-16T13:07:45.972Z",
       "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
+        "started": true,
+        "stopped": true,
+        "stopTime": "2026-08-16T19:48:41.524+06:30",
+        "slotsDone": {
+          "t30": true,
+          "t15": true,
+          "tP5": true
+        },
+        "sources": {
+          "xoilac": {
+            "status": "SEARCHING",
+            "attempts": 3,
+            "postKickoffAttempts": 1,
+            "lastError": "Attempted to use detached Frame '083E4244F9E981BE257943554EF2A8F1'.",
+            "lastAttemptAt": "2026-08-16T13:07:34.992Z",
+            "updatedAt": "2026-08-16T13:07:34.992Z",
+            "slotsDone": {
+              "t30": true,
+              "t15": true,
+              "tP5": true
+            },
+            "extractionMethod": null
+          },
+          "colatv": {
+            "status": "SEARCHING",
+            "attempts": 3,
+            "postKickoffAttempts": 1,
+            "lastError": "Attempted to use detached Frame '776A1609F7F146CBBD7DD25F85517F58'.",
+            "lastAttemptAt": "2026-08-16T13:07:45.972Z",
+            "updatedAt": "2026-08-16T13:07:45.972Z",
+            "slotsDone": {
+              "t30": true,
+              "t15": true,
+              "tP5": true
+            },
+            "extractionMethod": null
+          }
+        }
       },
       "matchUrlSearch": {
         "slotsDone": {
-          "tEarly": true
+          "tEarly": true,
+          "t30": true,
+          "t15": true
         },
         "sources": {
           "cakhia": {
             "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.328Z",
+            "status": "MATCH_URL_PENDING",
+            "attempts": 2,
+            "lastAttemptAt": "2026-08-16T12:49:49.249Z",
             "slotsDone": {
-              "tEarly": true
+              "tEarly": true,
+              "t30": true,
+              "t15": true
             },
             "confidence": 0
           },
@@ -525,22 +144,24 @@
           },
           "socolive": {
             "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.328Z",
+            "status": "MATCH_URL_PENDING",
+            "attempts": 2,
+            "lastAttemptAt": "2026-08-16T12:49:49.249Z",
             "slotsDone": {
-              "tEarly": true
+              "tEarly": true,
+              "t30": true,
+              "t15": true
             },
             "confidence": 0
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.463Z"
+      "updatedAt": "2026-08-16T13:51:19.136Z"
     },
     {
       "matchId": "nottm_forest_brest_20260816",
       "league": "Club Friendlies",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/489.png",
       "homeTeam": "Nottm Forest",
       "awayTeam": "Brest",
       "homeTeamId": 10203,
@@ -551,7 +172,7 @@
       "time": "7:30 PM",
       "kickoff": "2026-08-16T19:30:00.000+06:30",
       "timezone": "Asia/Yangon",
-      "status": "Scheduled",
+      "status": "END",
       "fotmobMatchId": 5899097,
       "leagueId": 915708,
       "leagueName": "Club Friendlies",
@@ -573,11 +194,14 @@
       },
       "sourcePages": {},
       "streams": [],
-      "streamAttempts": {},
+      "streamAttempts": {
+        "t30": true
+      },
       "matchUrl": null,
-      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
-      "matchUrlAttempts": 0,
-      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.329Z",
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 1,
+      "lastMatchUrlAttemptAt": "2026-08-16T12:40:08.921Z",
+      "matchUrlSource": null,
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -586,65 +210,72 @@
       "validationReason": null,
       "lastAttemptAt": null,
       "streamSearch": {
-        "started": false,
+        "started": true,
         "stopped": false,
         "stopTime": null,
-        "slotsDone": {},
+        "slotsDone": {
+          "t30": true
+        },
         "sources": {}
       },
       "matchUrlSearch": {
         "slotsDone": {
-          "tEarly": true
+          "tEarly": true,
+          "t30": true
         },
         "sources": {
           "cakhia": {
             "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.329Z",
+            "status": "MATCH_URL_PENDING",
+            "attempts": 1,
+            "lastAttemptAt": "2026-08-16T12:40:08.921Z",
             "slotsDone": {
-              "tEarly": true
+              "tEarly": true,
+              "t30": true
             },
             "confidence": 0
           },
           "xoilac": {
             "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.329Z",
+            "status": "MATCH_URL_PENDING",
+            "attempts": 1,
+            "lastAttemptAt": "2026-08-16T12:40:08.921Z",
             "slotsDone": {
-              "tEarly": true
+              "tEarly": true,
+              "t30": true
             },
             "confidence": 0
           },
           "colatv": {
             "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.329Z",
+            "status": "MATCH_URL_PENDING",
+            "attempts": 1,
+            "lastAttemptAt": "2026-08-16T12:40:08.921Z",
             "slotsDone": {
-              "tEarly": true
+              "tEarly": true,
+              "t30": true
             },
             "confidence": 0
           },
           "socolive": {
             "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.329Z",
+            "status": "MATCH_URL_PENDING",
+            "attempts": 1,
+            "lastAttemptAt": "2026-08-16T12:40:08.921Z",
             "slotsDone": {
-              "tEarly": true
+              "tEarly": true,
+              "t30": true
             },
             "confidence": 0
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.463Z"
+      "updatedAt": "2026-08-16T13:51:19.137Z"
     },
     {
       "matchId": "basel_barcelona_20260816",
       "league": "Club Friendlies",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/489.png",
       "homeTeam": "Basel",
       "awayTeam": "Barcelona",
       "homeTeamId": 9931,
@@ -686,6 +317,7 @@
       "matchUrlStatus": "MATCH_URL_FOUND",
       "matchUrlAttempts": 0,
       "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.333Z",
+      "matchUrlSource": "cakhia",
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -747,12 +379,12 @@
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.463Z"
+      "updatedAt": "2026-08-16T13:51:19.138Z"
     },
     {
       "matchId": "racing_santander_villarreal_20260816",
       "league": "La Liga",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/87.png",
       "homeTeam": "Racing Santander",
       "awayTeam": "Villarreal",
       "homeTeamId": 8696,
@@ -792,9 +424,10 @@
       "streams": [],
       "streamAttempts": {},
       "matchUrl": "https://cakhiazvm.tv/truc-tiep/racing-santander-vs-villarreal-luc-2200-ngay-16-08-2026/",
-      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlStatus": "MATCH_URL_CONFIRMED",
       "matchUrlAttempts": 0,
       "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.361Z",
+      "matchUrlSource": "cakhia",
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -856,12 +489,12 @@
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.464Z"
+      "updatedAt": "2026-08-16T13:51:19.138Z"
     },
     {
       "matchId": "newcastle_united_strasbourg_20260816",
       "league": "Club Friendlies",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/489.png",
       "homeTeam": "Newcastle United",
       "awayTeam": "Strasbourg",
       "homeTeamId": 10261,
@@ -899,9 +532,10 @@
       "streams": [],
       "streamAttempts": {},
       "matchUrl": "https://cakhiazvm.tv/truc-tiep/newcastle-united-vs-strasbourg-luc-2200-ngay-16-08-2026/",
-      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlStatus": "MATCH_URL_CONFIRMED",
       "matchUrlAttempts": 0,
       "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.363Z",
+      "matchUrlSource": "cakhia",
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -963,12 +597,12 @@
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.465Z"
+      "updatedAt": "2026-08-16T13:51:19.139Z"
     },
     {
       "matchId": "schalke_04_real_madrid_20260816",
       "league": "Club Friendlies",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/489.png",
       "homeTeam": "Schalke 04",
       "awayTeam": "Real Madrid",
       "homeTeamId": 10189,
@@ -1008,9 +642,10 @@
       "streams": [],
       "streamAttempts": {},
       "matchUrl": "https://cakhiazvm.tv/truc-tiep/schalke-04-vs-real-madrid-luc-2200-ngay-16-08-2026/",
-      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlStatus": "MATCH_URL_CONFIRMED",
       "matchUrlAttempts": 0,
       "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.364Z",
+      "matchUrlSource": "cakhia",
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -1072,12 +707,12 @@
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.465Z"
+      "updatedAt": "2026-08-16T13:51:19.139Z"
     },
     {
       "matchId": "espanyol_levante_20260816",
       "league": "La Liga",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/87.png",
       "homeTeam": "Espanyol",
       "awayTeam": "Levante",
       "homeTeamId": 8558,
@@ -1116,9 +751,10 @@
       "streams": [],
       "streamAttempts": {},
       "matchUrl": "https://cakhiazvm.tv/truc-tiep/espanyol-vs-levante-luc-0000-ngay-17-08-2026/",
-      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlStatus": "MATCH_URL_CONFIRMED",
       "matchUrlAttempts": 0,
       "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.366Z",
+      "matchUrlSource": "cakhia",
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -1180,12 +816,12 @@
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.466Z"
+      "updatedAt": "2026-08-16T13:51:19.139Z"
     },
     {
       "matchId": "chapecoense_af_bahia_20260816",
       "league": "Brazil Serie A (BRA D1)",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
       "homeTeam": "Chapecoense AF",
       "awayTeam": "Bahia",
       "homeTeamId": 197693,
@@ -1196,7 +832,7 @@
       "time": "8:30 PM",
       "kickoff": "2026-08-16T20:30:00.000+06:30",
       "timezone": "Asia/Yangon",
-      "status": "Scheduled",
+      "status": "PREPARING_STREAM",
       "fotmobMatchId": 5103593,
       "leagueId": 268,
       "leagueName": "Brazil Serie A (BRA D1)",
@@ -1218,11 +854,15 @@
       },
       "sourcePages": {},
       "streams": [],
-      "streamAttempts": {},
+      "streamAttempts": {
+        "t30": true,
+        "t15": true
+      },
       "matchUrl": null,
-      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
-      "matchUrlAttempts": 0,
-      "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.331Z",
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 2,
+      "lastMatchUrlAttemptAt": "2026-08-16T13:51:19.022Z",
+      "matchUrlSource": null,
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -1231,7 +871,7 @@
       "validationReason": null,
       "lastAttemptAt": null,
       "streamSearch": {
-        "started": false,
+        "started": true,
         "stopped": false,
         "stopTime": null,
         "slotsDone": {},
@@ -1239,57 +879,63 @@
       },
       "matchUrlSearch": {
         "slotsDone": {
-          "tEarly": true
+          "tEarly": true,
+          "t30": true,
+          "t15": true
         },
         "sources": {
           "cakhia": {
             "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.331Z",
+            "status": "MATCH_URL_PENDING",
+            "attempts": 2,
+            "lastAttemptAt": "2026-08-16T13:51:19.022Z",
             "slotsDone": {
-              "tEarly": true
+              "t30": true,
+              "t15": true
             },
             "confidence": 0
           },
           "xoilac": {
             "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.331Z",
+            "status": "MATCH_URL_PENDING",
+            "attempts": 2,
+            "lastAttemptAt": "2026-08-16T13:51:19.022Z",
             "slotsDone": {
-              "tEarly": true
+              "t30": true,
+              "t15": true
             },
             "confidence": 0
           },
           "colatv": {
             "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.331Z",
+            "status": "MATCH_URL_PENDING",
+            "attempts": 2,
+            "lastAttemptAt": "2026-08-16T13:51:19.022Z",
             "slotsDone": {
-              "tEarly": true
+              "t30": true,
+              "t15": true
             },
             "confidence": 0
           },
           "socolive": {
             "matchUrl": null,
-            "status": "MATCH_URL_NOT_FOUND",
-            "attempts": 0,
-            "lastAttemptAt": "2026-08-16T08:49:06.331Z",
+            "status": "MATCH_URL_PENDING",
+            "attempts": 2,
+            "lastAttemptAt": "2026-08-16T13:51:19.022Z",
             "slotsDone": {
-              "tEarly": true
+              "t30": true,
+              "t15": true
             },
             "confidence": 0
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.466Z"
+      "updatedAt": "2026-08-16T13:51:19.140Z"
     },
     {
       "matchId": "vasco_da_gama_santos_fc_20260817",
       "league": "Brazil Serie A (BRA D1)",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
       "homeTeam": "Vasco da Gama",
       "awayTeam": "Santos FC",
       "homeTeamId": 10276,
@@ -1327,9 +973,10 @@
       "streams": [],
       "streamAttempts": {},
       "matchUrl": "https://cakhiazvm.tv/truc-tiep/vasco-da-gama-vs-santos-luc-0200-ngay-17-08-2026/",
-      "matchUrlStatus": "MATCH_CONFIRMED",
+      "matchUrlStatus": "MATCH_URL_CONFIRMED",
       "matchUrlAttempts": 0,
       "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.370Z",
+      "matchUrlSource": "cakhia",
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -1391,12 +1038,12 @@
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.466Z"
+      "updatedAt": "2026-08-16T13:51:19.140Z"
     },
     {
       "matchId": "atletico_mg_gremio_20260817",
       "league": "Brazil Serie A (BRA D1)",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
       "homeTeam": "Atletico MG",
       "awayTeam": "Gremio",
       "homeTeamId": 10272,
@@ -1431,9 +1078,10 @@
       "streams": [],
       "streamAttempts": {},
       "matchUrl": null,
-      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlStatus": "MATCH_URL_PENDING",
       "matchUrlAttempts": 0,
       "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.372Z",
+      "matchUrlSource": null,
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -1495,12 +1143,12 @@
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.466Z"
+      "updatedAt": "2026-08-16T13:51:19.140Z"
     },
     {
       "matchId": "mirassol_flamengo_20260817",
       "league": "Brazil Serie A (BRA D1)",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
       "homeTeam": "Mirassol",
       "awayTeam": "Flamengo",
       "homeTeamId": 163782,
@@ -1535,9 +1183,10 @@
       "streams": [],
       "streamAttempts": {},
       "matchUrl": null,
-      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlStatus": "MATCH_URL_PENDING",
       "matchUrlAttempts": 0,
       "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.373Z",
+      "matchUrlSource": null,
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -1599,12 +1248,12 @@
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.467Z"
+      "updatedAt": "2026-08-16T13:51:19.141Z"
     },
     {
       "matchId": "vitoria_botafogo_rj_20260817",
       "league": "Brazil Serie A (BRA D1)",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
       "homeTeam": "Vitoria",
       "awayTeam": "Botafogo RJ",
       "homeTeamId": 7733,
@@ -1639,9 +1288,10 @@
       "streams": [],
       "streamAttempts": {},
       "matchUrl": null,
-      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlStatus": "MATCH_URL_PENDING",
       "matchUrlAttempts": 0,
       "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.375Z",
+      "matchUrlSource": null,
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -1703,12 +1353,12 @@
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.467Z"
+      "updatedAt": "2026-08-16T13:51:19.142Z"
     },
     {
       "matchId": "corinthians_cruzeiro_20260817",
       "league": "Brazil Serie A (BRA D1)",
-      "leagueIcon": null,
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
       "homeTeam": "Corinthians",
       "awayTeam": "Cruzeiro",
       "homeTeamId": 9808,
@@ -1743,9 +1393,10 @@
       "streams": [],
       "streamAttempts": {},
       "matchUrl": null,
-      "matchUrlStatus": "MATCH_URL_NOT_FOUND",
+      "matchUrlStatus": "MATCH_URL_PENDING",
       "matchUrlAttempts": 0,
       "lastMatchUrlAttemptAt": "2026-08-16T08:49:06.376Z",
+      "matchUrlSource": null,
       "streamUrl": null,
       "streamHeaders": null,
       "streamStatus": "PREPARING_STREAM",
@@ -1807,7 +1458,178 @@
           }
         }
       },
-      "updatedAt": "2026-08-16T08:49:06.467Z"
+      "updatedAt": "2026-08-16T13:51:19.145Z"
+    },
+    {
+      "matchId": "nottingham_forest_brest_20260816",
+      "league": "Club Friendlies",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/489.png",
+      "homeTeam": "Nottingham Forest",
+      "awayTeam": "Brest",
+      "homeTeamId": 10203,
+      "awayTeamId": 8521,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10203.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8521.png",
+      "date": "2026-08-16",
+      "time": "7:30 PM",
+      "kickoff": "2026-08-16T19:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "LIVE",
+      "fotmobMatchId": 5899097,
+      "leagueId": 915708,
+      "leagueName": "Club Friendlies",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": true,
+      "streamCount": 1,
+      "originalNames": {
+        "fotmob": {
+          "league": "INT Club Friendlies",
+          "country": "INT",
+          "leagueId": 915708,
+          "homeTeam": "Nottm Forest",
+          "awayTeam": "Brest"
+        },
+        "socolive": {
+          "league": "Club Friendlies",
+          "homeTeam": "Nottingham Forest",
+          "awayTeam": "Brest",
+          "url": "https://socolivepp.tv/truc-tiep/nottingham-forest-vs-brest-luc-2000-ngay-16-08-2026/"
+        }
+      },
+      "sourcePages": {
+        "cakhia": "https://cakhiazvm.tv/truc-tiep/nottingham-forest-vs-brest-luc-2000-ngay-16-08-2026/",
+        "socolive": "https://socolivepp.tv/truc-tiep/nottingham-forest-vs-brest-luc-2000-ngay-16-08-2026/"
+      },
+      "streams": [
+        {
+          "source": "socolive",
+          "type": "m3u8",
+          "quality": "Link 1",
+          "name": "Link 1",
+          "url": "https://live2.livefeedtextbox.com/live/channel13.m3u8",
+          "headers": {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+            "Referer": "https://soco.textliveupdaterz.com/"
+          },
+          "streamHeaders": {
+            "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+            "Referer": "https://soco.textliveupdaterz.com/"
+          },
+          "active": true,
+          "checkedAt": "2026-08-16T12:50:45.431Z"
+        }
+      ],
+      "streamAttempts": {
+        "t30": true,
+        "t15": true,
+        "t5": true,
+        "t0": true,
+        "tP5": true,
+        "tP10": true
+      },
+      "matchUrl": "https://cakhiazvm.tv/truc-tiep/nottingham-forest-vs-brest-luc-2000-ngay-16-08-2026/",
+      "matchUrlStatus": "MATCH_URL_CONFIRMED",
+      "matchUrlAttempts": 1,
+      "lastMatchUrlAttemptAt": "2026-08-16T12:49:49.255Z",
+      "matchUrlSource": "cakhia",
+      "streamUrl": "https://live2.livefeedtextbox.com/live/channel13.m3u8",
+      "streamHeaders": {
+        "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
+        "Referer": "https://soco.textliveupdaterz.com/"
+      },
+      "streamStatus": "AVAILABLE",
+      "attempts": 1,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": "2026-08-16T13:07:47.522Z",
+      "streamSearch": {
+        "started": true,
+        "stopped": true,
+        "stopTime": "2026-08-16T19:48:41.526+06:30",
+        "slotsDone": {
+          "t15": true,
+          "tP5": true
+        },
+        "sources": {
+          "cakhia": {
+            "status": "SEARCHING",
+            "attempts": 2,
+            "postKickoffAttempts": 1,
+            "lastError": "Attempted to use detached Frame '388103D6CF824B89D9A11D3364EF8499'.",
+            "lastAttemptAt": "2026-08-16T13:07:47.522Z",
+            "updatedAt": "2026-08-16T13:07:47.522Z",
+            "slotsDone": {
+              "t15": true,
+              "tP5": true
+            },
+            "extractionMethod": null
+          },
+          "socolive": {
+            "status": "AVAILABLE",
+            "attempts": 1,
+            "postKickoffAttempts": 0,
+            "lastError": null,
+            "lastAttemptAt": "2026-08-16T12:50:45.505Z",
+            "updatedAt": "2026-08-16T12:50:45.505Z",
+            "slotsDone": {
+              "t15": true
+            },
+            "extractionMethod": "axios"
+          }
+        }
+      },
+      "matchUrlSearch": {
+        "slotsDone": {
+          "t15": true
+        },
+        "sources": {
+          "cakhia": {
+            "matchUrl": "https://cakhiazvm.tv/truc-tiep/nottingham-forest-vs-brest-luc-2000-ngay-16-08-2026/",
+            "status": "MATCH_URL_CONFIRMED",
+            "attempts": 1,
+            "lastAttemptAt": "2026-08-16T12:49:49.255Z",
+            "slotsDone": {
+              "t15": true
+            },
+            "confidence": 100
+          },
+          "xoilac": {
+            "matchUrl": null,
+            "status": "MATCH_URL_PENDING",
+            "attempts": 1,
+            "lastAttemptAt": "2026-08-16T12:49:49.255Z",
+            "slotsDone": {
+              "t15": true
+            },
+            "confidence": 0
+          },
+          "colatv": {
+            "matchUrl": null,
+            "status": "MATCH_URL_PENDING",
+            "attempts": 1,
+            "lastAttemptAt": "2026-08-16T12:49:49.255Z",
+            "slotsDone": {
+              "t15": true
+            },
+            "confidence": 0
+          },
+          "socolive": {
+            "matchUrl": "https://socolivepp.tv/truc-tiep/nottingham-forest-vs-brest-luc-2000-ngay-16-08-2026/",
+            "status": "MATCH_URL_CONFIRMED",
+            "attempts": 1,
+            "lastAttemptAt": "2026-08-16T12:49:49.255Z",
+            "slotsDone": {
+              "t15": true
+            },
+            "confidence": 100
+          }
+        }
+      },
+      "updatedAt": "2026-08-16T13:51:19.147Z"
     }
   ],
   "meta": {
@@ -1820,14 +1642,14 @@
       "highlight",
       "myanmartv"
     ],
-    "liveCount": 0,
-    "scheduledCount": 17,
-    "endedCount": 0,
+    "liveCount": 1,
+    "scheduledCount": 10,
+    "endedCount": 2,
     "manualStreamCount": 0,
     "highlightCount": 0,
     "channelCount": 18,
-    "checksum": "887aedc21f2c004384ad909a09aafd41ab44bd0ab0f74e5c7e529dfdb312462b",
-    "cachedAt": "2026-08-16T08:49:06.498Z",
+    "checksum": "14b9f0ee21da99522779757bc4696a926ab561a67bf1543f1c9e85517ab102c5",
+    "cachedAt": "2026-08-16T13:51:19.173Z",
     "feed": "matches"
   }
 }
