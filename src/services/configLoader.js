@@ -168,4 +168,4 @@ function preferLocalSources(local, remote, preferLocal) {
   return local || remote || { sources: [] };
 }
 
-module.exports = { ConfigLoader, githubHeaders, preferLocalSources };
+module.exports = { ConfigLoader, githubHeaders, preferLocalSources, hasSources };

@@ -156,19 +156,33 @@ function repairSlotsDone(slotsDone, attempts, hasUrl) {
   return next;
 }
 
+function discoveredMatchUrl(raw) {
+  const url = String(raw?.matchUrl || '').trim();
+  return url || null;
+}
+
+/**
+ * sourcePages must follow per-source discovery. Ignore leftover sister-site
+ * slugs when this source never saved its own Match URL.
+ */
 function getSourceMatchUrlState(fixture, sourceName) {
   const search = ensureMatchUrlSearch(fixture);
   const raw = search.sources?.[sourceName] || {};
-  const url =
-    raw.matchUrl ||
-    (fixture?.sourcePages && fixture.sourcePages[sourceName]) ||
-    null;
+  const pageUrl = fixture?.sourcePages?.[sourceName] || null;
+  const discovered = discoveredMatchUrl(raw);
+  // Legacy rows had a page URL and no per-source search status.
+  const url = discovered || (!raw.status ? pageUrl : null);
   let status = raw.status || null;
   if (!status) {
     status = url ? MATCH_URL_STATUS.FOUND : MATCH_URL_STATUS.PENDING;
-  } else if (status === MATCH_URL_STATUS.NOT_FOUND && url) {
+  } else if (
+    discovered &&
+    (status === MATCH_URL_STATUS.NOT_FOUND ||
+      status === MATCH_URL_STATUS.PENDING ||
+      status === MATCH_URL_STATUS.SEARCHING)
+  ) {
     status = MATCH_URL_STATUS.FOUND;
-  } else if (status === MATCH_URL_STATUS.NOT_FOUND && !url) {
+  } else if (status === MATCH_URL_STATUS.NOT_FOUND && !discovered) {
     const attempts = Number(raw.attempts) || 0;
     status =
       attempts >= MATCH_URL_MAX_ATTEMPTS
@@ -263,6 +277,7 @@ function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
 
   const sourcePages = { ...(fixture.sourcePages || {}) };
   if (matchUrl) sourcePages[sourceName] = matchUrl;
+  else delete sourcePages[sourceName];
 
   logMatchUrlDiscovery({
     fixture,
@@ -293,9 +308,12 @@ function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
 
 function skipDiscoveryKeepKnown(fixture, sourceName) {
   const st = getSourceMatchUrlState(fixture, sourceName);
-  if (!sourceHasSavedMatchUrl(st)) return fixture;
   const sourcePages = { ...(fixture.sourcePages || {}) };
-  if (st.matchUrl) sourcePages[sourceName] = st.matchUrl;
+  if (sourceHasSavedMatchUrl(st) && st.matchUrl) {
+    sourcePages[sourceName] = st.matchUrl;
+  } else {
+    delete sourcePages[sourceName];
+  }
   return aggregateMatchUrlFields({
     ...fixture,
     sourcePages,
@@ -325,9 +343,25 @@ function finalizeMatchUrlStatus(fixture, nowSec) {
   };
 }
 
+function sanitizeSourcePages(fixture) {
+  const search = ensureMatchUrlSearch(fixture);
+  const prev = { ...(fixture.sourcePages || {}) };
+  const names = Object.keys(search.sources || {});
+  if (!names.length) return prev;
+
+  const next = {};
+  for (const name of names) {
+    const raw = search.sources[name] || {};
+    const url = discoveredMatchUrl(raw);
+    if (!url) continue;
+    next[name] = url;
+  }
+  return next;
+}
+
 function aggregateMatchUrlFields(fixture) {
   const search = ensureMatchUrlSearch(fixture);
-  const sourcePages = { ...(fixture.sourcePages || {}) };
+  const sourcePages = sanitizeSourcePages(fixture);
 
   let bestUrl = fixture.matchUrl || null;
   let bestStatus = isSavedMatchUrlStatus(fixture.matchUrlStatus)
@@ -344,8 +378,7 @@ function aggregateMatchUrlFields(fixture) {
 
   for (const [name, raw] of Object.entries(search.sources || {})) {
     sourceCount += 1;
-    const url = raw.matchUrl || sourcePages[name] || null;
-    if (url) sourcePages[name] = url;
+    const url = discoveredMatchUrl(raw) || sourcePages[name] || null;
     const attempts = Number(raw.attempts) || 0;
     if (attempts > maxAttempts) maxAttempts = attempts;
     if (raw.lastAttemptAt && (!lastAt || raw.lastAttemptAt > lastAt)) {
@@ -354,6 +387,7 @@ function aggregateMatchUrlFields(fixture) {
     const conf = Number(raw.confidence) || 0;
     let status = raw.status || (url ? MATCH_URL_STATUS.FOUND : MATCH_URL_STATUS.PENDING);
     if (status === MATCH_URL_STATUS.CONFIRMED_LEGACY) status = MATCH_URL_STATUS.CONFIRMED;
+    if (status === MATCH_URL_STATUS.NOT_FOUND && url) status = MATCH_URL_STATUS.FOUND;
     if (status === MATCH_URL_STATUS.NOT_FOUND && !url) {
       status =
         attempts >= MATCH_URL_MAX_ATTEMPTS
@@ -423,6 +457,7 @@ module.exports = {
   isTransientDiscoverError,
   isConfirmedMatchUrlStatus,
   isSavedMatchUrlStatus,
+  sanitizeSourcePages,
   slotLeadLabel,
   nextMatchUrlSlot,
 };

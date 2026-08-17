@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
-const { githubHeaders } = require('../../services/configLoader');
+const { githubHeaders, hasSources } = require('../../services/configLoader');
 const { hasDataChanged } = require('../../utils/compare');
 
 /**
@@ -52,16 +52,40 @@ class ConfigAdminService {
   }
 
   async getSourcesConfig() {
-    if (this.enabled) {
-      const remote = await this.getRemoteFile('sources.json');
-      if (remote) return remote;
-    }
     const local = this.readLocalFile('sources.json');
+    if (this.enabled) {
+      try {
+        const remote = await this.getRemoteFile('sources.json');
+        if (hasSources(remote?.content)) return remote;
+        if (hasSources(local?.content)) {
+          return {
+            ...local,
+            remoteEmpty: Boolean(remote),
+            remoteOrigin: remote ? 'github' : null,
+          };
+        }
+        if (remote) return remote;
+      } catch (err) {
+        if (hasSources(local?.content)) {
+          return { ...local, remoteError: err.message };
+        }
+        throw err;
+      }
+    }
     if (!local) throw new Error('sources.json not found');
     return local;
   }
 
   async saveSourcesConfig(content, { message, actor } = {}) {
+    if (!Array.isArray(content?.sources) || !content.sources.length) {
+      const existing = this.readLocalFile('sources.json');
+      if (hasSources(existing?.content)) {
+        throw new Error(
+          'Refusing to overwrite sources.json with an empty sources list. Load local config or push it to GitHub first.'
+        );
+      }
+    }
+
     // Always mirror locally so AWS scraper has immediate fallback
     const localPath = path.join(this.localDir, 'sources.json');
     fs.writeFileSync(localPath, JSON.stringify(content, null, 2), 'utf8');
@@ -147,6 +171,16 @@ class ConfigAdminService {
       commit: data.commit?.sha || null,
       htmlUrl: data.content?.html_url || null,
     };
+  }
+
+  /** Push local config/sources.json to GitHub (fixes empty remote editor). */
+  async syncLocalSourcesToGithub({ message, actor } = {}) {
+    const local = this.readLocalFile('sources.json');
+    if (!hasSources(local?.content)) throw new Error('Local sources.json is missing or empty');
+    return this.saveSourcesConfig(local.content, {
+      message: message || `chore: sync local sources.json (${actor || 'admin'})`,
+      actor,
+    });
   }
 
   /** Push local config/leagues.json to GitHub (ops recovery). */

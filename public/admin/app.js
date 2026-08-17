@@ -1010,15 +1010,19 @@
   async function renderConfig() {
     setTitle('Remote Configuration');
     const data = await api('/sources');
+    const sourceCount = Array.isArray(data.config?.sources) ? data.config.sources.length : 0;
     const json = JSON.stringify(data.config || { sources: [] }, null, 2);
+    const emptyRemote = Boolean(data.remoteEmpty) || (data.configOrigin === 'github' && sourceCount === 0);
     pageEl.innerHTML = `
       <div class="panel">
         <h3>Edit sources.json (domains, selectors, mirrors)</h3>
         <p class="muted">Changes save to local config and GitHub (when configured). No AWS code deploy needed.</p>
+        ${emptyRemote || data.remoteError ? `<p class="error">GitHub sources.json is empty${data.remoteError ? ` (${esc(data.remoteError)})` : ''}. Showing local config — push it to GitHub to repair the remote file.</p>` : ''}
         <textarea id="config-json" rows="22" style="width:100%;font-family:ui-monospace,monospace;font-size:0.82rem">${esc(json)}</textarea>
         <div class="row" style="margin-top:0.8rem">
           <button id="btn-save-config">Save Configuration</button>
-          <span class="muted">Origin: ${esc(data.configOrigin || 'local')}</span>
+          <button id="btn-sync-sources" class="secondary" type="button">Push local to GitHub</button>
+          <span class="muted">Origin: ${esc(data.configOrigin || 'local')} · ${sourceCount} source${sourceCount === 1 ? '' : 's'}</span>
         </div>
       </div>`;
     $('#btn-save-config').addEventListener('click', async () => {
@@ -1029,6 +1033,16 @@
           body: JSON.stringify({ content }),
         });
         toast('Configuration saved');
+        renderConfig();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+    $('#btn-sync-sources').addEventListener('click', async () => {
+      try {
+        await api('/sources/config/sync', { method: 'POST', body: JSON.stringify({}) });
+        toast('Local sources.json pushed to GitHub');
+        renderConfig();
       } catch (err) {
         toast(err.message, 'error');
       }

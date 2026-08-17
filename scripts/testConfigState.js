@@ -34,6 +34,9 @@ const {
   needsMatchUrlDiscovery,
   finalizeMatchUrlStatus,
   matchUrlJobKey,
+  aggregateMatchUrlFields,
+  getSourceMatchUrlState,
+  sourceHasSavedMatchUrl,
 } = require('../src/utils/matchUrlDiscovery');
 const { JobQueue, scraperConcurrency } = require('../src/utils/jobQueue');
 const { StreamEngine } = require('../src/services/streamEngine');
@@ -527,6 +530,52 @@ async function run() {
     m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't30', attempt: 3 }, 't3');
     m = finalizeMatchUrlStatus(m, toUtcUnixSeconds(kickoffIso(0)));
     assert('Match URL never found → MATCH_URL_FAILED', m.matchUrlStatus === MATCH_URL_STATUS.FAILED);
+  }
+
+  console.log('\n=== sourcePages follow discovery only ===');
+  {
+    const leaked = aggregateMatchUrlFields({
+      matchId: 'leaked_xoilac',
+      kickoff: kickoffIso(90),
+      homeTeam: 'Racing Santander',
+      awayTeam: 'Villarreal',
+      sourcePages: {
+        cakhia: 'https://cakhiazvm.tv/truc-tiep/racing-santander-vs-villarreal/',
+        xoilac: 'https://xoilacxtr.tv/truc-tiep/racing-santander-vs-villarreal/',
+      },
+      matchUrlSearch: {
+        sources: {
+          cakhia: {
+            matchUrl: 'https://cakhiazvm.tv/truc-tiep/racing-santander-vs-villarreal/',
+            status: MATCH_URL_STATUS.CONFIRMED,
+            attempts: 0,
+            confidence: 100,
+          },
+          xoilac: {
+            matchUrl: null,
+            status: MATCH_URL_STATUS.NOT_FOUND,
+            attempts: 0,
+            confidence: 0,
+          },
+        },
+      },
+    });
+    assert(
+      'sister-site slug is not kept as an Xoilac Match URL',
+      leaked.sourcePages.xoilac == null && leaked.sourcePages.cakhia != null
+    );
+    const xoilacState = getSourceMatchUrlState(leaked, 'xoilac');
+    assert(
+      'leaked Xoilac page is not treated as discovered',
+      xoilacState.matchUrl == null && sourceHasSavedMatchUrl(xoilacState) === false
+    );
+    const extract = decideSourceExtract({
+      sourceName: 'xoilac',
+      streamSearch: { sources: {} },
+      matchUrlState: xoilacState,
+      slot: { id: 't30', postKickoff: false },
+    });
+    assert('do not extract Xoilac from a cloned slug', extract.reason === 'no_confirmed_match_url');
   }
 
   console.log('\n=== 10 matches × 4 sources + concurrency ===');

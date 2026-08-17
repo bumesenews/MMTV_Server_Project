@@ -584,6 +584,8 @@ function createAdminRouter(ctx) {
         sources,
         config: remote?.content || null,
         configOrigin: remote?.origin || null,
+        remoteEmpty: Boolean(remote?.remoteEmpty),
+        remoteError: remote?.remoteError || null,
       });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
@@ -661,6 +663,26 @@ function createAdminRouter(ctx) {
         meta: result,
       });
       res.json({ ok: true, ...result, content });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  /** Push server-local config/sources.json up to GitHub (fixes empty remote editor). */
+  router.post('/sources/config/sync', auth, admin, async (req, res) => {
+    try {
+      const result = await ctx.config.syncLocalSourcesToGithub({
+        actor: req.admin.username,
+        message: req.body?.message,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'sources_config_sync',
+        message: 'Synced local sources.json to GitHub',
+        actor: req.admin.username,
+        meta: result,
+      });
+      res.json({ ok: true, ...result });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
     }

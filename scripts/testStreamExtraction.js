@@ -258,6 +258,20 @@ console.log('\n=== Source skip / retry policy ===');
     liveSearching === STREAM_SOURCE_STATUS.SEARCHING
   );
   assert(
+    'stopped search with no streams is FAILED',
+    aggregateStreamStatus(
+      { started: true, stopped: true, sources: {} },
+      { hasValidatedStream: false, stopped: true, mins: -90 }
+    ) === STREAM_SOURCE_STATUS.FAILED
+  );
+  assert(
+    'stopped without ever starting stays PREPARING',
+    aggregateStreamStatus(
+      { started: false, stopped: true, sources: {} },
+      { hasValidatedStream: false, stopped: true, mins: 40 }
+    ) === STREAM_SOURCE_STATUS.PREPARING
+  );
+  assert(
     'detached Frame is a browser error, not HLS validation',
     isBrowserProtocolError("Attempted to use detached Frame 'ABC'") === true
   );
@@ -739,6 +753,91 @@ async function runAsyncTests() {
     assert('Additive fotmobMatchId/leagueId present', m.fotmobMatchId === 123 && m.leagueId === 47);
     assert('streamStatus AVAILABLE only with validated stream', m.streamStatus === 'AVAILABLE');
     assert('timezone remains Asia/Yangon', payload.timezone === 'Asia/Yangon');
+  }
+
+  {
+    const kickoff = kickoffIso(0);
+    const payload = generateFlutterJson([
+      {
+        matchId: 'racing_villarreal_clone',
+        league: 'La Liga',
+        homeTeam: 'Racing Santander',
+        awayTeam: 'Villarreal',
+        date: DateTime.fromISO(kickoff, { setZone: true }).toFormat('yyyy-MM-dd'),
+        time: DateTime.fromISO(kickoff, { setZone: true }).toFormat('HH:mm'),
+        kickoff,
+        status: 'LIVE',
+        streams: [
+          {
+            source: 'cakhia',
+            type: 'm3u8',
+            quality: 'Link 1',
+            url: 'https://live2.livefeedtextbox.com/live/channel24.m3u8',
+            active: true,
+            validation: { ok: true },
+          },
+          {
+            source: 'xoilac',
+            type: 'm3u8',
+            quality: 'Link 1',
+            url: 'https://live2.livefeedtextbox.com/live/channel24.m3u8',
+            active: true,
+            validation: { ok: true },
+          },
+        ],
+        sourcePages: {
+          cakhia: 'https://cakhiazvm.tv/truc-tiep/racing-santander-vs-villarreal/',
+          xoilac: 'https://xoilacxtr.tv/truc-tiep/racing-santander-vs-villarreal/',
+        },
+        matchUrlSearch: {
+          sources: {
+            cakhia: {
+              matchUrl: 'https://cakhiazvm.tv/truc-tiep/racing-santander-vs-villarreal/',
+              status: 'MATCH_URL_CONFIRMED',
+              confidence: 100,
+            },
+            xoilac: {
+              matchUrl: null,
+              status: 'MATCH_URL_NOT_FOUND',
+              confidence: 0,
+            },
+          },
+        },
+        streamSearch: {
+          started: true,
+          stopped: true,
+          sources: {
+            cakhia: { status: 'AVAILABLE' },
+            xoilac: { status: 'AVAILABLE' },
+          },
+        },
+      },
+      {
+        matchId: 'chapecoense_failed',
+        league: 'Brazil Serie A (BRA D1)',
+        homeTeam: 'Chapecoense AF',
+        awayTeam: 'Bahia',
+        date: DateTime.fromISO(kickoff, { setZone: true }).toFormat('yyyy-MM-dd'),
+        time: DateTime.fromISO(kickoff, { setZone: true }).toFormat('HH:mm'),
+        kickoff: kickoffIso(-90),
+        status: 'END',
+        streams: [],
+        streamSearch: { started: true, stopped: true, sources: {} },
+      },
+    ]);
+    const racing = payload.matches[0];
+    assert(
+      'Flutter omits Xoilac page that was never discovered',
+      racing.sourcePages.xoilac == null && Boolean(racing.sourcePages.cakhia)
+    );
+    assert(
+      'Flutter does not clone the sister-site stream onto Xoilac',
+      racing.streams.every((s) => s.source !== 'xoilac') && racing.streams[0].source === 'cakhia'
+    );
+    assert(
+      'ended match with stopped empty search is FAILED',
+      payload.matches[1].streamStatus === 'FAILED'
+    );
   }
 }
 

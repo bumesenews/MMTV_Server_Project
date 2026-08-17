@@ -10,6 +10,11 @@ const {
   aggregateValidationFields,
   maxSourceAttempts,
 } = require('../utils/streamExtractPolicy');
+const {
+  getSourceMatchUrlState,
+  sourceHasSavedMatchUrl,
+  sanitizeSourcePages,
+} = require('../utils/matchUrlDiscovery');
 
 function flutterStreamName(stream) {
   const source = String(stream?.source || '').trim();
@@ -23,14 +28,24 @@ function flutterStreamName(stream) {
   return `${pretty} · ${quality}`;
 }
 
+function sourceAllowsPublishedStream(match, sourceName) {
+  const name = String(sourceName || '').trim();
+  if (!name) return true;
+  if (name.toLowerCase() === 'manual') return true;
+  return sourceHasSavedMatchUrl(getSourceMatchUrlState(match, name));
+}
+
 /** If a source is AVAILABLE but its stream was collapsed as a URL duplicate, still expose a link. */
 function expandStreamsForAvailableSources(match) {
-  const list = [...(match?.streams || [])].filter((s) => s && s.url);
+  const list = [...(match?.streams || [])]
+    .filter((s) => s && s.url)
+    .filter((s) => sourceAllowsPublishedStream(match, s.source));
   const template = list[0];
   if (!template) return list;
   const have = new Set(list.map((s) => String(s.source || '').toLowerCase()));
   for (const [name, state] of Object.entries(match?.streamSearch?.sources || {})) {
     if (String(state?.status || '') !== 'AVAILABLE') continue;
+    if (!sourceAllowsPublishedStream(match, name)) continue;
     const key = String(name || '').toLowerCase();
     if (!key || have.has(key)) continue;
     list.push({
@@ -130,7 +145,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
     hasStreams: flutterStreams.length > 0,
     streamCount: flutterStreams.length,
     originalNames: m.originalNames || {},
-    sourcePages: m.sourcePages || {},
+    sourcePages: sanitizeSourcePages(m),
     streams: flutterStreams,
     streamAttempts: m.streamAttempts || {},
     matchUrl: m.matchUrl || null,

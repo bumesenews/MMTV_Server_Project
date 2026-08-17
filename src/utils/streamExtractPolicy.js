@@ -234,7 +234,10 @@ function aggregateStreamStatus(
   }
 
   if (stopped) {
-    return named.length ? STREAM_SOURCE_STATUS.FAILED : STREAM_SOURCE_STATUS.PREPARING;
+    // Started search with no playable stream (including empty sources after
+    // Match URL failure) is FAILED, not PREPARING.
+    if (named.length || streamSearch?.started) return STREAM_SOURCE_STATUS.FAILED;
+    return STREAM_SOURCE_STATUS.PREPARING;
   }
 
   if (mins != null && mins <= 0) return STREAM_SOURCE_STATUS.SEARCHING;
