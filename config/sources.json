@@ -267,7 +267,7 @@
         "today": "https://www.predictz.com/predictions/",
         "tomorrow": "https://www.predictz.com/predictions/tomorrow/"
       },
-      "notes": "PredictZ today + tomorrow tips. Scraped every 12 hours (TIPS_CRON)."
+      "notes": "PredictZ today + tomorrow tips. Default TIPS_CRON 08:07 and 20:07 Yangon; queued if football scrape is busy."
     }
   ]
 }

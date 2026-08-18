@@ -188,10 +188,16 @@ function createAdminRouter(ctx) {
 
   // ---------- Matches (scraped matches.json) ----------
   router.get('/matches', auth, (_req, res) => {
+    const delivery =
+      typeof ctx.cache.getDelivery === 'function'
+        ? ctx.cache.getDelivery('matches')
+        : null;
     const current = ctx.cache.getCurrent();
+    const payload =
+      delivery && Array.isArray(delivery.matches) ? delivery : current;
     const overrides = ctx.overrides.all();
     const manual = ctx.manualMatches.all();
-    const matches = (current?.matches || []).map((m) => ({
+    const matches = (payload?.matches || []).map((m) => ({
       ...m,
       override: overrides[m.matchId] || null,
       isManual: Boolean(m.manual || manual[m.matchId]),
@@ -218,7 +224,14 @@ function createAdminRouter(ctx) {
         matches.push({ ...m, isManual: true, override: overrides[matchId] || null });
       }
     }
-    res.json({ ok: true, matches, generatedAt: current?.generatedAt || null });
+    res.json({
+      ok: true,
+      matches,
+      generatedAt: payload?.generatedAt || current?.generatedAt || null,
+      timezone: payload?.timezone || current?.timezone || 'Asia/Yangon',
+      matchCount: matches.length,
+      meta: payload?.meta || current?.meta || null,
+    });
   });
 
   router.post('/matches', auth, editor, async (req, res) => {

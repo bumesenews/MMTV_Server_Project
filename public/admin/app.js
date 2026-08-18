@@ -537,6 +537,7 @@
 
     pageEl.innerHTML = `
       <div class="panel">
+        <p class="muted">Live <code>matches.json</code> feed (${esc(String(matchData.matchCount ?? state.matches.length))} matches) · generated ${esc(matchData.generatedAt || '—')} · ${esc(matchData.timezone || 'Asia/Yangon')}</p>
         <h3>Add Match</h3>
         <form id="match-create-form" class="grid-2">
           <label>League
@@ -572,7 +573,7 @@
           <table>
             <thead>
               <tr>
-                <th>Match</th><th>League</th><th>Kickoff</th><th>Status</th><th>Streams</th><th>Flags</th><th>Actions</th>
+                <th>Match</th><th>League</th><th>Kickoff</th><th>Status</th><th>Match URL</th><th>Stream</th><th>Streams</th><th>Flags</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -585,6 +586,11 @@
                   <td>${esc(m.league || '')}${m.leagueIcon ? `<div><img src="${esc(m.leagueIcon)}" alt="" style="height:18px;margin-top:4px" /></div>` : ''}</td>
                   <td>${esc(m.date || '')} ${esc(m.time || '')}</td>
                   <td><span class="badge ${m.status === 'LIVE' ? 'live' : m.status === 'PREPARING_STREAM' ? 'preparing' : ''}">${esc(m.status || '')}</span></td>
+                  <td>
+                    <div>${esc(m.matchUrlStatus || '—')}</div>
+                    ${m.matchUrl ? `<div class="muted" style="font-size:0.75rem;word-break:break-all">${esc(m.matchUrl)}</div>` : ''}
+                  </td>
+                  <td>${esc(m.streamStatus || '—')}</td>
                   <td>${(m.streams || []).length}</td>
                   <td>
                     ${m.pinned ? '<span class="badge">PIN</span>' : ''}
@@ -604,7 +610,7 @@
                       <button class="danger" data-act="delete">${m.isManual || m.manual ? 'Delete' : 'Hide'}</button>
                     </div>
                   </td>
-                </tr>`).join('') || '<tr><td colspan="7" class="muted">No matches yet. Add one above or run scraper.</td></tr>'}
+                </tr>`).join('') || '<tr><td colspan="9" class="muted">No matches yet. Add one above or run scraper.</td></tr>'}
             </tbody>
           </table>
         </div>

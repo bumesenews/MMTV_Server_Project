@@ -33,7 +33,7 @@ const {
  *
  * Separate jobs:
  * - Highlights every 3 hours (runHighlights)
- * - Myanmar TV channels every 12 hours (runMyanmarTv)
+ * - Myanmar TV channels every 8 minutes (runMyanmarTv; stream tokens ~10 min)
  */
 class Pipeline {
   constructor(env = process.env, admin = null) {
@@ -54,6 +54,9 @@ class Pipeline {
     this.channelsRunning = false;
     this.tipsRunning = false;
     this._expiring = false;
+    this._pendingMyanmarTv = false;
+    this._pendingTips = false;
+    this._drainingQueued = false;
     /** FotMob fixtures for today+tomorrow. Short TTL so evening runs still pick up tomorrow. */
     this.fixtureCache = { dayKey: null, fixtures: [], fetchedAt: 0 };
   }
@@ -446,6 +449,9 @@ class Pipeline {
       return { ok: false, reason: err.message, kept };
     } finally {
       this.running = false;
+      await this._drainQueuedJobs().catch((err) => {
+        logger.error('Queued job drain failed', { error: err.message });
+      });
       // Only tear down Chromium when no other scrape owns it
       if (!this.highlightRunning && !this.channelsRunning && !this.tipsRunning) {
         try {
@@ -699,7 +705,7 @@ class Pipeline {
 
   /**
    * Highlights: dedicated 3-hour job (runHighlights).
-   * Myanmar TV: dedicated 12-hour job (runMyanmarTv).
+   * Myanmar TV: dedicated job (runMyanmarTv). Tokens expire in ~10 minutes.
    * Main pipeline only reuses last successful stores — no live scrape each tick.
    */
   async _collectExtraContent(sourcesDoc, previous) {
@@ -989,6 +995,9 @@ class Pipeline {
       return { ok: false, reason: err.message };
     } finally {
       this.highlightRunning = false;
+      await this._drainQueuedJobs().catch((err) => {
+        logger.error('Queued job drain failed', { error: err.message });
+      });
       if (!this.running && !this.channelsRunning && !this.tipsRunning) {
         try {
           await this.browser.close();
@@ -1000,8 +1009,9 @@ class Pipeline {
   }
 
   /**
-   * Dedicated Myanmar TV channels job (every 12 hours):
-   * scrape → compare → GitHub only if changed. Never overwrite with empty on failure.
+   * Dedicated Myanmar TV channels job (stream tokens expire in ~10 minutes).
+   * scrape → GitHub. Never overwrite with empty on failure.
+   * If football/highlight/tips is running, queue and run when that job finishes.
    */
   async runMyanmarTv({ force = false } = {}) {
     if (this.channelsRunning) {
@@ -1009,16 +1019,19 @@ class Pipeline {
       return { ok: false, reason: 'already_running' };
     }
     if (this.running) {
-      logger.warn('Pipeline active — skip MyanmarTV job');
-      return { ok: false, reason: 'pipeline_running' };
+      this._pendingMyanmarTv = true;
+      logger.warn('Pipeline active — queue MyanmarTV job');
+      return { ok: false, reason: 'pipeline_running', queued: true };
     }
     if (this.highlightRunning) {
-      logger.warn('Highlight job active — skip MyanmarTV job');
-      return { ok: false, reason: 'highlight_running' };
+      this._pendingMyanmarTv = true;
+      logger.warn('Highlight job active — queue MyanmarTV job');
+      return { ok: false, reason: 'highlight_running', queued: true };
     }
     if (this.tipsRunning) {
-      logger.warn('Tips job active — skip MyanmarTV job');
-      return { ok: false, reason: 'tips_running' };
+      this._pendingMyanmarTv = true;
+      logger.warn('Tips job active — queue MyanmarTV job');
+      return { ok: false, reason: 'tips_running', queued: true };
     }
 
     this.channelsRunning = true;
@@ -1089,6 +1102,8 @@ class Pipeline {
         };
         return { ok: true, reason: 'empty_scrape_keep_previous', uploaded: false };
       }
+
+      scraped = this._keepPreviousChannelStreams(scraped, previousList);
 
       const nextDelivery = formatChannelsDelivery(scraped);
 
@@ -1187,7 +1202,54 @@ class Pipeline {
       return { ok: false, reason: err.message };
     } finally {
       this.channelsRunning = false;
+      await this._drainQueuedJobs().catch((err) => {
+        logger.error('Queued job drain failed', { error: err.message });
+      });
     }
+  }
+
+  async _drainQueuedJobs() {
+    if (this._drainingQueued) return;
+    this._drainingQueued = true;
+    try {
+      for (;;) {
+        if (this.running || this.highlightRunning || this.tipsRunning || this.channelsRunning) {
+          return;
+        }
+        if (this._pendingTips) {
+          this._pendingTips = false;
+          logger.info('Running queued tips job');
+          await this.runTips({ force: false });
+          continue;
+        }
+        if (this._pendingMyanmarTv) {
+          this._pendingMyanmarTv = false;
+          logger.info('Running queued MyanmarTV job');
+          await this.runMyanmarTv({ force: false });
+          continue;
+        }
+        return;
+      }
+    } finally {
+      this._drainingQueued = false;
+    }
+  }
+
+  _keepPreviousChannelStreams(scraped, previousList) {
+    const byTitle = new Map(
+      (previousList || []).map((c) => [String(c.title || '').toLowerCase(), c])
+    );
+    return (scraped || []).map((c) => {
+      if (c?.streamUrl) return c;
+      const prev = byTitle.get(String(c?.title || '').toLowerCase());
+      if (!prev?.streamUrl) return c;
+      return {
+        ...c,
+        streamUrl: prev.streamUrl,
+        headers: c.headers || prev.headers || null,
+        active: true,
+      };
+    });
   }
 
   /**
@@ -1200,16 +1262,19 @@ class Pipeline {
       return { ok: false, reason: 'already_running' };
     }
     if (this.running) {
-      logger.warn('Pipeline active — skip tips job');
-      return { ok: false, reason: 'pipeline_running' };
+      this._pendingTips = true;
+      logger.warn('Pipeline active — queue tips job');
+      return { ok: false, reason: 'pipeline_running', queued: true };
     }
     if (this.highlightRunning) {
-      logger.warn('Highlight job active — skip tips job');
-      return { ok: false, reason: 'highlight_running' };
+      this._pendingTips = true;
+      logger.warn('Highlight job active — queue tips job');
+      return { ok: false, reason: 'highlight_running', queued: true };
     }
     if (this.channelsRunning) {
-      logger.warn('MyanmarTV job active — skip tips job');
-      return { ok: false, reason: 'channels_running' };
+      this._pendingTips = true;
+      logger.warn('MyanmarTV job active — queue tips job');
+      return { ok: false, reason: 'channels_running', queued: true };
     }
 
     this.tipsRunning = true;
@@ -1325,7 +1390,10 @@ class Pipeline {
       return { ok: false, reason: err.message };
     } finally {
       this.tipsRunning = false;
-      if (!this.running && !this.highlightRunning && !this.channelsRunning) {
+      await this._drainQueuedJobs().catch((err) => {
+        logger.error('Queued job drain failed', { error: err.message });
+      });
+      if (!this.running && !this.highlightRunning && this.channelsRunning === false) {
         try {
           await this.browser.close();
         } catch {

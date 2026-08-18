@@ -16,8 +16,14 @@ class DashboardService {
   }
 
   get() {
+    const delivery =
+      typeof this.cache.getDelivery === 'function'
+        ? this.cache.getDelivery('matches')
+        : null;
     const current = this.cache.getCurrent();
-    const matches = current?.matches || [];
+    const payload =
+      delivery && Array.isArray(delivery.matches) ? delivery : current;
+    const matches = payload?.matches || [];
     const overrideMap = this.overrides.all();
     const matchFailures = collectSourceFailuresFromMatches(matches);
 
@@ -69,8 +75,8 @@ class DashboardService {
       leaguesTotal: this.leagues.list().length,
       lastScraperRun: this.pipeline.lastRun || null,
       scraperRunning: Boolean(this.pipeline.running),
-      lastGithubUpload: this.publish.lastGithub || current?.meta?.lastGithub || null,
-      generatedAt: current?.generatedAt || null,
+      lastGithubUpload: this.publish.lastGithub || payload?.meta?.lastGithub || current?.meta?.lastGithub || null,
+      generatedAt: payload?.generatedAt || current?.generatedAt || null,
       awsServerStatus: {
         ok: true,
         uptimeSec: Math.floor(process.uptime()),

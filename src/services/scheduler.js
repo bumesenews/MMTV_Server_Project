@@ -12,10 +12,10 @@ const { DomainMonitor } = require('../monitor/domain.monitor');
  * Highlight Job (HIGHLIGHT_CRON, default every 3 hr)
  * └── Highlights → highlight.json
  *
- * MyanmarTV Job (MYANMARTV_CRON, default every 12 hr)
- * └── Channels → myanmartv.json
+ * MyanmarTV Job (MYANMARTV_CRON, default every 8 min)
+ * └── Channels → myanmartv.json (wmsAuthSign tokens last ~10 min)
  *
- * Tips Job (TIPS_CRON, default every 12 hr)
+ * Tips Job (TIPS_CRON, default 08:07 and 20:07 Yangon)
  * └── PredictZ today + tomorrow → tips.json
  *
  * Domain check (DOMAIN_CHECK_CRON, default every hour)
@@ -40,8 +40,8 @@ class Scheduler {
   start() {
     const expression = this.env.PIPELINE_CRON || `*/${this.tickMinutes} * * * *`;
     const highlightExpression = this.env.HIGHLIGHT_CRON || '0 */3 * * *';
-    const channelsExpression = this.env.MYANMARTV_CRON || '0 */12 * * *';
-    const tipsExpression = this.env.TIPS_CRON || '0 */12 * * *';
+    const channelsExpression = this.env.MYANMARTV_CRON || '*/8 * * * *';
+    const tipsExpression = this.env.TIPS_CRON || '7 8,20 * * *';
     const domainExpression = this.env.DOMAIN_CHECK_CRON || '0 * * * *';
 
     if (!cron.validate(expression)) {

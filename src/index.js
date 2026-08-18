@@ -37,7 +37,7 @@ async function main() {
   const scheduler = new Scheduler(pipeline, process.env);
   scheduler.start();
 
-  // Boot: one job at a time (1GB EC2). Pipeline → highlights → MyanmarTV.
+  // Boot: one job at a time (1GB EC2). Pipeline → highlights → MyanmarTV → tips.
   // Avoid forceStreamCheck:true — it deep-scrapes fixtures and OOMs t3.micro.
   setTimeout(() => {
     pipeline
@@ -54,9 +54,18 @@ async function main() {
             })
             .finally(() => {
               setTimeout(() => {
-                pipeline.runMyanmarTv({ force: false }).catch((err) => {
-                  logger.error('Initial MyanmarTV job failed', { error: err.message });
-                });
+                pipeline
+                  .runMyanmarTv({ force: false })
+                  .catch((err) => {
+                    logger.error('Initial MyanmarTV job failed', { error: err.message });
+                  })
+                  .finally(() => {
+                    setTimeout(() => {
+                      pipeline.runTips({ force: false }).catch((err) => {
+                        logger.error('Initial tips job failed', { error: err.message });
+                      });
+                    }, 15000);
+                  });
               }, 15000);
             });
         }, 15000);
