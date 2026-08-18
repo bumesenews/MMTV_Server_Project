@@ -3,7 +3,7 @@ const {
   getCheckIntervalMinutes,
   minutesUntilKickoff,
   resolveStreamSearchSlot,
-  resolveMatchUrlSearchSlot,
+  resolveAnyMatchUrlSlot,
   isStreamSearchStopped,
   STREAM_EXTRACT_LEAD_MIN,
   STREAM_SEARCH_STOP_AFTER_MIN,
@@ -146,6 +146,19 @@ class StreamEngine {
     return mins > -MATCH_LIVE_DURATION_MIN;
   }
 
+  /**
+   * Match URL arrived after the +15 extract stop — still pull m3u8 while LIVE.
+   */
+  lateUrlExtractCatchup(fixture) {
+    const mins = minutesUntilKickoff(fixture?.kickoff);
+    if (mins == null || mins > 0) return false;
+    if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+    if ((fixture?.streams || []).some((s) => s?.url && s.active !== false)) return false;
+    return this.sources.some((s) =>
+      sourceHasSavedMatchUrl(getSourceMatchUrlState(fixture, s.name))
+    );
+  }
+
   catchupSlot() {
     return {
       id: 'catchup',
@@ -165,7 +178,7 @@ class StreamEngine {
     if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
     if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
 
-    const catchup = this.missedExtractCatchup(fixture);
+    const catchup = this.missedExtractCatchup(fixture) || this.lateUrlExtractCatchup(fixture);
     if (!catchup) {
       if (isStreamSearchStopped(fixture.kickoff, fixture.streamSearch)) return false;
       if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
@@ -291,9 +304,16 @@ class StreamEngine {
           continue;
         }
 
+        const stillNeedUrl = this.sources.some((s) =>
+          needsMatchUrlDiscovery(base, s.name, nowUtcUnixSeconds())
+        );
+        const allowLateExtract =
+          this.missedExtractCatchup({ ...base, streamSearch }) ||
+          this.lateUrlExtractCatchup({ ...base, streamSearch }) ||
+          stillNeedUrl;
         if (
           isStreamSearchStopped(base.kickoff, streamSearch) &&
-          !this.missedExtractCatchup({ ...base, streamSearch })
+          !allowLateExtract
         ) {
           streamSearch = this.markStopped(streamSearch);
           this.extractQueue.cancelMatch(base.matchId);
@@ -329,7 +349,8 @@ class StreamEngine {
         );
         const slot =
           resolveStreamSearchSlot(base.kickoff) ||
-          (this.missedExtractCatchup({ ...base, streamSearch })
+          ((this.missedExtractCatchup({ ...base, streamSearch }) ||
+            this.lateUrlExtractCatchup({ ...base, streamSearch }))
             ? this.catchupSlot()
             : null);
 
@@ -699,7 +720,7 @@ class StreamEngine {
   applyDiscoveryToFixture(fixture, urlBySourceMatch = {}) {
     const nowIso = new Date().toISOString();
     const nowSec = nowUtcUnixSeconds();
-    const slot = resolveMatchUrlSearchSlot(fixture.kickoff, nowSec);
+    const slot = resolveAnyMatchUrlSlot(fixture.kickoff, nowSec);
     let next = fixture;
 
     for (const source of this.sources) {

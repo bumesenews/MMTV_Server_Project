@@ -41,6 +41,46 @@
       "aliases": ["Brighton & Hove Albion", "Brighton", "BHA", "布莱顿"]
     },
     {
+      "standardName": "Nottingham Forest",
+      "aliases": ["Nottingham Forest", "Nottm Forest", "Notts Forest", "Nott'm Forest", "Forest FC"]
+    },
+    {
+      "standardName": "Wolverhampton Wanderers",
+      "aliases": ["Wolverhampton Wanderers", "Wolves", "Wolverhampton", "WWFC", "狼队"]
+    },
+    {
+      "standardName": "Everton",
+      "aliases": ["Everton", "Everton FC", "EFC", "埃弗顿"]
+    },
+    {
+      "standardName": "Leicester City",
+      "aliases": ["Leicester City", "Leicester", "LCFC", "莱斯特城"]
+    },
+    {
+      "standardName": "Bournemouth",
+      "aliases": ["Bournemouth", "AFC Bournemouth", "AFCB", "伯恩茅斯"]
+    },
+    {
+      "standardName": "Crystal Palace",
+      "aliases": ["Crystal Palace", "Palace", "CRY", "水晶宫"]
+    },
+    {
+      "standardName": "Fulham",
+      "aliases": ["Fulham", "Fulham FC", "FFC", "富勒姆"]
+    },
+    {
+      "standardName": "Brentford",
+      "aliases": ["Brentford", "Brentford FC", "Bees", "布伦特福德"]
+    },
+    {
+      "standardName": "Ipswich Town",
+      "aliases": ["Ipswich Town", "Ipswich", "ITFC", "伊普斯维奇"]
+    },
+    {
+      "standardName": "Southampton",
+      "aliases": ["Southampton", "Saints", "SOU", "南安普顿"]
+    },
+    {
       "standardName": "Real Madrid",
       "aliases": ["Real Madrid", "Real Madrid CF", "RMA", "皇马", "Madrid"]
     },
@@ -53,12 +93,72 @@
       "aliases": ["Atletico Madrid", "Atlético Madrid", "Atleti", "ATM", "马竞"]
     },
     {
-      "standardName": "Bayern Munich",
-      "aliases": ["Bayern Munich", "FC Bayern", "Bayern", "拜仁", "Bayern München", "FCBAYERN"]
+      "standardName": "Sevilla",
+      "aliases": ["Sevilla", "Sevilla FC", "SFC", "塞维利亚"]
     },
     {
-      "standardName": "Borussia Dortmund",
-      "aliases": ["Borussia Dortmund", "Dortmund", "BVB", "多特蒙德"]
+      "standardName": "Real Sociedad",
+      "aliases": ["Real Sociedad", "La Real", "Sociedad", "皇家社会"]
+    },
+    {
+      "standardName": "Villarreal",
+      "aliases": ["Villarreal", "Villarreal CF", "Yellow Submarine", "比利亚雷亚尔"]
+    },
+    {
+      "standardName": "Athletic Bilbao",
+      "aliases": ["Athletic Bilbao", "Athletic Club", "Bilbao", "毕尔巴鄂竞技"]
+    },
+    {
+      "standardName": "Real Betis",
+      "aliases": ["Real Betis", "Betis", "皇家贝蒂斯"]
+    },
+    {
+      "standardName": "Girona",
+      "aliases": ["Girona", "Girona FC", "赫罗纳"]
+    },
+    {
+      "standardName": "Valencia",
+      "aliases": ["Valencia", "Valencia CF", "瓦伦西亚"]
+    },
+    {
+      "standardName": "Celta Vigo",
+      "aliases": ["Celta Vigo", "RC Celta", "Celta", "塞尔塔"]
+    },
+    {
+      "standardName": "Mallorca",
+      "aliases": ["Mallorca", "RCD Mallorca", "马洛卡"]
+    },
+    {
+      "standardName": "Osasuna",
+      "aliases": ["Osasuna", "CA Osasuna", "奥萨苏纳"]
+    },
+    {
+      "standardName": "Rayo Vallecano",
+      "aliases": ["Rayo Vallecano", "Rayo", "巴列卡诺"]
+    },
+    {
+      "standardName": "Getafe",
+      "aliases": ["Getafe", "Getafe CF", "赫塔费"]
+    },
+    {
+      "standardName": "Espanyol",
+      "aliases": ["Espanyol", "RCD Espanyol", "西班牙人"]
+    },
+    {
+      "standardName": "Alaves",
+      "aliases": ["Alaves", "Deportivo Alaves", "阿拉维斯"]
+    },
+    {
+      "standardName": "Las Palmas",
+      "aliases": ["Las Palmas", "UD Las Palmas", "拉斯帕尔马斯"]
+    },
+    {
+      "standardName": "Leganes",
+      "aliases": ["Leganes", "CD Leganes", "雷加利斯"]
+    },
+    {
+      "standardName": "Valladolid",
+      "aliases": ["Valladolid", "Real Valladolid", "巴利亚多利德"]
     },
     {
       "standardName": "Inter Milan",
@@ -77,8 +177,308 @@
       "aliases": ["Napoli", "SSC Napoli", "那不勒斯"]
     },
     {
+      "standardName": "AS Roma",
+      "aliases": ["AS Roma", "Roma", "ASR", "罗马"]
+    },
+    {
+      "standardName": "Lazio",
+      "aliases": ["Lazio", "SS Lazio", "拉齐奥"]
+    },
+    {
+      "standardName": "Atalanta",
+      "aliases": ["Atalanta", "Atalanta BC", "亚特兰大"]
+    },
+    {
+      "standardName": "Fiorentina",
+      "aliases": ["Fiorentina", "ACF Fiorentina", "佛罗伦萨"]
+    },
+    {
+      "standardName": "Bologna",
+      "aliases": ["Bologna", "Bologna FC", "博洛尼亚"]
+    },
+    {
+      "standardName": "Torino",
+      "aliases": ["Torino", "Torino FC", "都灵"]
+    },
+    {
+      "standardName": "Udinese",
+      "aliases": ["Udinese", "Udinese Calcio", "乌迪内斯"]
+    },
+    {
+      "standardName": "Genoa",
+      "aliases": ["Genoa", "Genoa CFC", "热那亚"]
+    },
+    {
+      "standardName": "Verona",
+      "aliases": ["Verona", "Hellas Verona", "维罗纳"]
+    },
+    {
+      "standardName": "Cagliari",
+      "aliases": ["Cagliari", "Cagliari Calcio", "卡利亚里"]
+    },
+    {
+      "standardName": "Empoli",
+      "aliases": ["Empoli", "Empoli FC", "恩波利"]
+    },
+    {
+      "standardName": "Parma",
+      "aliases": ["Parma", "Parma Calcio", "帕尔马"]
+    },
+    {
+      "standardName": "Como",
+      "aliases": ["Como", "Como 1907", "科摩"]
+    },
+    {
+      "standardName": "Monza",
+      "aliases": ["Monza", "AC Monza", "蒙扎"]
+    },
+    {
+      "standardName": "Lecce",
+      "aliases": ["Lecce", "US Lecce", "莱切"]
+    },
+    {
+      "standardName": "Venezia",
+      "aliases": ["Venezia", "Venezia FC", "威尼斯"]
+    },
+    {
+      "standardName": "Bayern Munich",
+      "aliases": ["Bayern Munich", "FC Bayern", "Bayern", "拜仁", "Bayern München", "FCBAYERN"]
+    },
+    {
+      "standardName": "Borussia Dortmund",
+      "aliases": ["Borussia Dortmund", "Dortmund", "BVB", "多特蒙德"]
+    },
+    {
+      "standardName": "Bayer Leverkusen",
+      "aliases": ["Bayer Leverkusen", "Leverkusen", "Bayer 04", "勒沃库森"]
+    },
+    {
+      "standardName": "RB Leipzig",
+      "aliases": ["RB Leipzig", "Leipzig", "RBL", "莱比锡"]
+    },
+    {
+      "standardName": "1. FC Heidenheim",
+      "aliases": ["1. FC Heidenheim", "FC Heidenheim", "Heidenheim", "1. FCH", "海登海姆"]
+    },
+    {
+      "standardName": "Eintracht Frankfurt",
+      "aliases": ["Eintracht Frankfurt", "Frankfurt", "SGE", "法兰克福"]
+    },
+    {
+      "standardName": "VfB Stuttgart",
+      "aliases": ["VfB Stuttgart", "Stuttgart", "斯图加特"]
+    },
+    {
+      "standardName": "VfL Wolfsburg",
+      "aliases": ["VfL Wolfsburg", "Wolfsburg", "沃尔夫斯堡"]
+    },
+    {
+      "standardName": "Borussia Monchengladbach",
+      "aliases": ["Borussia Monchengladbach", "Monchengladbach", "Gladbach", "BMG", "门兴格拉德巴赫"]
+    },
+    {
+      "standardName": "SC Freiburg",
+      "aliases": ["SC Freiburg", "Freiburg", "弗赖堡"]
+    },
+    {
+      "standardName": "TSG Hoffenheim",
+      "aliases": ["TSG Hoffenheim", "Hoffenheim", "霍芬海姆"]
+    },
+    {
+      "standardName": "Werder Bremen",
+      "aliases": ["Werder Bremen", "Bremen", "SV Werder Bremen", "云达不莱梅"]
+    },
+    {
+      "standardName": "FC Augsburg",
+      "aliases": ["FC Augsburg", "Augsburg", "奥格斯堡"]
+    },
+    {
+      "standardName": "Mainz 05",
+      "aliases": ["Mainz 05", "Mainz", "FSV Mainz 05", "美因茨"]
+    },
+    {
+      "standardName": "Union Berlin",
+      "aliases": ["Union Berlin", "1. FC Union Berlin", "柏林联合"]
+    },
+    {
+      "standardName": "VfL Bochum",
+      "aliases": ["VfL Bochum", "Bochum", "波鸿"]
+    },
+    {
+      "standardName": "FC St. Pauli",
+      "aliases": ["FC St. Pauli", "St. Pauli", "圣保利"]
+    },
+    {
+      "standardName": "Holstein Kiel",
+      "aliases": ["Holstein Kiel", "Kiel", "基尔"]
+    },
+    {
       "standardName": "Paris Saint-Germain",
       "aliases": ["Paris Saint-Germain", "PSG", "Paris SG", "巴黎圣日耳曼", "Paris Saint Germain"]
+    },
+    {
+      "standardName": "Olympique Marseille",
+      "aliases": ["Olympique Marseille", "Marseille", "OM", "马赛"]
+    },
+    {
+      "standardName": "AS Monaco",
+      "aliases": ["AS Monaco", "Monaco", "ASM", "摩纳哥"]
+    },
+    {
+      "standardName": "Brest",
+      "aliases": ["Brest", "Stade Brestois", "Stade Brestois 29", "Brestois"]
+    },
+    {
+      "standardName": "Olympique Lyonnais",
+      "aliases": ["Olympique Lyonnais", "Lyon", "OL", "里昂"]
+    },
+    {
+      "standardName": "Lille",
+      "aliases": ["Lille", "Lille OSC", "LOSC", "里尔"]
+    },
+    {
+      "standardName": "Nice",
+      "aliases": ["Nice", "OGC Nice", "尼斯"]
+    },
+    {
+      "standardName": "Lens",
+      "aliases": ["Lens", "RC Lens", "朗斯"]
+    },
+    {
+      "standardName": "Rennes",
+      "aliases": ["Rennes", "Stade Rennais", "雷恩"]
+    },
+    {
+      "standardName": "Reims",
+      "aliases": ["Reims", "Stade de Reims", "兰斯"]
+    },
+    {
+      "standardName": "Toulouse",
+      "aliases": ["Toulouse", "Toulouse FC", "图卢兹"]
+    },
+    {
+      "standardName": "Montpellier",
+      "aliases": ["Montpellier", "Montpellier HSC", "蒙彼利埃"]
+    },
+    {
+      "standardName": "Strasbourg",
+      "aliases": ["Strasbourg", "RC Strasbourg", "斯特拉斯堡"]
+    },
+    {
+      "standardName": "Nantes",
+      "aliases": ["Nantes", "FC Nantes", "南特"]
+    },
+    {
+      "standardName": "Auxerre",
+      "aliases": ["Auxerre", "AJ Auxerre", "欧塞尔"]
+    },
+    {
+      "standardName": "Angers",
+      "aliases": ["Angers", "Angers SCO", "昂热"]
+    },
+    {
+      "standardName": "Saint-Etienne",
+      "aliases": ["Saint-Etienne", "AS Saint-Etienne", "ASSE", "圣埃蒂安"]
+    },
+    {
+      "standardName": "Le Havre",
+      "aliases": ["Le Havre", "Le Havre AC", "勒阿弗尔"]
+    },
+    {
+      "standardName": "Ulsan HD FC",
+      "aliases": ["Ulsan HD FC", "Ulsan Hyundai", "Ulsan HD", "울산 현대", "蔚山现代"]
+    },
+    {
+      "standardName": "Jeonbuk Hyundai Motors",
+      "aliases": ["Jeonbuk Hyundai Motors", "Jeonbuk Motors", "Jeonbuk", "전북 현대", "全北现代"]
+    },
+    {
+      "standardName": "FC Seoul",
+      "aliases": ["FC Seoul", "Seoul FC", "FC 서울", "首尔FC"]
+    },
+    {
+      "standardName": "Pohang Steelers",
+      "aliases": ["Pohang Steelers", "Pohang", "포항 스တီလာဆ်", "浦项制铁"]
+    },
+    {
+      "standardName": "Gwangju FC",
+      "aliases": ["Gwangju FC", "Gwangju", "광주 FC", "光州FC"]
+    },
+    {
+      "standardName": "Gangwon FC",
+      "aliases": ["Gangwon FC", "Gangwon", "강원 FC", "江原FC"]
+    },
+    {
+      "standardName": "Gimcheon Sangmu",
+      "aliases": ["Gimcheon Sangmu", "Sangmu", "김천 상무", "金泉尚武"]
+    },
+    {
+      "standardName": "Incheon United",
+      "aliases": ["Incheon United", "Incheon", "인천 유나이티드", "仁川联"]
+    },
+    {
+      "standardName": "Suwon FC",
+      "aliases": ["Suwon FC", "수원 FC", "水原FC"]
+    },
+    {
+      "standardName": "Jeju United",
+      "aliases": ["Jeju United", "Jeju", "제주 유나이티드", "济州联"]
+    },
+    {
+      "standardName": "Daejeon Hana Citizen",
+      "aliases": ["Daejeon Hana Citizen", "Daejeon", "대전 하나 시티즌", "大田市民"]
+    },
+    {
+      "standardName": "Daegu FC",
+      "aliases": ["Daegu FC", "Daegu", "대구 FC", "大邱FC"]
+    },
+    {
+      "standardName": "Flamengo",
+      "aliases": ["Flamengo", "CR Flamengo", "FLA", "弗拉门戈"]
+    },
+    {
+      "standardName": "Palmeiras",
+      "aliases": ["Palmeiras", "SE Palmeiras", "PAL", "帕尔梅拉斯"]
+    },
+    {
+      "standardName": "Sao Paulo",
+      "aliases": ["Sao Paulo", "São Paulo FC", "SAO", "圣保罗"]
+    },
+    {
+      "standardName": "Fluminense",
+      "aliases": ["Fluminense", "Fluminense FC", "FLU", "弗鲁米嫩塞"]
+    },
+    {
+      "standardName": "Botafogo",
+      "aliases": ["Botafogo", "Botafogo FR", "BOT", "博塔弗戈"]
+    },
+    {
+      "standardName": "Atletico Mineiro",
+      "aliases": ["Atletico Mineiro", "Atlético Mineiro", "CAM", "米内罗竞技"]
+    },
+    {
+      "standardName": "Gremio",
+      "aliases": ["Gremio", "Grêmio", "GRE", "格雷米奥"]
+    },
+    {
+      "standardName": "Internacional",
+      "aliases": ["Internacional", "SC Internacional", "INT", "国际体育会"]
+    },
+    {
+      "standardName": "Cruzeiro",
+      "aliases": ["Cruzeiro", "Cruzeiro EC", "CRU", "克鲁塞罗"]
+    },
+    {
+      "standardName": "Corinthians",
+      "aliases": ["Corinthians", "SC Corinthians", "COR", "科林蒂安"]
+    },
+    {
+      "standardName": "Santos",
+      "aliases": ["Santos", "Santos FC", "SAN", "桑托斯"]
+    },
+    {
+      "standardName": "Vasco da Gama",
+      "aliases": ["Vasco da Gama", "Vasco", "VAS", "瓦斯科达伽马"]
     },
     {
       "standardName": "Ha Noi FC",
@@ -89,12 +489,80 @@
       "aliases": ["Ho Chi Minh City FC", "HCMC FC", "TP.HCM", "胡志明市FC", "Ho Chi Minh City"]
     },
     {
-      "standardName": "Nottingham Forest",
-      "aliases": ["Nottingham Forest", "Nottm Forest", "Notts Forest", "Nott'm Forest", "Forest FC"]
+      "standardName": "Nam Dinh FC",
+      "aliases": ["Nam Dinh FC", "Thep Xanh Nam Dinh", "Thép Xanh Nam Định", "Nam Dinh"]
     },
     {
-      "standardName": "Brest",
-      "aliases": ["Brest", "Stade Brestois", "Stade Brestois 29", "Brestois"]
+      "standardName": "Cong An Ha Noi",
+      "aliases": ["Cong An Ha Noi", "CAHN", "CAHN FC", "Công An Hà Nội"]
+    },
+    {
+      "standardName": "Viettel FC",
+      "aliases": ["Viettel FC", "The Cong Viettel", "Thể Công - Viettel", "Viettel"]
+    },
+    {
+      "standardName": "Binh Dinh FC",
+      "aliases": ["Binh Dinh FC", "Quy Nhon Binh Dinh", "Bình Định"]
+    },
+    {
+      "standardName": "Hai Phong FC",
+      "aliases": ["Hai Phong FC", "Hải Phòng FC", "Hai Phong"]
+    },
+    {
+      "standardName": "Thanh Hoa FC",
+      "aliases": ["Thanh Hoa FC", "Dong A Thanh Hoa", "Thanh Hóa FC"]
+    },
+    {
+      "standardName": "Binh Duong FC",
+      "aliases": ["Binh Duong FC", "Bình Dương FC", "Becamex Bình Dương"]
+    },
+    {
+      "standardName": "SLNA FC",
+      "aliases": ["SLNA FC", "Song Lam Nghe An", "Sông Lam Nghệ An"]
+    },
+    {
+      "standardName": "Da Nang FC",
+      "aliases": ["Da Nang FC", "SHB Da Nang", "Đà Nẵng FC"]
+    },
+    {
+      "standardName": "HAGL FC",
+      "aliases": ["HAGL FC", "Hoang Anh Gia Lai", "Hoàng Anh Gia Lai"]
+    },
+    {
+      "standardName": "Thailand",
+      "aliases": ["Thailand", "Thai Lan", "Thái Lan", "DT Thai Lan", "Doi Tuyen Thai Lan", "Thailand NT"]
+    },
+    {
+      "standardName": "Vietnam",
+      "aliases": ["Vietnam", "Viet Nam", "Việt Nam", "DT Viet Nam", "Doi Tuyen Viet Nam"]
+    },
+    {
+      "standardName": "Indonesia",
+      "aliases": ["Indonesia", "DT Indonesia", "Doi Tuyen Indonesia", "Timnas Indonesia"]
+    },
+    {
+      "standardName": "Malaysia",
+      "aliases": ["Malaysia", "DT Malaysia", "Doi Tuyen Malaysia", "Harimau Malaya"]
+    },
+    {
+      "standardName": "Singapore",
+      "aliases": ["Singapore", "Singapura", "DT Singapore", "Singapore FA", "Lions"]
+    },
+    {
+      "standardName": "Myanmar",
+      "aliases": ["Myanmar", "Burma", "DT Myanmar", "Doi Tuyen Myanmar", "Myanmar NT"]
+    },
+    {
+      "standardName": "Philippines",
+      "aliases": ["Philippines", "Azkals", "DT Philippines"]
+    },
+    {
+      "standardName": "Cambodia",
+      "aliases": ["Cambodia", "DT Cambodia", "Kouprey"]
+    },
+    {
+      "standardName": "Laos",
+      "aliases": ["Laos", "DT Laos"]
     }
   ]
 }

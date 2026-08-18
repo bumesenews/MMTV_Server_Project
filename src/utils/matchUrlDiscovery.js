@@ -1,10 +1,13 @@
 const { logger } = require('./logger');
 const {
   resolveMatchUrlSearchSlot,
+  resolveMatchUrlLiveSlot,
+  resolveAnyMatchUrlSlot,
   minutesUntilKickoff,
   MATCH_URL_MAX_ATTEMPTS,
   MATCH_URL_SEARCH_SLOTS,
   STREAM_SEARCH_INTERVAL_MINUTES,
+  MATCH_LIVE_DURATION_MIN,
 } = require('./time');
 const { MATCH_URL_STATUS } = require('./streamUrlHelper');
 
@@ -78,6 +81,7 @@ function isTransientDiscoverError(err) {
 function slotLeadLabel(slot) {
   if (!slot) return 'unknown';
   if (slot.early) return 'early';
+  if (slot.live) return 'live (kickoff to +2h)';
   const n = Number(slot.maxInclusive);
   return Number.isFinite(n) ? `-${n} minutes` : String(slot.id || 'unknown');
 }
@@ -196,6 +200,7 @@ function getSourceMatchUrlState(fixture, sourceName) {
     matchUrl: url || null,
     status,
     attempts,
+    liveAttempts: Number(raw.liveAttempts) || 0,
     lastAttemptAt: raw.lastAttemptAt || null,
     slotsDone: repairSlotsDone(raw.slotsDone, attempts, Boolean(url)),
     confidence: Number(raw.confidence) || 0,
@@ -220,6 +225,14 @@ function lastAttemptAgeSec(lastAttemptAt, nowSec) {
 function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
   const st = getSourceMatchUrlState(fixture, sourceName);
   if (sourceHasSavedMatchUrl(st)) return false;
+
+  const liveSlot = resolveMatchUrlLiveSlot(fixture?.kickoff, nowSec);
+  if (liveSlot) {
+    if ((Number(st.liveAttempts) || 0) >= MATCH_URL_MAX_ATTEMPTS) return false;
+    const cooldownSec = Math.max(1, STREAM_SEARCH_INTERVAL_MINUTES) * 60;
+    return lastAttemptAgeSec(st.lastAttemptAt, nowSec) >= cooldownSec;
+  }
+
   if (isFailedMatchUrlStatus(st.status)) return false;
   if (st.attempts >= MATCH_URL_MAX_ATTEMPTS) return false;
   const slot = resolveMatchUrlSearchSlot(fixture?.kickoff, nowSec);
@@ -238,9 +251,15 @@ function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
 function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
   const search = ensureMatchUrlSearch(fixture);
   const prev = getSourceMatchUrlState(fixture, sourceName);
-  const attempts = slot?.early
-    ? prev.attempts
-    : Math.min(MATCH_URL_MAX_ATTEMPTS, prev.attempts + 1);
+  let attempts = prev.attempts;
+  let liveAttempts = prev.liveAttempts;
+  if (slot?.early) {
+    attempts = prev.attempts;
+  } else if (slot?.live) {
+    liveAttempts = Math.min(MATCH_URL_MAX_ATTEMPTS, (Number(prev.liveAttempts) || 0) + 1);
+  } else {
+    attempts = Math.min(MATCH_URL_MAX_ATTEMPTS, prev.attempts + 1);
+  }
   const slotsDone = { ...prev.slotsDone };
   if (slot?.id) slotsDone[slot.id] = true;
 
@@ -257,11 +276,15 @@ function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
       Number(confidence) >= 90;
     status = confirmed ? MATCH_URL_STATUS.CONFIRMED : MATCH_URL_STATUS.FOUND;
     resultLabel = confirmed ? 'CONFIRMED' : 'FOUND';
-  } else if (!matchUrl && attempts >= MATCH_URL_MAX_ATTEMPTS) {
+  } else if (
+    !matchUrl &&
+    ((slot?.live && liveAttempts >= MATCH_URL_MAX_ATTEMPTS) ||
+      (!slot?.live && !slot?.early && attempts >= MATCH_URL_MAX_ATTEMPTS))
+  ) {
     status = MATCH_URL_STATUS.FAILED;
     resultLabel = 'FAILED';
   } else if (!matchUrl) {
-    status = MATCH_URL_STATUS.PENDING;
+    status = slot?.live ? MATCH_URL_STATUS.SEARCHING : MATCH_URL_STATUS.PENDING;
     resultLabel = 'NOT_FOUND';
   }
 
@@ -269,6 +292,7 @@ function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
     matchUrl,
     status,
     attempts,
+    liveAttempts,
     lastAttemptAt: nowIso,
     slotsDone,
     confidence,
@@ -283,7 +307,7 @@ function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
     fixture,
     sourceName,
     slot,
-    attempt: attempts,
+    attempt: slot?.live ? liveAttempts : attempts,
     result: resultLabel,
     matchUrl,
   });
@@ -330,8 +354,19 @@ function finalizeMatchUrlStatus(fixture, nowSec) {
     return next;
   }
   const mins = minutesUntilKickoff(fixture?.kickoff, nowSec);
+  const liveOpen =
+    mins != null && mins <= 0 && mins > -MATCH_LIVE_DURATION_MIN;
+  if (liveOpen) {
+    return {
+      ...next,
+      matchUrlStatus: MATCH_URL_STATUS.SEARCHING,
+    };
+  }
   const attempts = Number(next.matchUrlAttempts) || 0;
-  if ((mins != null && mins <= 0) || attempts >= MATCH_URL_MAX_ATTEMPTS) {
+  if (
+    (mins != null && mins <= -MATCH_LIVE_DURATION_MIN) ||
+    attempts >= MATCH_URL_MAX_ATTEMPTS
+  ) {
     return {
       ...next,
       matchUrlStatus: MATCH_URL_STATUS.FAILED,

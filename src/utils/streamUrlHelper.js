@@ -622,21 +622,57 @@ function normalizeStreamUrlData(streamUrlData) {
 }
 
 function canonicalizeTeamForMatch(rawName, normalizer) {
-  const cleaned = String(rawName || '').trim();
+  const cleaned = stripNationalSquadPrefix(String(rawName || '').trim());
   if (!cleaned) return '';
-  let aliased = cleaned;
+  const aliased = resolveTeamNameAlias(cleaned, normalizer);
+  return teamMatchKey(aliased || cleaned);
+}
+
+const NATIONAL_SQUAD_PREFIX = /^(dt|doi tuyen|u-?\d{1,2}|olympic)\s+/i;
+
+function stripNationalSquadPrefix(value) {
+  let s = String(value || '').trim();
+  let prev = null;
+  while (s && s !== prev) {
+    prev = s;
+    s = s.replace(NATIONAL_SQUAD_PREFIX, '').trim();
+  }
+  return s || String(value || '').trim();
+}
+
+/** Vietnamese / local spellings that foldKey will not equate (Thai Lan ≠ Thailand). */
+const TEAM_NAME_ALIAS_TO_STANDARD = {
+  'thai lan': 'Thailand',
+  thailan: 'Thailand',
+  'dt thai lan': 'Thailand',
+  singapura: 'Singapore',
+  'viet nam': 'Vietnam',
+  vietnam: 'Vietnam',
+  'dt viet nam': 'Vietnam',
+};
+
+function resolveTeamNameAlias(name, normalizer) {
+  const folded = foldKey(name);
+  const compact = folded.replace(/\s+/g, '');
+  const mapped =
+    TEAM_NAME_ALIAS_TO_STANDARD[folded] || TEAM_NAME_ALIAS_TO_STANDARD[compact];
+  if (mapped) return mapped;
   if (normalizer?.teamIndex) {
-    aliased = normalizer.teamIndex.get(foldKey(cleaned)) || cleaned;
-    if (aliased === cleaned) {
-      const stripped = stripClubAffixes(stripGenderPrefix(cleaned));
-      if (stripped && foldKey(stripped) !== foldKey(cleaned)) {
-        aliased = normalizer.teamIndex.get(foldKey(stripped)) || aliased;
-      }
+    const fromIndex =
+      normalizer.teamIndex.get(folded) || normalizer.teamIndex.get(compact);
+    if (fromIndex) return fromIndex;
+    const stripped = stripClubAffixes(stripGenderPrefix(name));
+    if (stripped && foldKey(stripped) !== folded) {
+      return (
+        normalizer.teamIndex.get(foldKey(stripped)) ||
+        mapped ||
+        name
+      );
     }
   } else if (normalizer?.normalizeTeam) {
-    aliased = normalizer.normalizeTeam(cleaned);
+    return normalizer.normalizeTeam(name);
   }
-  return teamMatchKey(aliased || cleaned);
+  return name;
 }
 
 /**
@@ -670,6 +706,56 @@ function tokensMatchWithAbbreviations(aTok, bTok) {
     used.add(hit);
   }
   return true;
+}
+
+function levenshteinDistance(a, b) {
+  const s = String(a || '');
+  const t = String(b || '');
+  if (s === t) return 0;
+  if (!s.length) return t.length;
+  if (!t.length) return s.length;
+  const row = new Array(t.length + 1);
+  for (let j = 0; j <= t.length; j += 1) row[j] = j;
+  for (let i = 1; i <= s.length; i += 1) {
+    let prevDiag = row[0];
+    row[0] = i;
+    for (let j = 1; j <= t.length; j += 1) {
+      const tmp = row[j];
+      const cost = s[i - 1] === t[j - 1] ? 0 : 1;
+      row[j] = Math.min(row[j] + 1, row[j - 1] + 1, prevDiag + cost);
+      prevDiag = tmp;
+    }
+  }
+  return row[t.length];
+}
+
+function commonPrefixLength(a, b) {
+  const n = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < n && a[i] === b[i]) i += 1;
+  return i;
+}
+
+/**
+ * Dynamic fuzzy fallback for transliterations that aliases/foldKey miss.
+ * Thai Lan ↔ Thailand (thailan vs thailand), Singapura ↔ Singapore.
+ *
+ * Guards: both compact names ≥6 chars, length gap ≤2, shared prefix ≥6,
+ * Levenshtein ≤2 and ≤25% of the longer name. Rejects Milan/Milano,
+ * Australia/Austria, Chelsea/Cheltenham, and one-token substrings.
+ */
+function compactNamesFuzzyMatch(left, right) {
+  const x = String(left || '').replace(/\s+/g, '');
+  const y = String(right || '').replace(/\s+/g, '');
+  if (!x || !y || x === y) return x === y;
+  const short = x.length <= y.length ? x : y;
+  const long = x.length <= y.length ? y : x;
+  if (short.length < 6) return false;
+  if (long.length - short.length > 2) return false;
+  if (commonPrefixLength(short, long) < 6) return false;
+  const dist = levenshteinDistance(x, y);
+  if (dist < 1 || dist > 2) return false;
+  return dist / long.length <= 0.25;
 }
 
 function compareTeamIdentity(fotmobName, streamName, normalizer) {
@@ -725,6 +811,10 @@ function compareTeamIdentity(fotmobName, streamName, normalizer) {
     if (need >= 2 && overlap === need) {
       return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };
     }
+  }
+
+  if (compactNamesFuzzyMatch(a, b)) {
+    return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };
   }
 
   return { score: 0, kind: 'none', fotmobKey: a, streamKey: b };
@@ -966,6 +1056,7 @@ module.exports = {
   matchStreamToFotmob,
   scoreStreamMatch,
   compareTeamIdentity,
+  compactNamesFuzzyMatch,
   canonicalizeTeamForMatch,
   toUtcMillis,
   parseIctClock,

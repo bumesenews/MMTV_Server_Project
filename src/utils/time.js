@@ -185,6 +185,27 @@ function resolveMatchUrlSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
 }
 
 /**
+ * After kickoff, keep hunting Match URLs while the match is still LIVE (up to +2h).
+ * ASEAN / friendlies often appear on Today pages only at or after kickoff.
+ */
+function resolveMatchUrlLiveSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
+  const mins = minutesUntilKickoff(kickoff, nowSec);
+  if (mins == null || mins > 0) return null;
+  if (mins <= -MATCH_LIVE_DURATION_MIN) return null;
+  return {
+    id: 'tLive',
+    live: true,
+    postKickoff: true,
+    minExclusive: -MATCH_LIVE_DURATION_MIN,
+    maxInclusive: 0,
+  };
+}
+
+function resolveAnyMatchUrlSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
+  return resolveMatchUrlSearchSlot(kickoff, nowSec) || resolveMatchUrlLiveSlot(kickoff, nowSec);
+}
+
+/**
  * Resolve the m3u8 extract slot: −30 / −15 / −5, then kickoff / +5 / +10.
  * Returns null before −30m and at/after the +15 stop.
  */
@@ -269,6 +290,8 @@ module.exports = {
   resolveFixtureStatus,
   resolveStreamSearchSlot,
   resolveMatchUrlSearchSlot,
+  resolveMatchUrlLiveSlot,
+  resolveAnyMatchUrlSlot,
   isStreamSearchStopped,
   STREAM_FIND_LEAD_MIN,
   MATCH_URL_LEAD_MIN,

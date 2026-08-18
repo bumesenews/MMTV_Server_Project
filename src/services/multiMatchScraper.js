@@ -13,7 +13,7 @@ const {
   isTodayOrTomorrow,
   toYangon,
   MATCH_TIME_TOLERANCE_MIN,
-  resolveMatchUrlSearchSlot,
+  resolveAnyMatchUrlSlot,
 } = require('../utils/time');
 const { cleanText } = require('../utils/normalize');
 const { needsMatchUrlDiscovery } = require('../utils/matchUrlDiscovery');
@@ -115,7 +115,7 @@ class MultiMatchScraper {
     if (!fixture?.kickoff) return false;
     const kickoff = toYangon(fixture.kickoff);
     if (!kickoff || !isTodayOrTomorrow(kickoff)) return false;
-    if (!resolveMatchUrlSearchSlot(fixture.kickoff)) return false;
+    if (!resolveAnyMatchUrlSlot(fixture.kickoff)) return false;
     const sources = fixture?.matchUrlSearch?.sources || {};
     const names = Object.keys(sources);
     if (!names.length) return true;

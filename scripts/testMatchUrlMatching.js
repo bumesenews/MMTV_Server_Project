@@ -2,16 +2,19 @@
  * Fixture → streaming Match URL matching tests.
  * Run: node scripts/testMatchUrlMatching.js
  */
-const { DateTime } = require('luxon');
+  const { DateTime } = require('luxon');
 const { Normalizer } = require('../src/utils/normalize');
 const teamsDoc = require('../config/teams.json');
 const {
   parseStreamUrl,
   scoreStreamMatch,
   MATCH_URL_STATUS,
+  compactNamesFuzzyMatch,
+  compareTeamIdentity,
 } = require('../src/utils/streamUrlHelper');
 const {
   resolveMatchUrlSearchSlot,
+  resolveMatchUrlLiveSlot,
   toUtcUnixSeconds,
 } = require('../src/utils/time');
 const {
@@ -227,10 +230,73 @@ console.log('\n=== Matching identity (home + away + date + kickoff) ===');
   fotmob.date = '2026-08-16';
   fotmob.time = '19:30';
   const r = scoreUrl(fotmob, url);
-  assert(
-    '13b. Viet Nam slug matches FotMob Vietnam (ICT 20:00 = Yangon 19:30)',
+  assert('13b. Viet Nam slug matches FotMob Vietnam (ICT 20:00 = Yangon 19:30)',
     r.accepted,
     JSON.stringify({ reason: r.reason, away: r.away, yangon: parsed.yangonTime })
+  );
+}
+
+{
+  const url =
+    'https://cakhiazvm.tv/truc-tiep/thai-lan-vs-singapore-luc-2000-ngay-18-08-2026/';
+  const parsed = parseStreamUrl(url);
+  const fotmob = fotmobFromParsed(parsed, {
+    homeTeam: 'Thailand',
+    awayTeam: 'Singapore',
+    league: 'ASEAN Championship',
+  });
+  fotmob.kickoff = yangonKickoff('2026-08-18T19:30:00').toISO();
+  fotmob.date = '2026-08-18';
+  fotmob.time = '19:30';
+  const r = scoreUrl(fotmob, url);
+  assert(
+    '13e. Thai Lan slug matches FotMob Thailand',
+    r.accepted,
+    JSON.stringify({ reason: r.reason, home: r.home, yangon: parsed.yangonTime })
+  );
+}
+
+{
+  assert('13f. fuzzy: Thai Lan ↔ Thailand', compactNamesFuzzyMatch('thai lan', 'thailand'));
+  assert('13g. fuzzy: Singapura ↔ Singapore', compactNamesFuzzyMatch('singapura', 'singapore'));
+  assert('13h. fuzzy rejects Milan ↔ Milano', !compactNamesFuzzyMatch('milan', 'milano'));
+  assert('13i. fuzzy rejects Australia ↔ Austria', !compactNamesFuzzyMatch('australia', 'austria'));
+  assert('13j. fuzzy rejects Chelsea ↔ Cheltenham', !compactNamesFuzzyMatch('chelsea', 'cheltenham'));
+  assert('13k. fuzzy rejects Inter Milan ↔ Milan', !compactNamesFuzzyMatch('inter milan', 'milan'));
+  const emptyNormalizer = new Normalizer({ teams: [] });
+  const thai = compareTeamIdentity('Thailand', 'Thai Lan', emptyNormalizer);
+  const sgp = compareTeamIdentity('Singapore', 'Singapura', emptyNormalizer);
+  assert('13l. compareTeamIdentity Thai Lan without teams.json', thai.score > 0, JSON.stringify(thai));
+  assert('13m. compareTeamIdentity Singapura without teams.json', sgp.score > 0, JSON.stringify(sgp));
+  const thailande = compareTeamIdentity('Thailand', 'Thailande', emptyNormalizer);
+  assert(
+    '13o. unlisted spelling Thailande uses fuzzy fallback',
+    thailande.kind === 'fuzzy' && thailande.score > 0,
+    JSON.stringify(thailande)
+  );
+}
+
+{
+  const url =
+    'https://socolivepp.tv/truc-tiep/thai-lan-vs-singapura-luc-2000-ngay-18-08-2026/';
+  const parsed = parseStreamUrl(url);
+  const fotmob = fotmobFromParsed(parsed, {
+    homeTeam: 'Thailand',
+    awayTeam: 'Singapore',
+    league: 'ASEAN Championship',
+  });
+  fotmob.kickoff = yangonKickoff('2026-08-18T19:30:00').toISO();
+  fotmob.date = '2026-08-18';
+  fotmob.time = '19:30';
+  const r = scoreStreamMatch(
+    fotmob,
+    { ...parsed, url },
+    { normalizer: new Normalizer({ teams: [] }) }
+  );
+  assert(
+    '13n. Thai Lan vs Singapura URL matches FotMob without teams.json',
+    r.accepted,
+    JSON.stringify({ reason: r.reason, home: r.home, away: r.away })
   );
 }
 
@@ -340,8 +406,20 @@ console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
   assert('8a. −45m is t45 slot', slotAt(45)?.id === 't45', JSON.stringify(slotAt(45)));
   assert('9a. −30m is t30 slot', slotAt(30)?.id === 't30', JSON.stringify(slotAt(30)));
   assert('10a. −15m still in t30 (final Match URL window)', slotAt(15)?.id === 't30', JSON.stringify(slotAt(15)));
-  assert('10b. kickoff is not a Match URL slot', slotAt(0) == null);
-  assert('10c. +5m is not a Match URL slot', slotAt(-5) == null);
+  assert('10b. kickoff is not a pre-kickoff Match URL slot', slotAt(0) == null);
+  assert('10c. +5m is not a pre-kickoff Match URL slot', slotAt(-5) == null);
+  assert(
+    '10b2. kickoff opens live Match URL catch-up',
+    resolveMatchUrlLiveSlot(kickoffDt.toISO(), kickSec)?.id === 'tLive'
+  );
+  assert(
+    '10c2. +5m still in live Match URL catch-up',
+    resolveMatchUrlLiveSlot(kickoffDt.toISO(), kickSec + 5 * 60)?.id === 'tLive'
+  );
+  assert(
+    '10c3. +121m live Match URL catch-up has stopped',
+    resolveMatchUrlLiveSlot(kickoffDt.toISO(), kickSec + 121 * 60) == null
+  );
   assert('10d. −90m is not a Match URL slot', slotAt(90) == null, JSON.stringify(slotAt(90)));
   assert(
     '10d2. Cloudflare script mention is not a block when truc-tiep links exist',
@@ -398,17 +476,39 @@ console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
   m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't60', attempt: 1 }, 't1');
   m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't45', attempt: 2 }, 't2');
   m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't30', attempt: 3 }, 't3');
+  assert(
+    '4b. Not stuck unknown — no further pre-kickoff Today-page search',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 30 * 60) === false
+  );
   m = finalizeMatchUrlStatus(m, kickSec);
   assert(
-    '4. Match URL never found → MATCH_URL_FAILED after 3 attempts',
-    m.matchUrlStatus === MATCH_URL_STATUS.FAILED &&
-      m.matchUrlAttempts === 3 &&
-      !m.matchUrl,
+    '4. After 3 misses, kickoff stays SEARCHING for live catch-up',
+    m.matchUrlStatus === MATCH_URL_STATUS.SEARCHING && !m.matchUrl,
     JSON.stringify({ status: m.matchUrlStatus, attempts: m.matchUrlAttempts })
   );
   assert(
-    '4b. Not stuck unknown — no further Today-page search',
-    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 30 * 60) === false
+    '4f. Live window retries Match URL after pre-kickoff FAILED',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec) === true
+  );
+  m = applySourceDiscoveryResult(
+    m,
+    'cakhia',
+    hit,
+    { id: 'tLive', live: true, postKickoff: true },
+    '2026-08-15T20:01:00.000Z'
+  );
+  assert(
+    '4g. Match URL found on live catch-up',
+    m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && Boolean(m.matchUrl)
+  );
+
+  m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't60', attempt: 1 }, 't1');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't45', attempt: 2 }, 't2');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't30', attempt: 3 }, 't3');
+  m = finalizeMatchUrlStatus(m, kickSec + 121 * 60);
+  assert(
+    '4h. Match URL FAILED after live window closes',
+    m.matchUrlStatus === MATCH_URL_STATUS.FAILED && !m.matchUrl
   );
 
   const leftover = {
