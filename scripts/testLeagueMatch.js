@@ -1,4 +1,4 @@
-const { Normalizer } = require('../src/utils/normalize');
+const { Normalizer, isFalseEnglishPremierLabel } = require('../src/utils/normalize');
 const leagues = require('../config/leagues.json').allowedLeagues;
 const n = new Normalizer({ leagues, teams: [] });
 const cases = [
@@ -13,6 +13,8 @@ const cases = [
   ['ARM Premier League', { country: 'ARM' }],
   ['Premier League', { country: 'England' }],
   ['Premier League', { fotmobId: 47 }],
+  ['ENG Premier League U18', { country: 'ENG', fotmobId: 10068 }],
+  ['Premier League U18', { country: 'ENG' }],
   ['Bundesliga', { country: 'AUT', fotmobId: 938366 }],
   ['Bundesliga', { country: 'GER', fotmobId: 54 }],
   ['UKR Premier League', { country: 'UKR' }],
@@ -20,3 +22,24 @@ const cases = [
 for (const [name, opts] of cases) {
   console.log(JSON.stringify(name), opts, '=>', n.filterAllowedLeague(name, opts));
 }
+
+const u18 = n.filterAllowedLeague('ENG Premier League U18', {
+  country: 'ENG',
+  fotmobId: 10068,
+});
+if (u18 != null) {
+  console.error('FAIL: U18 must not map onto a senior league, got', u18);
+  process.exit(1);
+}
+const stale = isFalseEnglishPremierLabel({
+  league: 'English Premier League (EPL)',
+  homeTeam: 'Chelsea U18',
+  awayTeam: 'Norwich U18',
+  originalNames: { fotmob: { league: 'ENG Premier League U18', country: 'ENG', leagueId: 10068 } },
+});
+if (!stale) {
+  console.error('FAIL: U18 EPL row must be treated as false EPL so sync can drop it');
+  process.exit(1);
+}
+console.log('U18 rejected from allow-list');
+

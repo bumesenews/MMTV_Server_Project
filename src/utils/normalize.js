@@ -95,6 +95,17 @@ function isEnglandCountry(countryFold) {
   );
 }
 
+/** FotMob youth / academy comps must never map onto senior EPL / Serie A / etc. */
+function isYouthCompetition(value) {
+  const key = foldKey(value);
+  if (!key) return false;
+  return (
+    /\bu-?1[5-9]\b/.test(key) ||
+    /\bu-?2[0-1]\b/.test(key) ||
+    /\b(u18|u19|u20|u21|youth|academy|junior)\b/.test(key)
+  );
+}
+
 function isItalyCountry(countryFold) {
   return Boolean(
     countryFold && (countryFold.includes('ital') || countryFold === 'ita')
@@ -164,6 +175,13 @@ function isFalseEnglishPremierLabel(match) {
   const raw = cleanText(fotmob.league || match?.rawLeague || '');
   const country = cleanText(fotmob.country || match?.country || '');
   const inferred = inferCountryCodeFromLeagueName(raw);
+  if (isYouthCompetition(raw) || isYouthCompetition(league)) return true;
+  if (
+    isYouthCompetition(match?.homeTeam) ||
+    isYouthCompetition(match?.awayTeam)
+  ) {
+    return true;
+  }
   const evidence = foldKey(`${country} ${inferred} ${raw}`);
   if (!raw && !country && !inferred) return false; // no evidence — don't touch real/manual EPL
   if (/\b(eng|england|english)\b/.test(evidence)) return false;
@@ -234,6 +252,8 @@ class Normalizer {
 
     const cleaned = cleanText(rawName);
     if (!cleaned) return null;
+
+    if (isYouthCompetition(cleaned)) return null;
 
     const countryClean = cleanText(country);
     const countryFold = foldKey(countryClean);
@@ -492,5 +512,6 @@ module.exports = {
   inferCountryCodeFromLeagueName,
   countryPremierLeagueLabel,
   isFalseEnglishPremierLabel,
+  isYouthCompetition,
   COUNTRY_PREMIER_LEAGUE_LABELS,
 };
