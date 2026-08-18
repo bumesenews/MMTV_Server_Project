@@ -13,6 +13,7 @@ const cases = [
   ['ARM Premier League', { country: 'ARM' }],
   ['Premier League', { country: 'England' }],
   ['Premier League', { fotmobId: 47 }],
+  ['INT Champions League Qualification', { country: 'INT', fotmobId: 937348 }],
   ['ENG Premier League U18', { country: 'ENG', fotmobId: 10068 }],
   ['Premier League U18', { country: 'ENG' }],
   ['Bundesliga', { country: 'AUT', fotmobId: 938366 }],
@@ -29,6 +30,14 @@ const u18 = n.filterAllowedLeague('ENG Premier League U18', {
 });
 if (u18 != null) {
   console.error('FAIL: U18 must not map onto a senior league, got', u18);
+  process.exit(1);
+}
+const uclQ = n.filterAllowedLeague('INT Champions League Qualification', {
+  country: 'INT',
+  fotmobId: 937348,
+});
+if (uclQ !== 'UEFA Champions League') {
+  console.error('FAIL: UCL qualification id 937348 must map to UEFA Champions League, got', uclQ);
   process.exit(1);
 }
 const stale = isFalseEnglishPremierLabel({

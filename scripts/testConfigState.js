@@ -923,6 +923,62 @@ async function run() {
         heidenheim.matches[0].matchId === '1_fc_heidenheim_bayern_munich_20260818',
       JSON.stringify(heidenheim.matches.map((m) => m.matchId))
     );
+
+    const leaguesDoc = require('../config/leagues.json');
+    const keepNorm = new (require('../src/utils/normalize').Normalizer)({
+      leagues: leaguesDoc.allowedLeagues,
+    });
+    const keep = syncMatchesForDelivery(
+      [
+        {
+          matchId: 'vietnam_malaysia_20260819',
+          fotmobMatchId: 5844767,
+          homeTeam: 'Vietnam',
+          awayTeam: 'Malaysia',
+          league: 'ASEAN Championship',
+          kickoff: '2026-08-19T19:30:00.000+06:30',
+        },
+        {
+          matchId: 'dinamo_zagreb_viking_20260819',
+          fotmobMatchId: 5987800,
+          homeTeam: 'Dinamo Zagreb',
+          awayTeam: 'Viking',
+          league: 'UEFA Champions League',
+          leagueId: 937348,
+          originalNames: {
+            fotmob: {
+              league: 'INT Champions League Qualification',
+              country: 'INT',
+              leagueId: 937348,
+            },
+          },
+          kickoff: '2026-08-19T01:30:00.000+06:30',
+        },
+      ],
+      [
+        {
+          matchId: 'fc_heidenheim_bayern_munich_20260818',
+          fotmobMatchId: 6000509,
+          homeTeam: 'FC Heidenheim',
+          awayTeam: 'Bayern Munich',
+          league: 'Club Friendlies',
+          kickoff: '2026-08-18T22:30:00.000+06:30',
+        },
+      ],
+      {
+        nowSec: toUtcUnixSeconds('2026-08-18T22:00:00.000+06:30'),
+        normalizer: keepNorm,
+      }
+    );
+    const keepIds = keep.matches.map((m) => m.matchId).sort();
+    assert(
+      'partial scrape keeps tomorrow ASEAN + UCL rows',
+      keep.matches.length === 3 &&
+        keepIds.includes('vietnam_malaysia_20260819') &&
+        keepIds.includes('dinamo_zagreb_viking_20260819') &&
+        keepIds.includes('fc_heidenheim_bayern_munich_20260818'),
+      JSON.stringify(keepIds)
+    );
   }
 }
 

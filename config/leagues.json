@@ -2,7 +2,7 @@
   "allowedLeagues": [
     {
       "standardName": "UEFA Champions League",
-      "fotmobIds": [42],
+      "fotmobIds": [42, 937348],
       "aliases": [
         "UEFA Champions League",
         "Champions League",
@@ -16,6 +16,7 @@
         "欧洲冠军联赛",
         "Champions League Qualification",
         "UEFA Champions League Qualification",
+        "INT Champions League Qualification",
         "UCL Qualification"
       ]
     },

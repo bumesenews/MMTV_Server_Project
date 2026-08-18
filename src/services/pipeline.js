@@ -26,7 +26,7 @@ const {
 
 /**
  * Main AWS processing pipeline (matches.json):
- * Load config → FotMob fixtures once/day (today+tomorrow) →
+ * Load config → FotMob fixtures every run (today+tomorrow, Asia/Yangon) →
  * kickoff-relative Match URL discovery (−60/−45/−30) then stream extract
  * starting at kickoff−30m; LIVE until +120m, then END + drop streams →
  * sync matches.json (expire kickoff+2h, merge streams) → GitHub PUT if changed
@@ -54,8 +54,8 @@ class Pipeline {
     this.channelsRunning = false;
     this.tipsRunning = false;
     this._expiring = false;
-    /** FotMob fixtures cached once per Yangon calendar day (today + tomorrow). */
-    this.fixtureCache = { dayKey: null, fixtures: [] };
+    /** FotMob fixtures for today+tomorrow. Short TTL so evening runs still pick up tomorrow. */
+    this.fixtureCache = { dayKey: null, fixtures: [], fetchedAt: 0 };
   }
 
   attachAdmin(admin) {
@@ -93,6 +93,7 @@ class Pipeline {
     }
     this._expiring = true;
     try {
+      await this._ensureNormalizerLoaded();
       const existing = readExistingMatches(this.cache);
       if (!existing.length) {
         return { ok: true, changed: false, removed: 0 };
@@ -128,7 +129,7 @@ class Pipeline {
 
       if (this.admin?.publish) {
         const published = await this.admin.publish.publish(
-          existing,
+          sync.matches,
           { configOrigin: 'expire', sources: [] },
           { actor, extras }
         );
@@ -223,7 +224,7 @@ class Pipeline {
         .join('|');
       if (this._leaguesFingerprint !== leaguesFingerprint) {
         // Allow-list / aliases changed — drop once-per-day fixture cache so labels re-map.
-        this.fixtureCache = { dayKey: null, fixtures: [] };
+        this.fixtureCache = { dayKey: null, fixtures: [], fetchedAt: 0 };
         this._leaguesFingerprint = leaguesFingerprint;
         logger.info('League config changed — cleared FotMob fixture cache');
       }
@@ -236,12 +237,13 @@ class Pipeline {
 
       let fixtures;
       try {
-        fixtures = await this._collectFixturesOncePerDay(fotmobConfig, {
+        fixtures = await this._collectFixturesTodayTomorrow(fotmobConfig, {
           force: forceStreamCheck,
         });
         if (this.admin?.leagues) {
           fixtures = this.admin.leagues.filterMatches(fixtures);
         }
+        fixtures = this._unionTodayTomorrowFixtures(fixtures);
         // Carry forward streams/sourcePages from previous matches.json
         fixtures = this._mergePreviousMatchState(fixtures);
       } catch (err) {
@@ -456,20 +458,28 @@ class Pipeline {
   }
 
   /**
-   * FotMob fixtures: today + tomorrow only, scraped once per Yangon calendar day.
-   * force=true (CLI --force) refreshes fixtures immediately.
+   * FotMob today + tomorrow (Asia/Yangon). Cached briefly so cron ticks
+   * still refresh evening/tomorrow fixtures instead of freezing a morning list.
    */
-  async _collectFixturesOncePerDay(fotmobConfig, { force = false } = {}) {
+  async _collectFixturesTodayTomorrow(fotmobConfig, { force = false } = {}) {
     const dayKey = todayYangon().toFormat('yyyy-MM-dd');
+    const ttlMs = Math.max(
+      0,
+      Number(this.env.FOTMOB_FIXTURE_CACHE_MS || 5 * 60 * 1000)
+    );
+    const cacheAge = Date.now() - (Number(this.fixtureCache.fetchedAt) || 0);
     if (
       !force &&
+      ttlMs > 0 &&
       this.fixtureCache.dayKey === dayKey &&
       Array.isArray(this.fixtureCache.fixtures) &&
-      this.fixtureCache.fixtures.length
+      this.fixtureCache.fixtures.length &&
+      cacheAge < ttlMs
     ) {
-      logger.info('Using cached FotMob fixtures (once per day)', {
+      logger.info('Using cached FotMob fixtures', {
         dayKey,
         count: this.fixtureCache.fixtures.length,
+        ageSec: Math.round(cacheAge / 1000),
       });
       return this.fixtureCache.fixtures.map((f) =>
         this.normalizer.repairMatchLeague({
@@ -489,6 +499,7 @@ class Pipeline {
 
     this.fixtureCache = {
       dayKey,
+      fetchedAt: Date.now(),
       fixtures: todayTomorrow.map((f) => ({
         ...f,
         streams: [],
@@ -496,7 +507,7 @@ class Pipeline {
       })),
     };
 
-    logger.info('FotMob fixtures scraped (once per day)', {
+    logger.info('FotMob fixtures scraped (today + tomorrow)', {
       dayKey,
       count: this.fixtureCache.fixtures.length,
     });
@@ -504,6 +515,38 @@ class Pipeline {
     return this.fixtureCache.fixtures.map((f) =>
       this.normalizer.repairMatchLeague({ ...f })
     );
+  }
+
+  async _ensureNormalizerLoaded() {
+    try {
+      const config = await this.configLoader.load(false);
+      let leagues = config.leagues?.allowedLeagues || config.leagues?.leagues || [];
+      if (this.admin?.leagues) {
+        leagues = this.admin.leagues.filterAllowedLeagueDefs(leagues);
+      }
+      const teams = config.teams?.teams || [];
+      this.normalizer.reload({ leagues, teams });
+    } catch (err) {
+      logger.warn('Could not reload league config before expire', { error: err.message });
+    }
+  }
+
+  /**
+   * A short FotMob payload must not drop other today/tomorrow allow-list matches
+   * already in matches.json (e.g. ASEAN / UCL qualification listed under a
+   * different tournament id).
+   */
+  _unionTodayTomorrowFixtures(scraped) {
+    const byKey = new Map();
+    const remember = (row) => {
+      if (!row?.matchId || !isTodayOrTomorrow(row.kickoff)) return;
+      const fm = row.fotmobMatchId || row.fotmobId;
+      const key = fm != null && fm !== '' ? `fm:${fm}` : `id:${row.matchId}`;
+      if (!byKey.has(key)) byKey.set(key, row);
+    };
+    for (const f of scraped || []) remember(f);
+    for (const m of this.cache.getCurrent()?.matches || []) remember(m);
+    return [...byKey.values()];
   }
 
   /**
