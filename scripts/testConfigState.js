@@ -856,6 +856,74 @@ async function run() {
     );
     assert('11:30 PM Yangon at 11:35 PM is LIVE', liveNow.status === 'LIVE');
   }
+
+  console.log('\n=== Collapse alias-renamed duplicate matches ===');
+  {
+    const { syncMatchesForDelivery } = require('../src/services/matchesSyncService');
+    const kickoff = '2026-08-19T01:30:00.000+06:30';
+    const nowSec = toUtcUnixSeconds(kickoff) - 4 * 3600;
+    const oldRow = {
+      matchId: 'fenerbahce_lyon_20260819',
+      fotmobMatchId: 5987803,
+      homeTeam: 'Fenerbahçe',
+      awayTeam: 'Lyon',
+      kickoff,
+      league: 'UEFA Champions League',
+      streams: [{ url: 'https://example.com/a.m3u8', source: 'cakhia' }],
+    };
+    const newRow = {
+      matchId: 'fenerbahce_olympique_lyonnais_20260819',
+      fotmobMatchId: 5987803,
+      homeTeam: 'Fenerbahçe',
+      awayTeam: 'Olympique Lyonnais',
+      kickoff,
+      league: 'UEFA Champions League',
+      streams: [],
+    };
+    const sync = syncMatchesForDelivery([oldRow, newRow], [newRow], { nowSec });
+    const ids = sync.matches.map((m) => m.matchId);
+    assert(
+      'Fenerbahce/Lyon alias twin collapsed to one row',
+      sync.matches.length === 1 &&
+        ids[0] === 'fenerbahce_olympique_lyonnais_20260819',
+      JSON.stringify(ids)
+    );
+    assert(
+      'collapsed row keeps the old stream URL',
+      sync.matches[0].streams?.some((s) => s.url === 'https://example.com/a.m3u8'),
+      JSON.stringify(sync.matches[0].streams)
+    );
+
+    const heidenheim = syncMatchesForDelivery(
+      [
+        {
+          matchId: 'fc_heidenheim_bayern_munich_20260818',
+          fotmobMatchId: 6000509,
+          homeTeam: 'FC Heidenheim',
+          awayTeam: 'Bayern Munich',
+          kickoff: '2026-08-18T22:30:00.000+06:30',
+          league: 'Club Friendlies',
+        },
+      ],
+      [
+        {
+          matchId: '1_fc_heidenheim_bayern_munich_20260818',
+          fotmobMatchId: 6000509,
+          homeTeam: '1. FC Heidenheim',
+          awayTeam: 'Bayern Munich',
+          kickoff: '2026-08-18T22:30:00.000+06:30',
+          league: 'Club Friendlies',
+        },
+      ],
+      { nowSec: toUtcUnixSeconds('2026-08-18T21:26:00.000+06:30') }
+    );
+    assert(
+      'Heidenheim alias twin merged onto new matchId',
+      heidenheim.matches.length === 1 &&
+        heidenheim.matches[0].matchId === '1_fc_heidenheim_bayern_munich_20260818',
+      JSON.stringify(heidenheim.matches.map((m) => m.matchId))
+    );
+  }
 }
 
 run()

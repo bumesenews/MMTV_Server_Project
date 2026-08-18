@@ -91,9 +91,91 @@ function mergeStreamLists(existingStreams = [], incomingStreams = []) {
   };
 }
 
+function fotmobIdentity(match) {
+  const id = match?.fotmobMatchId ?? match?.fotmobId;
+  if (id == null || id === '') return null;
+  return String(id);
+}
+
+function findStoredMatch(byId, incoming) {
+  const id = String(incoming.matchId);
+  if (byId.has(id)) return { key: id, match: byId.get(id) };
+  const fm = fotmobIdentity(incoming);
+  if (!fm) return null;
+  for (const [key, match] of byId) {
+    if (fotmobIdentity(match) === fm) return { key, match };
+  }
+  return null;
+}
+
+function combineMatchRecords(prev, incoming) {
+  const mergedStreams = mergeStreamLists(prev.streams || [], incoming.streams || []);
+  const next = enrichMatchState({
+    ...prev,
+    ...incoming,
+    matchId: incoming.matchId || prev.matchId,
+    manual: Boolean(prev.manual || incoming.manual),
+    statusLocked: Boolean(prev.statusLocked || incoming.statusLocked),
+    pinned: Boolean(prev.pinned || incoming.pinned),
+    featured: Boolean(prev.featured || incoming.featured),
+    streams: mergedStreams.streams,
+    streamAttempts: {
+      ...(prev.streamAttempts || {}),
+      ...(incoming.streamAttempts || {}),
+    },
+    streamSearch: incoming.streamSearch || prev.streamSearch,
+    matchUrl: incoming.matchUrl || prev.matchUrl || null,
+    matchUrlStatus: incoming.matchUrlStatus || prev.matchUrlStatus || null,
+    matchUrlAttempts: Math.max(
+      Number(incoming.matchUrlAttempts) || 0,
+      Number(prev.matchUrlAttempts) || 0
+    ),
+    lastMatchUrlAttemptAt:
+      incoming.lastMatchUrlAttemptAt || prev.lastMatchUrlAttemptAt || null,
+    matchUrlSource: incoming.matchUrlSource || prev.matchUrlSource || null,
+    matchUrlSearch: incoming.matchUrlSearch || prev.matchUrlSearch,
+    sourcePages: {
+      ...(prev.sourcePages || {}),
+      ...(incoming.sourcePages || {}),
+    },
+    originalNames: {
+      ...(prev.originalNames || {}),
+      ...(incoming.originalNames || {}),
+    },
+  });
+  return { next, streamsAdded: mergedStreams.added };
+}
+
+/**
+ * One FotMob id → one row. Alias changes (Lyon → Olympique Lyonnais)
+ * mint a new matchId; keep the canonical incoming id and drop the stale twin.
+ */
+function collapseDuplicateFotmobMatches(matches) {
+  const byFm = new Map();
+  const leftover = [];
+  let collapsed = 0;
+  for (const raw of matches || []) {
+    if (!raw?.matchId) continue;
+    const fm = fotmobIdentity(raw);
+    if (!fm) {
+      leftover.push(raw);
+      continue;
+    }
+    const prev = byFm.get(fm);
+    if (!prev) {
+      byFm.set(fm, raw);
+      continue;
+    }
+    collapsed += 1;
+    byFm.set(fm, combineMatchRecords(prev, raw).next);
+  }
+  return { matches: [...byFm.values(), ...leftover], collapsed };
+}
+
 /**
  * Append / update incoming matches onto the cleaned existing list.
  * - Same matchId → merge streams + refresh fixture fields
+ * - Same FotMob id, different matchId (alias rename) → merge onto incoming id
  * - New matchId → append
  */
 function mergeIncomingMatches(existingMatches, incomingMatches) {
@@ -111,61 +193,29 @@ function mergeIncomingMatches(existingMatches, incomingMatches) {
     if (!raw?.matchId) continue;
     const id = String(raw.matchId);
     const incoming = enrichMatchState(raw);
-    const prev = byId.get(id);
+    const stored = findStoredMatch(byId, incoming);
 
-    if (!prev) {
+    if (!stored) {
       byId.set(id, incoming);
       matchesAdded += 1;
       streamsAdded += (incoming.streams || []).filter((s) => s?.url).length;
       continue;
     }
 
-    const mergedStreams = mergeStreamLists(prev.streams || [], incoming.streams || []);
-    streamsAdded += mergedStreams.added;
-
-    const next = enrichMatchState({
-      ...prev,
-      ...incoming,
-      // Preserve admin locks / pins when incoming scrape omits them
-      manual: Boolean(prev.manual || incoming.manual),
-      statusLocked: Boolean(prev.statusLocked || incoming.statusLocked),
-      pinned: Boolean(prev.pinned || incoming.pinned),
-      featured: Boolean(prev.featured || incoming.featured),
-      streams: mergedStreams.streams,
-      streamAttempts: {
-        ...(prev.streamAttempts || {}),
-        ...(incoming.streamAttempts || {}),
-      },
-      streamSearch: incoming.streamSearch || prev.streamSearch,
-      matchUrl: incoming.matchUrl || prev.matchUrl || null,
-      matchUrlStatus: incoming.matchUrlStatus || prev.matchUrlStatus || null,
-      matchUrlAttempts: Math.max(
-        Number(incoming.matchUrlAttempts) || 0,
-        Number(prev.matchUrlAttempts) || 0
-      ),
-      lastMatchUrlAttemptAt:
-        incoming.lastMatchUrlAttemptAt || prev.lastMatchUrlAttemptAt || null,
-      matchUrlSource: incoming.matchUrlSource || prev.matchUrlSource || null,
-      matchUrlSearch: incoming.matchUrlSearch || prev.matchUrlSearch,
-      sourcePages: {
-        ...(prev.sourcePages || {}),
-        ...(incoming.sourcePages || {}),
-      },
-      originalNames: {
-        ...(prev.originalNames || {}),
-        ...(incoming.originalNames || {}),
-      },
-    });
-
-    byId.set(id, next);
+    if (stored.key !== id) byId.delete(stored.key);
+    const combined = combineMatchRecords(stored.match, incoming);
+    streamsAdded += combined.streamsAdded;
+    byId.set(id, combined.next);
     matchesUpdated += 1;
   }
 
+  const collapsed = collapseDuplicateFotmobMatches([...byId.values()]);
   return {
-    matches: [...byId.values()],
+    matches: collapsed.matches,
     streamsAdded,
     matchesAdded,
     matchesUpdated,
+    duplicatesCollapsed: collapsed.collapsed,
   };
 }
 
@@ -297,6 +347,7 @@ function syncMatchesForDelivery(existingMatches, incomingMatches, options = {}) 
     droppedDisallowed: sanitized.droppedDisallowed || 0,
     matchesAdded: merged.matchesAdded,
     matchesUpdated: merged.matchesUpdated,
+    duplicatesCollapsed: merged.duplicatesCollapsed || 0,
     streamsAdded: merged.streamsAdded,
     finalCount: finalFiltered.matches.length,
     changed,
@@ -309,6 +360,7 @@ function syncMatchesForDelivery(existingMatches, incomingMatches, options = {}) 
     streamsAdded: merged.streamsAdded,
     matchesAdded: merged.matchesAdded,
     matchesUpdated: merged.matchesUpdated,
+    duplicatesCollapsed: merged.duplicatesCollapsed || 0,
     leaguesRepaired: sanitized.repaired,
     droppedFalseEpl: sanitized.droppedFalseEpl,
     droppedDisallowed: sanitized.droppedDisallowed || 0,
@@ -336,6 +388,8 @@ module.exports = {
   isMatchExpired,
   filterExpiredMatches,
   mergeStreamLists,
+  fotmobIdentity,
+  collapseDuplicateFotmobMatches,
   mergeIncomingMatches,
   sanitizeLeagueLabels,
   matchAllowedOnCurrentList,

@@ -265,10 +265,14 @@ class FotMobSource {
       }
     }
 
-    // Deduplicate by matchId
+    // Deduplicate by FotMob id first, then matchId (alias renames must not double-list)
     const map = new Map();
     for (const f of all) {
-      if (!map.has(f.matchId)) map.set(f.matchId, f);
+      const key =
+        f.fotmobId != null && f.fotmobId !== ''
+          ? `fm:${f.fotmobId}`
+          : f.matchId;
+      map.set(key, f);
     }
     const fixtures = [...map.values()];
 

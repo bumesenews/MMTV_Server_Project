@@ -513,9 +513,18 @@ class Pipeline {
   _mergePreviousMatchState(fixtures) {
     const previous = this.cache.getCurrent()?.matches || [];
     const byId = new Map(previous.map((m) => [m.matchId, m]));
+    const byFotmob = new Map();
+    for (const m of previous) {
+      const fm = m.fotmobMatchId || m.fotmobId;
+      if (fm == null || fm === '') continue;
+      if (!byFotmob.has(String(fm))) byFotmob.set(String(fm), m);
+    }
 
     return (fixtures || []).map((f) => {
-      const prev = byId.get(f.matchId);
+      const fm = f.fotmobMatchId || f.fotmobId;
+      const prev =
+        byId.get(f.matchId) ||
+        (fm != null && fm !== '' ? byFotmob.get(String(fm)) : null);
       const repaired = this.normalizer.repairMatchLeague(f);
       if (!prev) return enrichMatchState(repaired);
 
