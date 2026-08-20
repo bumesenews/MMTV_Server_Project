@@ -929,34 +929,34 @@ class Pipeline {
           source: (cfg.domains && cfg.domains[0]) || '',
           scraped_at: new Date().toISOString(),
         });
-        const changed = force || sourceManager.hasChanged(previousDelivery, nextDelivery);
         bundle[feedKey] = nextDelivery;
         if (feedKey === 'highlight1') {
           lastHighlights = highlights;
         }
 
         let github = { uploaded: false, reason: 'unchanged' };
-        if (changed) {
-          try {
-            github = await this.github.uploadJsonIfChanged(this.github.paths[feedKey], nextDelivery, {
-              previousLocal: previousDelivery,
-              feedKey,
+        try {
+          github = await this.github.uploadJsonIfChanged(this.github.paths[feedKey], nextDelivery, {
+            previousLocal: previousDelivery,
+            feedKey,
+          });
+          if (github.uploaded) {
+            anyUploaded = true;
+            logEvent(events.GITHUB_UPLOAD, `${feedKey} updated successfully.`, {
+              commit: github.commit,
+              count: nextDelivery.count,
             });
-            if (github.uploaded) {
-              anyUploaded = true;
-              logEvent(events.GITHUB_UPLOAD, `${feedKey} updated successfully.`, {
-                commit: github.commit,
-                count: nextDelivery.count,
-              });
-            }
-          } catch (err) {
-            github = { uploaded: false, reason: 'github_error', error: err.message };
-            logEvent(events.SCRAPER_ERROR, `${feedKey} GitHub upload failed`, {
-              error: err.message,
-            });
+          } else if (github.reason === 'unchanged') {
+            logEvent(
+              events.GITHUB_SKIPPED,
+              `No ${feedKey} changes on GitHub. Upload skipped.`
+            );
           }
-        } else {
-          logEvent(events.GITHUB_SKIPPED, `No ${feedKey} changes detected. GitHub upload skipped.`);
+        } catch (err) {
+          github = { uploaded: false, reason: 'github_error', error: err.message };
+          logEvent(events.SCRAPER_ERROR, `${feedKey} GitHub upload failed`, {
+            error: err.message,
+          });
         }
         githubFeeds[feedKey] = github;
         await getGithubMonitor().inspectResult(github).catch(() => {});

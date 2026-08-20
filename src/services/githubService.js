@@ -145,10 +145,9 @@ class GitHubService {
     }
 
     const remote = remoteEarly;
-    const baseline = remote.content ?? previousLocal;
 
-    // Only PUT when there are actual content changes (new streams, expired removed, etc.)
-    if (!this.payloadChanged(baseline, payload)) {
+    // Missing GitHub file must be created even if local cache already matches payload.
+    if (remote.sha && remote.content != null && !this.payloadChanged(remote.content, payload)) {
       logEvent(events.GITHUB_SKIPPED, 'GitHub upload skipped — unchanged', {
         path: filePath,
         feed: feedKey,
