@@ -97,6 +97,14 @@ function isTargetClosedError(err) {
   );
 }
 
+function isBrowserLaunchError(err) {
+  const m = String(err?.message || err || '');
+  return (
+    /failed to launch the browser process|snap cgroup|not a snap cgroup/i.test(m) ||
+    isTargetClosedError(err)
+  );
+}
+
 function linuxChromeCandidates() {
   return [
     process.env.PUPPETEER_EXECUTABLE_PATH,
