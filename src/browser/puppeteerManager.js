@@ -90,9 +90,11 @@ function isSnapLauncher(p) {
   return false;
 }
 
-function isBrowserLaunchError(err) {
+function isTargetClosedError(err) {
   const m = String(err?.message || err || '');
-  return /failed to launch the browser process|snap cgroup|not a snap cgroup/i.test(m);
+  return /target closed|session closed|createTarget|Target\.createTarget|connection closed/i.test(
+    m
+  );
 }
 
 function linuxChromeCandidates() {
@@ -216,9 +218,9 @@ function buildChromeArgs(lowMem) {
   ];
 
   if (lowMem) {
-    // Aggressive 1GB profile. Do not use --single-process: Chrome/Puppeteer
-    // then dies with "Session closed" / "page has been closed" on newPage().
-    args.push('--renderer-process-limit=1', '--window-size=800,600');
+    // 1GB: small window only. Do not cap renderer count or use --single-process —
+    // Chrome already has about:blank, so newPage() then fails with Target.createTarget.
+    args.push('--window-size=800,600');
   } else {
     args.push('--window-size=1280,720');
   }
@@ -315,6 +317,10 @@ class PuppeteerManager {
     if (this.launching) return this.launching;
 
     this.launching = (async () => {
+      if (this.closing) {
+        await this.closing.catch(() => {});
+      }
+
       const candidates = [];
       const seen = new Set();
       for (const p of [this.executablePath, ...(this.chromeCandidates || [])]) {
@@ -383,6 +389,9 @@ class PuppeteerManager {
 
         try {
           this.browser = await puppeteer.launch(launchOpts);
+          if (!this.browser?.isConnected()) {
+            throw new Error('Failed to launch the browser process: disconnected immediately');
+          }
           lastErr = null;
           break;
         } catch (err) {
@@ -418,7 +427,7 @@ class PuppeteerManager {
       });
 
       this.pagesOpened = 0;
-      this.openPages = 0;
+      // Do not reset openPages — newPage() may already hold a slot.
       return this.browser;
     })();
 
@@ -506,9 +515,33 @@ class PuppeteerManager {
 
   async newPage() {
     await this.acquirePageSlot();
+    try {
+      return await this._createConfiguredPage();
+    } catch (err) {
+      if (!isTargetClosedError(err)) {
+        this.releasePageSlot();
+        throw err;
+      }
+      logger.warn('Chromium target closed on newPage — relaunching once', {
+        error: String(err.message || err).split('\n')[0],
+      });
+      try {
+        await this.close();
+        return await this._createConfiguredPage();
+      } catch (err2) {
+        this.releasePageSlot();
+        throw err2;
+      }
+    }
+  }
+
+  async _createConfiguredPage() {
     let page = null;
     try {
       const browser = await this.ensureBrowser();
+      if (!browser?.isConnected()) {
+        throw new Error('Protocol error (Target.createTarget): Target closed');
+      }
       page = await browser.newPage();
       this.pagesOpened += 1;
       page.__slotHeld = true;
@@ -525,8 +558,6 @@ class PuppeteerManager {
     } catch (err) {
       if (page) {
         await this.safeClosePage(page);
-      } else {
-        this.releasePageSlot();
       }
       throw err;
     }
@@ -662,26 +693,13 @@ class PuppeteerManager {
   }
 
   /**
-   * Kill stray Chromium left after OOM / crash when we believe we own none.
-   * Only runs when this manager has no live browser handle.
+   * Kill only the PID we launched. Never pkill google-chrome --no-sandbox:
+   * that matches the live Puppeteer browser and causes Target.createTarget: Target closed.
    */
   async killOrphanChromium() {
     if (this.browser && this.browser.isConnected()) return;
-    if (process.platform === 'win32') return;
-    if (process.env.PUPPETEER_KILL_ORPHANS === 'false') return;
-
-    try {
-      // Narrow patterns — avoid killing unrelated user Chrome sessions when possible
-      execSync(
-        "pkill -f 'chromium.*(headless|type=renderer|puppeteer)' || true",
-        { stdio: 'ignore', timeout: 5000 }
-      );
-      execSync("pkill -f 'chrome.*(headless|--no-sandbox)' || true", {
-        stdio: 'ignore',
-        timeout: 5000,
-      });
-    } catch {
-      // pkill returns non-zero when nothing matched
+    if (this.browserPid) {
+      this.forceKillPid(this.browserPid);
     }
   }
 
