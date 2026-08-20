@@ -85,20 +85,58 @@ async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries 
 }
 
 function parseListStreamGroups(html) {
-  const match = String(html || '').match(/var\s+list_stream\s*=\s*(\[[\s\S]*?\]);/);
-  if (!match) return [];
+  const text = String(html || '');
+  const marker = text.match(/var\s+list_stream\s*=\s*/);
+  if (!marker) return [];
+  const start = text.indexOf('[', marker.index + marker[0].length - 1);
+  if (start < 0) return [];
+  const literal = extractJsArrayLiteral(text, start);
+  if (!literal) return [];
   try {
-    // Prefer JSON; fall back to Function for lightly-escaped JS literals
     try {
-      const parsed = JSON.parse(match[1]);
+      const parsed = JSON.parse(literal);
       return Array.isArray(parsed) ? parsed : [];
     } catch {
-      const parsed = Function(`"use strict"; return (${match[1]});`)();
+      const parsed = Function(`"use strict"; return (${literal});`)();
       return Array.isArray(parsed) ? parsed : [];
     }
   } catch {
     return [];
   }
+}
+
+function extractJsArrayLiteral(text, startIdx) {
+  if (text[startIdx] !== '[') return null;
+  let depth = 0;
+  let inStr = false;
+  let quote = '';
+  let esc = false;
+  for (let i = startIdx; i < text.length; i += 1) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) {
+        esc = false;
+        continue;
+      }
+      if (ch === '\\') {
+        esc = true;
+        continue;
+      }
+      if (ch === quote) inStr = false;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      inStr = true;
+      quote = ch;
+      continue;
+    }
+    if (ch === '[') depth += 1;
+    else if (ch === ']') {
+      depth -= 1;
+      if (depth === 0) return text.slice(startIdx, i + 1);
+    }
+  }
+  return null;
 }
 
 function findStreamPatterns(text, baseUrl) {
@@ -160,15 +198,16 @@ function pickStreamUrl(urls) {
   })[0];
 }
 
+const PLAYER_TAB_SELECTORS =
+  '#tv_links a.player-link, #tv_links a, a.player-link[data-link], a.player-link, a[href*="/link/"]';
+
 function parseStreamButtons(html, config = {}) {
   const $ = load(html);
   const buttons = [];
   const seen = new Set();
-  const selectors = config.selectors || {};
   const attrs = config.attrs || {};
   const buttonSelector =
-    asList(selectors.streamButtons || selectors.qualityButton).join(', ') ||
-    '#tv_links a.player-link, a.player-link[data-link], [data-link], a[href*="/link/"]';
+    asList(config.selectors?.streamButtons).join(', ') || PLAYER_TAB_SELECTORS;
   const indexAttr = attrs.streamIndex || 'data-link';
 
   $(buttonSelector).each((_, el) => {
@@ -187,9 +226,6 @@ function parseStreamButtons(html, config = {}) {
   });
   return buttons;
 }
-
-const PLAYER_TAB_SELECTORS =
-  '#tv_links a, a.player-link, a[href*="/link/"], [data-link], .list-server a, .server-list a, .cdn-list a, .server-item a, .quality-item a';
 
 function parsePlayerTabs(html, matchPageUrl, config = {}) {
   const $ = load(html);
@@ -212,20 +248,15 @@ function parsePlayerTabs(html, matchPageUrl, config = {}) {
     tabs.push({ url: href, name: cleanText(name) || 'HD' });
   };
 
-  add(matchPageUrl, 'HD');
-  const extra = asList(config.selectors?.streamButtons || config.selectors?.qualityButton)
-    .concat(PLAYER_TAB_SELECTORS.split(',').map((s) => s.trim()))
+  const extra = [PLAYER_TAB_SELECTORS, ...asList(config.selectors?.streamButtons)]
     .filter(Boolean)
     .join(', ');
   $(extra).each((_, el) => {
     const anchor = $(el);
-    const href =
-      anchor.attr('href') ||
-      anchor.attr('data-href') ||
-      anchor.attr('data-url') ||
-      anchor.attr('data-link');
+    const href = anchor.attr('href') || anchor.attr('data-href') || anchor.attr('data-url');
     add(href, anchor.text());
   });
+  if (!tabs.length) add(matchPageUrl, 'HD');
   return tabs;
 }
 
@@ -249,6 +280,12 @@ function extractIframeSrcs(html, baseUrl) {
   return [...new Set(out)];
 }
 
+function isJsShellHtml(html) {
+  const text = String(html || '');
+  if (/list_stream|urlStream|\.m3u8/i.test(text)) return false;
+  return /<div id="root"><\/div>/i.test(text) || /type="module" crossorigin src="\/assets\//i.test(text);
+}
+
 async function extractUrlFromEmbed(embedUrl, referer) {
   const html = await axiosGetHtml(embedUrl, { referer });
   const candidates = findStreamPatterns(html, embedUrl);
@@ -270,7 +307,20 @@ async function extractStreamsViaAxios({
 }) {
   const maxEmbeds = maxPlayerStreams();
   const firstHtml = await axiosGetHtml(matchPageUrl, { referer: matchPageUrl });
-  const tabs = parsePlayerTabs(firstHtml, matchPageUrl, config).slice(0, maxEmbeds);
+  if (isJsShellHtml(firstHtml)) {
+    logger.info(`${sourceName} match page is a JS shell — skip axios extract`, {
+      source: sourceName,
+      url: matchPageUrl,
+    });
+    return [];
+  }
+  const tabs = parsePlayerTabs(firstHtml, matchPageUrl, config);
+  const firstTabName =
+    tabs.find(
+      (t) => String(t.url).replace(/\/$/, '').toLowerCase() === String(matchPageUrl).replace(/\/$/, '').toLowerCase()
+    )?.name ||
+    tabs[0]?.name ||
+    'HD';
   const streams = [];
   const sourcePriority = Number(config.priority || 0);
   const htmlByUrl = new Map([[matchPageUrl, firstHtml]]);
@@ -353,9 +403,9 @@ async function extractStreamsViaAxios({
     (t) => String(t.url).replace(/\/$/, '').toLowerCase() !== matchKey
   );
 
-  await extractFromHtml(firstHtml, matchPageUrl, tabs[0]?.name || 'HD');
+  await extractFromHtml(firstHtml, matchPageUrl, firstTabName);
 
-  for (const tab of extraTabs) {
+  for (const tab of extraTabs.slice(0, maxEmbeds)) {
     const unique = new Set(streams.map((s) => s.url)).size;
     if (unique >= maxEmbeds) break;
     let html = htmlByUrl.get(tab.url);
@@ -654,6 +704,7 @@ function streamsFromCapture(page, sourceName, config, matchPageUrl) {
 
 module.exports = {
   axiosGetHtml,
+  isJsShellHtml,
   isTransientHttpError,
   scraperHttpAgent,
   scraperHttpsAgent,

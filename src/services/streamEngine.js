@@ -30,6 +30,7 @@ const {
   MAX_POST_KICKOFF_ATTEMPTS,
   extractJobKey,
   isValidatedStream,
+  sourceHasValidatedStream,
   decideSourceExtract,
   nextSourceStateAfterAttempt,
   aggregateStreamStatus,
@@ -42,6 +43,7 @@ const {
   isKnownValidationReason,
   isBrowserProtocolError,
   readSourceExtractState,
+  sourceNeedsMorePlayerStreams,
 } = require('../utils/streamExtractPolicy');
 
 /**
@@ -153,10 +155,38 @@ class StreamEngine {
     const mins = minutesUntilKickoff(fixture?.kickoff);
     if (mins == null || mins > 0) return false;
     if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
-    if ((fixture?.streams || []).some((s) => s?.url && s.active !== false)) return false;
-    return this.sources.some((s) =>
-      sourceHasSavedMatchUrl(getSourceMatchUrlState(fixture, s.name))
-    );
+    return this.sources.some((s) => {
+      if (!sourceHasSavedMatchUrl(getSourceMatchUrlState(fixture, s.name))) return false;
+      const st = readSourceExtractState(fixture?.streamSearch, s.name);
+      if (
+        st.status === STREAM_SOURCE_STATUS.FAILED &&
+        st.postKickoffAttempts >= MAX_POST_KICKOFF_ATTEMPTS
+      ) {
+        return false;
+      }
+      return !sourceHasValidatedStream(fixture, s.name);
+    });
+  }
+
+  /**
+   * Source already has a playable URL but not TOM + HDTOM (or max player tabs).
+   * Re-extract while the match is still LIVE.
+   */
+  incompletePlayerCatchup(fixture) {
+    const mins = minutesUntilKickoff(fixture?.kickoff);
+    if (mins == null || mins > STREAM_EXTRACT_LEAD_MIN) return false;
+    if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+    return this.sources.some((s) => {
+      if (!sourceHasSavedMatchUrl(getSourceMatchUrlState(fixture, s.name))) return false;
+      const st = readSourceExtractState(fixture?.streamSearch, s.name);
+      if (
+        st.status === STREAM_SOURCE_STATUS.FAILED &&
+        st.postKickoffAttempts >= MAX_POST_KICKOFF_ATTEMPTS
+      ) {
+        return false;
+      }
+      return sourceNeedsMorePlayerStreams(fixture, s.name);
+    });
   }
 
   catchupSlot() {
@@ -178,7 +208,10 @@ class StreamEngine {
     if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
     if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
 
-    const catchup = this.missedExtractCatchup(fixture) || this.lateUrlExtractCatchup(fixture);
+    const catchup =
+      this.missedExtractCatchup(fixture) ||
+      this.lateUrlExtractCatchup(fixture) ||
+      this.incompletePlayerCatchup(fixture);
     if (!catchup) {
       if (isStreamSearchStopped(fixture.kickoff, fixture.streamSearch)) return false;
       if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
@@ -310,6 +343,7 @@ class StreamEngine {
         const allowLateExtract =
           this.missedExtractCatchup({ ...base, streamSearch }) ||
           this.lateUrlExtractCatchup({ ...base, streamSearch }) ||
+          this.incompletePlayerCatchup({ ...base, streamSearch }) ||
           stillNeedUrl;
         if (
           isStreamSearchStopped(base.kickoff, streamSearch) &&
@@ -350,7 +384,8 @@ class StreamEngine {
         const slot =
           resolveStreamSearchSlot(base.kickoff) ||
           ((this.missedExtractCatchup({ ...base, streamSearch }) ||
-            this.lateUrlExtractCatchup({ ...base, streamSearch }))
+            this.lateUrlExtractCatchup({ ...base, streamSearch }) ||
+            this.incompletePlayerCatchup({ ...base, streamSearch }))
             ? this.catchupSlot()
             : null);
 
@@ -556,10 +591,14 @@ class StreamEngine {
       const mins = minutesUntilKickoff(current.kickoff);
       return mins != null && mins <= -MATCH_LIVE_DURATION_MIN;
     })();
+    if (pastLiveWindow) {
+      this.extractQueue.cancelMatch(matchId);
+      return { skipped: true, reason: 'stopped' };
+    }
     if (
-      current.streamSearch?.stopped ||
-      pastLiveWindow ||
-      (!catchupJob && isStreamSearchStopped(current.kickoff, current.streamSearch))
+      !catchupJob &&
+      (current.streamSearch?.stopped ||
+        isStreamSearchStopped(current.kickoff, current.streamSearch))
     ) {
       this.extractQueue.cancelMatch(matchId);
       return { skipped: true, reason: 'stopped' };
@@ -594,9 +633,10 @@ class StreamEngine {
     try {
       if (
         this.extractQueue.isCancelled(matchId) ||
-        current.streamSearch?.stopped ||
         pastLiveWindow ||
-        (!catchupJob && isStreamSearchStopped(current.kickoff, current.streamSearch))
+        (!catchupJob &&
+          (current.streamSearch?.stopped ||
+            isStreamSearchStopped(current.kickoff, current.streamSearch)))
       ) {
         this.extractQueue.cancelMatch(matchId);
         return { skipped: true, reason: 'stopped' };
@@ -605,13 +645,14 @@ class StreamEngine {
         validateStreams,
         shouldAbort: () => {
           const latest = resultsById.get(matchId) || current;
-          if (this.extractQueue.isCancelled(matchId) || latest.streamSearch?.stopped) {
+          if (this.extractQueue.isCancelled(matchId)) {
             return true;
           }
           if (catchupJob) {
             const mins = minutesUntilKickoff(latest.kickoff);
             return mins != null && mins <= -MATCH_LIVE_DURATION_MIN;
           }
+          if (latest.streamSearch?.stopped) return true;
           return isStreamSearchStopped(latest.kickoff, latest.streamSearch);
         },
       });

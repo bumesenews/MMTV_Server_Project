@@ -5,7 +5,7 @@ const { logger, logEvent, events } = require('../utils/logger');
 const { formatDate, nowYangon } = require('../utils/time');
 
 /**
- * Source C — https://xoilacxtr.tv/
+ * Source C — https://xoilacxts.tv/
  * Independent scraper module.
  */
 class XoilacSource extends BaseStreamingSource {

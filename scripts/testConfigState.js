@@ -594,7 +594,7 @@ async function run() {
 
   console.log('\n=== 10 matches × 4 sources + concurrency ===');
   {
-    const names = ['cakhia', 'colatv', 'xoilac', 'socolive'];
+    const names = ['cakhia', 'mitomtm', 'xoilac', 'socolive'];
     const sources = names.map((name) =>
       mockSource(name, async () => [{ source: name, url: `https://cdn.example/${name}.m3u8` }])
     );

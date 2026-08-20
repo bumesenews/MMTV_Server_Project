@@ -14,6 +14,7 @@ const {
   aggregateValidationFields,
   isBrowserProtocolError,
   normalizeValidationReason,
+  sourceNeedsMorePlayerStreams,
 } = require('../src/utils/streamExtractPolicy');
 const { MATCH_URL_STATUS } = require('../src/utils/streamUrlHelper');
 const {
@@ -21,6 +22,9 @@ const {
   findStreamPatterns,
   extractIframeSrcs,
   parsePlayerTabs,
+  parseStreamButtons,
+  parseListStreamGroups,
+  isJsShellHtml,
 } = require('../src/sources/httpStreamExtractor');
 const { isFrameUsable } = require('../src/sources/streamExtractor');
 const { resolvePlayerWait } = require('../src/sources/baseStreamingSource');
@@ -164,6 +168,41 @@ console.log('\n=== Socolive TOM / HDTOM player tabs ===');
   );
 }
 
+{
+  const page =
+    'https://socolivepp.tv/truc-tiep/besiktas-jk-vs-kauno-zalgiris-luc-0000-ngay-21-08-2026/';
+  const html = `
+    <script>var list_stream = [["https:\\/\\/soco.edgevaultmedia.com\\/ajax\\/chanel\\/type\\/8\\/link\\/channel4"],["https:\\/\\/soco.edgevaultmedia.com\\/ajax\\/chanel\\/type\\/5\\/link\\/channel-4"]];</script>
+    <div id="tv_links">
+      <a class="player-link playing" href="${page.replace(/\/$/, '')}" data-link="0">TOM</a>
+      <a class="player-link" href="${page}link/1" data-link="1">HD TOM</a>
+    </div>`;
+  const groups = parseListStreamGroups(html);
+  const buttons = parseStreamButtons(html);
+  const tabs = parsePlayerTabs(html, page);
+  assert('parses both list_stream groups', groups.length === 2, JSON.stringify(groups));
+  assert(
+    'buttons are TOM and HD TOM',
+    buttons.some((b) => b.index === 0 && b.name === 'TOM') &&
+      buttons.some((b) => b.index === 1 && /HD\s*TOM/i.test(b.name)),
+    JSON.stringify(buttons)
+  );
+  assert(
+    'first tab is TOM not generic HD',
+    tabs[0]?.name === 'TOM',
+    JSON.stringify(tabs.map((t) => t.name))
+  );
+  assert(
+    'HD TOM is a /link/1 tab',
+    tabs.some((t) => /\/link\/1/.test(t.url) && /HD\s*TOM/i.test(t.name)),
+    JSON.stringify(tabs)
+  );
+  assert(
+    'ColaTV SPA shell is not treated as a player page',
+    isJsShellHtml('<div id="root"></div><script type="module" crossorigin src="/assets/index.js"></script>')
+  );
+}
+
 console.log('\n=== Source skip / retry policy ===');
 {
   const urlState = confirmedUrlState('https://cakhiazvm.tv/truc-tiep/inter-vs-juventus/');
@@ -174,6 +213,44 @@ console.log('\n=== Source skip / retry policy ===');
     slot: { id: 'tP5', postKickoff: true },
   });
   assert('Source already AVAILABLE → skip', available.reason === 'already_available');
+
+  const availableOneLink = decideSourceExtract({
+    sourceName: 'socolive',
+    streamSearch: { sources: { socolive: { status: 'AVAILABLE', slotsDone: { t0: true } } } },
+    matchUrlState: confirmedUrlState(
+      'https://socolivepp.tv/truc-tiep/besiktas-jk-vs-kauno-zalgiris/'
+    ),
+    slot: { id: 'catchup', postKickoff: true },
+    match: {
+      streams: [
+        {
+          source: 'socolive',
+          url: 'https://live2.livefeedtextbox.com/live/channel4.m3u8',
+          active: true,
+          validation: { ok: true },
+        },
+      ],
+    },
+  });
+  assert(
+    'AVAILABLE with only TOM still extracts HDTOM',
+    availableOneLink.skip === false,
+    availableOneLink.reason
+  );
+  assert(
+    'one unique URL needs a second player',
+    sourceNeedsMorePlayerStreams(
+      {
+        streams: [
+          {
+            source: 'socolive',
+            url: 'https://live2.livefeedtextbox.com/live/channel4.m3u8',
+          },
+        ],
+      },
+      'socolive'
+    )
+  );
 
   const availableMissing = decideSourceExtract({
     sourceName: 'cakhia',
@@ -321,7 +398,7 @@ console.log('\n=== Source skip / retry policy ===');
       streams: [],
       streamSearch: {
         sources: {
-          colatv: {
+          mitomtm: {
             status: 'SEARCHING',
             lastError: "Attempted to use detached Frame 'ABC'",
             lastAttemptAt: 'z',
@@ -358,7 +435,7 @@ console.log('\n=== Source skip / retry policy ===');
 
   const iframes = extractIframeSrcs(
     '<iframe data-src="https://player.example/embed/1"></iframe>',
-    'https://colatv65.live/'
+    'https://mitomtm.cc/'
   );
   assert(
     'iframe data-src is detected',
@@ -436,7 +513,7 @@ async function runAsyncTests() {
         throw new Error('TimeoutError');
       },
     };
-    await gotoMatchPage(idleFailPage, 'https://colatv65.live/match', {
+    await gotoMatchPage(idleFailPage, 'https://mitomtm.cc/match', {
       playerWaitUntil: 'networkidle2',
       playerWaitTimeoutMs: 10,
     });
@@ -708,7 +785,7 @@ async function runAsyncTests() {
   {
     let current = 0;
     let max = 0;
-    const names = ['cakhia', 'colatv', 'xoilac', 'socolive'];
+    const names = ['cakhia', 'mitomtm', 'xoilac', 'socolive'];
     const sources = names.map((name) =>
       mockSource(name, async () => {
         current += 1;

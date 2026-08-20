@@ -408,10 +408,12 @@ function dedupeStreams(streams) {
   const seen = new Set();
   const out = [];
   for (const s of streams) {
-    const key = String(s.url || '')
-      .split('?')[0]
+    const src = String(s.source || '').toLowerCase();
+    const url = String(s.url || '')
+      .split('#')[0]
       .toLowerCase();
-    if (!key || seen.has(key)) continue;
+    const key = `${src}::${url}`;
+    if (!url || seen.has(key)) continue;
     seen.add(key);
     out.push(s);
   }

@@ -86,7 +86,7 @@ function scoreUrl(fotmob, url, entryExtra = {}) {
 console.log('\n=== Match URL parsing ===');
 {
   const withId =
-    'https://colatv65.live/truc-tiep/kashima-antlers-vs-nagoya-grampus-luc-1600-ngay-15-08-2026-j374oi0yov3cgqo?houseId=07808742';
+    'https://mitomtm.cc/truc-tiep/kashima-antlers-vs-nagoya-grampus-luc-1600-ngay-15-08-2026';
   const parsed = parseStreamUrl(withId);
   assert('6. URL with random ID parses teams/date/time', parsed.ok === true, JSON.stringify({
     home: parsed.homeTeam,
@@ -654,14 +654,14 @@ console.log('\n=== Independent sources + duplicate candidates ===');
   });
 
   let m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', hit('cakhiazvm.tv'), { id: 't60', attempt: 1 }, 't1');
-  m = applySourceDiscoveryResult(m, 'colatv', null, { id: 't60', attempt: 1 }, 't1');
+  m = applySourceDiscoveryResult(m, 'mitomtm', null, { id: 't60', attempt: 1 }, 't1');
   m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't60', attempt: 1 }, 't1');
   m = applySourceDiscoveryResult(m, 'socolive', hit('socolivepp.tv'), { id: 't60', attempt: 1 }, 't1');
   assert(
     '14. Found sources stop; unresolved sources still due at −45m',
     needsMatchUrlDiscovery(m, 'cakhia', kickSec - 45 * 60) === false &&
       needsMatchUrlDiscovery(m, 'socolive', kickSec - 45 * 60) === false &&
-      needsMatchUrlDiscovery(m, 'colatv', kickSec - 45 * 60) === true &&
+      needsMatchUrlDiscovery(m, 'mitomtm', kickSec - 45 * 60) === true &&
       needsMatchUrlDiscovery(m, 'xoilac', kickSec - 45 * 60) === true
   );
 

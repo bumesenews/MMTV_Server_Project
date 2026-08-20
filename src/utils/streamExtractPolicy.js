@@ -1,6 +1,6 @@
 const { sourceHasSavedMatchUrl } = require('./matchUrlDiscovery');
 const { isStreamSearchStopped } = require('./time');
-const { MAX_POST_KICKOFF_ATTEMPTS } = require('./scraperConfig');
+const { MAX_POST_KICKOFF_ATTEMPTS, maxPlayerStreams } = require('./scraperConfig');
 
 const STREAM_SOURCE_STATUS = {
   PREPARING: 'PREPARING_STREAM',
@@ -92,6 +92,27 @@ function sourceHasValidatedStream(match, sourceName) {
   );
 }
 
+function uniqueSourceStreamUrls(match, sourceName) {
+  const name = String(sourceName || '').toLowerCase();
+  const urls = new Set();
+  for (const stream of match?.streams || []) {
+    if (String(stream?.source || '').toLowerCase() !== name) continue;
+    const url = String(stream?.url || '')
+      .trim()
+      .split('#')[0]
+      .toLowerCase();
+    if (url) urls.add(url);
+  }
+  return urls;
+}
+
+function sourceNeedsMorePlayerStreams(match, sourceName) {
+  if (!match) return false;
+  const urls = uniqueSourceStreamUrls(match, sourceName);
+  if (!urls.size) return false;
+  return urls.size < maxPlayerStreams();
+}
+
 function normalizeSourceStatus(status) {
   if (!status || status === 'PENDING') return STREAM_SOURCE_STATUS.PREPARING;
   return status;
@@ -128,12 +149,13 @@ function decideSourceExtract({
   const st = readSourceExtractState(streamSearch, sourceName);
   const missingOwnStream =
     match != null && !sourceHasValidatedStream(match, sourceName);
+  const needsMorePlayers = sourceNeedsMorePlayerStreams(match, sourceName);
 
-  if (stopped) {
+  if (stopped && !needsMorePlayers) {
     return { skip: true, reason: 'stopped', status: st.status };
   }
 
-  if (st.status === STREAM_SOURCE_STATUS.AVAILABLE && !missingOwnStream) {
+  if (st.status === STREAM_SOURCE_STATUS.AVAILABLE && !missingOwnStream && !needsMorePlayers) {
     return { skip: true, reason: 'already_available', status: st.status };
   }
 
@@ -153,7 +175,7 @@ function decideSourceExtract({
     };
   }
 
-  if (!force && slot?.id && st.slotsDone[slot.id] && !missingOwnStream) {
+  if (!force && slot?.id && st.slotsDone[slot.id] && !missingOwnStream && !needsMorePlayers) {
     return { skip: true, reason: 'duplicate_attempt', status: st.status };
   }
 
@@ -328,6 +350,8 @@ module.exports = {
   extractJobKey,
   isValidatedStream,
   sourceHasValidatedStream,
+  uniqueSourceStreamUrls,
+  sourceNeedsMorePlayerStreams,
   normalizeSourceStatus,
   readSourceExtractState,
   decideSourceExtract,

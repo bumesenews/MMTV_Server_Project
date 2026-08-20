@@ -66,7 +66,7 @@ function listManageableSourceNames(sourcesDoc) {
   const defaults = [
     'cakhia',
     'xoilac',
-    'colatv',
+    'mitomtm',
     'socolive',
     'highlight',
     'highlight1',

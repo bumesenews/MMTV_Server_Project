@@ -82,8 +82,8 @@
       "priority": 400,
       "extractionMethod": "axios-first",
       "parser": "xoilac",
-      "domains": ["https://xoilacxtr.tv"],
-      "mirrorDomains": [],
+      "domains": ["https://xoilacxts.tv"],
+      "mirrorDomains": ["https://xoilacxtr.tv"],
       "paths": {
         "home": "/",
         "schedule": "/sport/football/filter/today",
@@ -123,24 +123,28 @@
         "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-button", ".btn-play"]
       },
-      "notes": "https://xoilacxtr.tv/",
+      "notes": "https://xoilacxts.tv/",
       "playbackHeaders": {
         "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
-        "Referer": "https://xoilacxtr.tv/"
+        "Referer": "https://xoilacxts.tv/"
       }
     },
     {
-      "name": "colatv",
+      "name": "mitomtm",
       "enabled": true,
       "type": "streaming",
       "priority": 350,
       "extractionMethod": "axios-first",
-      "domains": ["https://colatv65.live"],
+      "domains": ["https://mitomtm.cc"],
       "mirrorDomains": [],
       "paths": {
         "home": "/",
-        "schedule": "https://api.gvapi.cc/api/matches",
-        "lists": ["https://api.gvapi.cc/api/matches"]
+        "schedule": "/",
+        "lists": [
+          "/",
+          "/sport/football/filter/today",
+          "/sport/football/filter/tomorrow"
+        ]
       },
       "discover": {
         "waitUntil": "domcontentloaded",
@@ -149,7 +153,7 @@
         "scrollY": 1400
       },
       "attrs": {
-        "href": ["href", "data-href", "data-url", "data-link"],
+        "href": ["href", "data-href", "data-url"],
         "src": ["src", "data-src", "data-lazy-src"]
       },
       "selectors": {
@@ -158,8 +162,8 @@
         "homeTeam": [".home-team", ".team-home", ".team.home", ".home .name", ".team1"],
         "awayTeam": [".away-team", ".team-away", ".team.away", ".away .name", ".team2"],
         "time": [".match-time", ".time", ".kickoff", ".hour", ".start-time"],
-        "matchLink": ["a", "a.match-link", "a[href*='/truc-tiep']", "a[href*='/live']", "a[href*='/watch']"],
-        "qualityButton": [".quality-btn", ".server-btn", ".stream-option", ".btn-quality", ".list-server button", ".server-list a", ".cdn-list button", "#tv_links a", "a.player-link", "a[href*='/link/']"],
+        "matchLink": ["a", "a.match-link", "a[href*='/truc-tiep']", "a[href*='/live']"],
+        "qualityButton": ["#tv_links a", "a.player-link", "a[href*='/link/']"],
         "iframe": ["iframe", "iframe.player", "iframe#player", ".player-container iframe", ".embed iframe"],
         "video": ["video", "video source", "#player video"]
       },
@@ -167,22 +171,22 @@
         "m3u8Patterns": ["\\.m3u8", "master\\.m3u8", "playlist\\.m3u8", "index\\.m3u8", "/hls/", "chunklist"],
         "waitUntil": "domcontentloaded",
         "playerWaitUntil": "networkidle2",
-        "playerWaitTimeoutMs": 8000,
-        "navigationTimeoutMs": 25000,
-        "waitAfterLoadMs": 5000,
+        "playerWaitTimeoutMs": 7000,
+        "navigationTimeoutMs": 22000,
+        "waitAfterLoadMs": 4000,
         "waitAfterClickMs": 2000,
-        "iframeRetries": 3,
-        "iframeRetryDelayMs": 500,
-        "retryBackoffMs": 800
+        "iframeRetries": 2,
+        "iframeRetryDelayMs": 400,
+        "retryBackoffMs": 1500
       },
       "playerRules": {
         "autoPlay": true,
         "clickPlaySelectors": [".vjs-big-play-button", ".play-btn", "#play", ".btn-play", ".play-button"]
       },
-      "notes": "https://colatv65.live/",
+      "notes": "https://mitomtm.cc/",
       "playbackHeaders": {
         "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
-        "Referer": "https://colatv65.live/"
+        "Referer": "https://mitomtm.cc/"
       }
     },
     {

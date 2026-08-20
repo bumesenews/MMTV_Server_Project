@@ -29,12 +29,12 @@ const SOURCE_PLAYER_WAIT = {
     iframeRetries: 3,
     retryBackoffMs: 800,
   },
-  colatv: {
-    waitAfterLoadMs: 5000,
-    playerWaitTimeoutMs: 8000,
-    navigationTimeoutMs: 25000,
-    iframeRetries: 3,
-    retryBackoffMs: 800,
+  mitomtm: {
+    waitAfterLoadMs: 4000,
+    playerWaitTimeoutMs: 7000,
+    navigationTimeoutMs: 22000,
+    iframeRetries: 2,
+    retryBackoffMs: 1500,
   },
   cakhia: {
     waitAfterLoadMs: 4000,
