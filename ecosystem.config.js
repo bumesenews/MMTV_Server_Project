@@ -19,7 +19,7 @@ module.exports = {
         USE_LOCAL_CONFIG: 'true',
         NODE_OPTIONS: '--max-old-space-size=256 --expose-gc',
         PUPPETEER_HEADLESS: 'new',
-        PUPPETEER_TIMEOUT_MS: '25000',
+        PUPPETEER_TIMEOUT_MS: '45000',
         PUPPETEER_BLOCK_RESOURCES: 'true',
         PUPPETEER_MAX_PAGES: '2',
         PUPPETEER_CONCURRENCY: '1',

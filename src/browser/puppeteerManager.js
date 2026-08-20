@@ -9,8 +9,15 @@ const DEFAULT_UA =
   process.env.USER_AGENT ||
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
-/** Production Ubuntu / snap Chromium (AWS EC2). */
-const LINUX_CHROMIUM_DEFAULT = '/snap/bin/chromium';
+/** Last-resort Ubuntu snap wrapper — fails under PM2 ("not a snap cgroup"). */
+const LINUX_CHROMIUM_SNAP_WRAPPER = '/snap/bin/chromium';
+
+/** Real Chromium ELF inside the snap (bypasses /snap/bin confinement). */
+const LINUX_SNAP_CHROME_ELFS = [
+  '/snap/chromium/current/usr/lib/chromium-browser/chrome',
+  '/snap/chromium/current/usr/lib/chromium/chrome',
+  '/snap/chromium/current/usr/lib/chromium-browser/chromium-browser',
+];
 
 /** Block heavy assets — huge RAM win on live-stream sites. Keep XHR/fetch/script for m3u8. */
 const BLOCKED_RESOURCE_TYPES = new Set(['image', 'stylesheet', 'font', 'media', 'texttrack', 'manifest']);
@@ -27,68 +34,146 @@ function lowMemoryMode() {
   return process.env.NODE_ENV === 'production';
 }
 
+function fileExists(p) {
+  try {
+    return Boolean(p) && fs.existsSync(p);
+  } catch {
+    return false;
+  }
+}
+
+function realpathOrSelf(p) {
+  try {
+    return fs.realpathSync(p);
+  } catch {
+    return p;
+  }
+}
+
+function isSnapChromeElf(p) {
+  const real = String(realpathOrSelf(p) || '')
+    .replace(/\\/g, '/')
+    .toLowerCase();
+  return (
+    real.includes('/snap/chromium/') &&
+    (real.endsWith('/chrome') || real.endsWith('/chromium') || real.endsWith('/chromium-browser'))
+  );
+}
+
+/** Shebang scripts (Ubuntu chromium-browser) exec /snap/bin and fail under PM2. */
+function isShellWrapper(p) {
+  try {
+    const fd = fs.openSync(p, 'r');
+    const buf = Buffer.alloc(2);
+    fs.readSync(fd, buf, 0, 2, 0);
+    fs.closeSync(fd);
+    return buf[0] === 0x23 && buf[1] === 0x21;
+  } catch {
+    return false;
+  }
+}
+
 /**
- * Resolve a system Chrome/Chromium binary for puppeteer-core.
- * puppeteer-core does NOT download a browser — executablePath is required.
+ * /snap/bin/chromium and apt shims fail from PM2:
+ * "session-*.scope is not a snap cgroup for tag snap.chromium.chromium"
  */
-function resolveChromePath() {
-  const envCandidates = [
+function isSnapLauncher(p) {
+  if (!p) return false;
+  const raw = String(p).replace(/\\/g, '/').toLowerCase();
+  const real = String(realpathOrSelf(p) || '')
+    .replace(/\\/g, '/')
+    .toLowerCase();
+  if (raw.includes('/snap/bin/') || real.includes('/snap/bin/')) return true;
+  if (isSnapChromeElf(p)) return false;
+  if (real.includes('/snap/')) return true;
+  if (process.platform !== 'win32' && isShellWrapper(p)) return true;
+  return false;
+}
+
+function isBrowserLaunchError(err) {
+  const m = String(err?.message || err || '');
+  return /failed to launch the browser process|snap cgroup|not a snap cgroup/i.test(m);
+}
+
+function linuxChromeCandidates() {
+  return [
     process.env.PUPPETEER_EXECUTABLE_PATH,
     process.env.CHROME_PATH,
     process.env.GOOGLE_CHROME_BIN,
-  ].filter((p) => p && String(p).trim());
+    '/usr/bin/google-chrome-stable',
+    '/usr/bin/google-chrome',
+    '/opt/google/chrome/chrome',
+    '/usr/bin/chromium',
+    '/usr/bin/chromium-browser',
+    ...LINUX_SNAP_CHROME_ELFS,
+    LINUX_CHROMIUM_SNAP_WRAPPER,
+  ]
+    .map((p) => (p ? String(p).trim() : ''))
+    .filter(Boolean);
+}
 
-  for (const candidate of envCandidates) {
-    const p = String(candidate).trim();
+function winChromeCandidates() {
+  return [
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    process.env.CHROME_PATH,
+    process.env.GOOGLE_CHROME_BIN,
+    'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
+    'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
+    path.join(os.homedir(), 'AppData', 'Local', 'Google', 'Chrome', 'Application', 'chrome.exe'),
+  ]
+    .map((p) => (p ? String(p).trim() : ''))
+    .filter(Boolean);
+}
 
-    if (process.platform !== 'win32' && isWindowsPath(p)) {
+function existingChromeCandidates() {
+  const list = process.platform === 'win32' ? winChromeCandidates() : linuxChromeCandidates();
+  const seen = new Set();
+  const out = [];
+  for (const candidate of list) {
+    if (process.platform !== 'win32' && isWindowsPath(candidate)) {
       logger.warn('Ignoring Windows Chrome path on non-Windows host', {
-        path: p,
+        path: candidate,
         platform: process.platform,
       });
       continue;
     }
-
-    try {
-      if (fs.existsSync(p)) return p;
-      logger.warn('Configured Chrome path not found — ignoring', { path: p });
-    } catch {
-      // continue
-    }
+    if (!fileExists(candidate) || seen.has(candidate)) continue;
+    seen.add(candidate);
+    out.push(candidate);
   }
+  return out;
+}
 
-  if (process.platform === 'win32') {
-    const winCandidates = [
-      'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe',
-      'C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe',
-      path.join(os.homedir(), 'AppData', 'Local', 'Google', 'Chrome', 'Application', 'chrome.exe'),
-    ];
-    for (const p of winCandidates) {
-      try {
-        if (fs.existsSync(p)) return p;
-      } catch {
-        // continue
-      }
-    }
-  } else {
-    // Prefer apt chromium over snap when both exist (lighter on 1GB).
-    const linuxCandidates = [
-      '/usr/bin/chromium-browser',
-      '/usr/bin/chromium',
-      '/usr/bin/google-chrome-stable',
-      '/usr/bin/google-chrome',
-      LINUX_CHROMIUM_DEFAULT,
-    ];
-    for (const p of linuxCandidates) {
-      try {
-        if (fs.existsSync(p)) return p;
-      } catch {
-        // continue
-      }
-    }
+function rankChromePath(p) {
+  if (!p) return 99;
+  if (process.platform === 'win32') return 0;
+  const envPath = String(process.env.PUPPETEER_EXECUTABLE_PATH || '').trim();
+  if (envPath && p === envPath && !isSnapLauncher(p)) return -1;
+  if (isSnapLauncher(p) && !isSnapChromeElf(p)) return 80;
+  if (isSnapChromeElf(p)) return 50;
+  const n = String(p).toLowerCase();
+  if (n.includes('google-chrome')) return 0;
+  if (n.includes('chromium')) return 10;
+  return 20;
+}
+
+/**
+ * Resolve a system Chrome/Chromium binary for puppeteer-core.
+ * Never prefer /snap/bin/chromium under PM2 — it cannot start in a user slice cgroup.
+ */
+function resolveChromePath() {
+  const existing = existingChromeCandidates();
+  if (!existing.length) return undefined;
+  const ranked = [...existing].sort((a, b) => rankChromePath(a) - rankChromePath(b));
+  const best = ranked[0];
+  const envPath = String(process.env.PUPPETEER_EXECUTABLE_PATH || '').trim();
+  if (envPath && isSnapLauncher(envPath) && best !== envPath) {
+    logger.warn('Ignoring snap Chromium wrapper (PM2 cgroup incompatible)', {
+      configured: envPath,
+      using: best,
+    });
   }
-
-  return undefined;
+  return best;
 }
 
 function buildChromeArgs(lowMem) {
@@ -131,12 +216,9 @@ function buildChromeArgs(lowMem) {
   ];
 
   if (lowMem) {
-    // Aggressive 1GB profile — fewer processes, smaller surface.
-    // --single-process crashes Chrome on Windows (detached Frame / disconnect).
+    // Aggressive 1GB profile. Do not use --single-process: Chrome/Puppeteer
+    // then dies with "Session closed" / "page has been closed" on newPage().
     args.push('--renderer-process-limit=1', '--window-size=800,600');
-    if (process.platform !== 'win32') {
-      args.push('--no-zygote', '--single-process');
-    }
   } else {
     args.push('--window-size=1280,720');
   }
@@ -156,11 +238,7 @@ class PuppeteerManager {
     this.lowMemory = options.lowMemory ?? lowMemoryMode();
     this.headless =
       options.headless !== undefined ? options.headless : resolveHeadlessMode();
-    this.timeout = Number(
-      options.timeout ||
-        process.env.PUPPETEER_TIMEOUT_MS ||
-        (this.lowMemory ? 25000 : 45000)
-    );
+    this.timeout = Number(options.timeout || process.env.PUPPETEER_TIMEOUT_MS || 45000);
     this.userAgent = options.userAgent || DEFAULT_UA;
     this.restartEvery = Number(
       options.restartEvery ||
@@ -185,9 +263,10 @@ class PuppeteerManager {
       this.maxConcurrentPages = Math.min(this.maxConcurrentPages, exclusive);
     }
     this.executablePath =
-      options.executablePath !== undefined
+      options.executablePath !== undefined && !isSnapLauncher(options.executablePath)
         ? options.executablePath
         : resolveChromePath();
+    this.chromeCandidates = existingChromeCandidates();
     this.browser = null;
     this.browserPid = null;
     this.pagesOpened = 0; // lifetime counter (for recycle)
@@ -236,11 +315,20 @@ class PuppeteerManager {
     if (this.launching) return this.launching;
 
     this.launching = (async () => {
-      if (!this.executablePath) {
+      const candidates = [];
+      const seen = new Set();
+      for (const p of [this.executablePath, ...(this.chromeCandidates || [])]) {
+        if (!p || seen.has(p) || !fileExists(p)) continue;
+        seen.add(p);
+        candidates.push(p);
+      }
+      candidates.sort((a, b) => rankChromePath(a) - rankChromePath(b));
+
+      if (!candidates.length) {
         const hint =
           process.platform === 'win32'
             ? 'Install Google Chrome or set PUPPETEER_EXECUTABLE_PATH'
-            : `Install Chromium (e.g. sudo apt install chromium-browser) or set PUPPETEER_EXECUTABLE_PATH`;
+            : 'Install Google Chrome (not snap Chromium): wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && sudo apt install ./google-chrome-stable_current_amd64.deb then set PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome-stable';
         throw new Error(
           `puppeteer-core requires a system browser executablePath. None found. ${hint}`
         );
@@ -267,33 +355,49 @@ class PuppeteerManager {
         '--memory-pressure-off',
         '--js-flags=--max-old-space-size=128',
       ];
-      if (process.platform !== 'win32') {
-        lowMemArgs.push('--single-process');
-      }
       const args = [
         ...new Set([...buildChromeArgs(this.lowMemory), ...(this.lowMemory ? lowMemArgs : [])]),
       ];
 
-      logger.info('Launching Puppeteer browser (puppeteer-core)', {
-        headless: this.headless,
-        timeout: this.timeout,
-        platform: process.platform,
-        executablePath: this.executablePath,
-        lowMemory: this.lowMemory,
-        blockResources: this.blockResources,
-        maxConcurrentPages: this.maxConcurrentPages,
-        argCount: args.length,
-      });
+      let lastErr = null;
+      for (const exe of candidates) {
+        this.executablePath = exe;
+        logger.info('Launching Puppeteer browser (puppeteer-core)', {
+          headless: this.headless,
+          timeout: this.timeout,
+          platform: process.platform,
+          executablePath: exe,
+          lowMemory: this.lowMemory,
+          blockResources: this.blockResources,
+          maxConcurrentPages: this.maxConcurrentPages,
+          argCount: args.length,
+        });
 
-      const launchOpts = {
-        executablePath: this.executablePath,
-        headless: this.headless,
-        args,
-        defaultViewport: viewport,
-        ignoreHTTPSErrors: true,
-      };
+        const launchOpts = {
+          executablePath: exe,
+          headless: this.headless,
+          args,
+          defaultViewport: viewport,
+          ignoreHTTPSErrors: true,
+        };
 
-      this.browser = await puppeteer.launch(launchOpts);
+        try {
+          this.browser = await puppeteer.launch(launchOpts);
+          lastErr = null;
+          break;
+        } catch (err) {
+          lastErr = err;
+          if (!isBrowserLaunchError(err)) throw err;
+          logger.warn('Chromium launch failed — trying next binary', {
+            executablePath: exe,
+            error: String(err.message || err).split('\n')[0],
+          });
+        }
+      }
+
+      if (!this.browser) {
+        throw lastErr || new Error('Failed to launch Chromium');
+      }
 
       try {
         const proc = this.browser.process();
@@ -745,7 +849,9 @@ module.exports = {
   PuppeteerManager,
   DEFAULT_UA,
   resolveChromePath,
-  LINUX_CHROMIUM_DEFAULT,
+  isSnapLauncher,
+  LINUX_CHROMIUM_DEFAULT: LINUX_CHROMIUM_SNAP_WRAPPER,
+  LINUX_CHROMIUM_SNAP_WRAPPER,
   lowMemoryMode,
   buildChromeArgs,
   puppeteerConcurrency,

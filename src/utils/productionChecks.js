@@ -40,7 +40,13 @@ function assertProductionEnv(env = process.env) {
   }
 
   if (!env.PUPPETEER_EXECUTABLE_PATH) {
-    logger.warn('PUPPETEER_EXECUTABLE_PATH unset — set to system Chromium on EC2');
+    logger.warn(
+      'PUPPETEER_EXECUTABLE_PATH unset — install google-chrome-stable on EC2 (not snap Chromium)'
+    );
+  } else if (/\/snap\/bin\//i.test(env.PUPPETEER_EXECUTABLE_PATH)) {
+    logger.warn(
+      'PUPPETEER_EXECUTABLE_PATH is snap Chromium — PM2 cannot launch it (snap cgroup). Use /usr/bin/google-chrome-stable'
+    );
   }
 }
 
