@@ -751,7 +751,9 @@ class Pipeline {
       (s) => s && (s.type === 'highlights' || s.type === 'highlight') && s.enabled !== false
     );
     if (typed.length) {
-      return typed.filter((s) => this._isSourceEnabled(sourcesDoc, s.name));
+      const enabled = typed.filter((s) => this._isSourceEnabled(sourcesDoc, s.name));
+      // sources.json order: highlight1 then highlight2. Never reorder.
+      return enabled;
     }
     const legacy = this.configLoader.getSourceConfig(sourcesDoc, 'highlight');
     if (legacy && this._isSourceEnabled(sourcesDoc, 'highlight')) return [legacy];
@@ -769,8 +771,8 @@ class Pipeline {
 
   /**
    * Dedicated highlight job (HIGHLIGHT_CRON):
-   * highlight1 (Hoofoot) then highlight2 (Socolive), one source at a time for 1GB RAM.
-   * Each feed has its own GitHub file. highlight.json stays a copy of highlight1 for Flutter.
+   * highlight1 (Hoofoot) then highlight2 (Socolive), one after the other on 1GB RAM.
+   * If highlight1 hangs or fails, highlight2 still runs.
    */
   async runHighlights({ force = false } = {}) {
     if (this.highlightRunning) {
@@ -849,10 +851,29 @@ class Pipeline {
             config: { ...cfg, recentDays: sourceManager.retentionDays },
             browserManager: this.browser,
           });
-          scraped = await source.collect({
-            extractM3u8: true,
-            skipEnrichIds,
-          });
+          const collectMs = Number(
+            cfg.collectTimeoutMs ||
+              (feedKey === 'highlight1'
+                ? process.env.HIGHLIGHT1_TIMEOUT_MS || 90000
+                : process.env.HIGHLIGHT2_TIMEOUT_MS || 180000)
+          );
+          scraped = await Promise.race([
+            source.collect({
+              extractM3u8: true,
+              skipEnrichIds,
+            }),
+            new Promise((_, reject) => {
+              setTimeout(
+                () =>
+                  reject(
+                    new Error(
+                      `${cfg.name} timed out after ${collectMs}ms — continuing to next highlight source`
+                    )
+                  ),
+                collectMs
+              );
+            }),
+          ]);
           scraped = scraped.map((h) => {
             const prev = existingById.get(String(h.id || ''));
             if (!prev) return h;
@@ -876,6 +897,11 @@ class Pipeline {
           });
           if (this.admin?.sources) this.admin.sources.recordError(cfg.name, err.message);
           feedResults[feedKey] = { ok: false, reason: 'scrape_failed', error: err.message };
+          try {
+            await this.browser.close();
+          } catch {
+            // ignore
+          }
           continue;
         }
 

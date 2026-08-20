@@ -308,7 +308,7 @@ class HighlightSource {
       await listPage.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
       await listPage.goto(url, {
         waitUntil: 'domcontentloaded',
-        timeout: this.browser.timeout,
+        timeout: Math.min(Number(this.browser.timeout) || 45000, 25000),
       });
       await sleep(2000);
       return await listPage.content();

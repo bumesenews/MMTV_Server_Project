@@ -100,7 +100,7 @@ function isTargetClosedError(err) {
 function isBrowserLaunchError(err) {
   const m = String(err?.message || err || '');
   return (
-    /failed to launch the browser process|snap cgroup|not a snap cgroup/i.test(m) ||
+    /failed to launch the browser process|snap cgroup|not a snap cgroup|launch timeout/i.test(m) ||
     isTargetClosedError(err)
   );
 }
@@ -393,10 +393,22 @@ class PuppeteerManager {
           args,
           defaultViewport: viewport,
           ignoreHTTPSErrors: true,
+          timeout: Math.min(this.timeout, 20000),
+          protocolTimeout: Math.min(this.timeout, 30000),
         };
 
         try {
-          this.browser = await puppeteer.launch(launchOpts);
+          const launchMs = Number(process.env.PUPPETEER_LAUNCH_TIMEOUT_MS || 20000);
+          this.browser = await Promise.race([
+            puppeteer.launch(launchOpts),
+            new Promise((_, reject) => {
+              setTimeout(
+                () =>
+                  reject(new Error('Failed to launch the browser process: launch timeout')),
+                launchMs
+              );
+            }),
+          ]);
           if (!this.browser?.isConnected()) {
             throw new Error('Failed to launch the browser process: disconnected immediately');
           }
