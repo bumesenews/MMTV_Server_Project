@@ -1,3 +1,5 @@
+const http = require('http');
+const https = require('https');
 const axios = require('axios');
 const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
@@ -10,11 +12,24 @@ const { isBrowserProtocolError } = require('../utils/streamExtractPolicy');
 const { maxPlayerStreams } = require('../utils/scraperConfig');
 
 const AXIOS_TIMEOUT_MS = Number(process.env.HTTP_STREAM_TIMEOUT_MS || 20000);
+const HTML_FETCH_RETRIES = Math.max(1, Number(process.env.HTTP_HTML_RETRIES || 3));
+
+// Node 18+ keep-alive reuses dead CDN sockets → "socket hang up" on 1GB hosts.
+const scraperHttpAgent = new http.Agent({ keepAlive: false });
+const scraperHttpsAgent = new https.Agent({ keepAlive: false });
+
+function isTransientHttpError(err) {
+  const code = String(err?.code || err?.cause?.code || '');
+  const msg = String(err?.message || err || '');
+  return /ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ENETUNREACH|EPIPE|ECONNABORTED|socket hang up|socket closed|network socket disconnected|aborted|timeout|502|503|504/i.test(
+    `${code} ${msg}`
+  );
+}
 
 /**
  * Shared axios HTML client for stream discovery.
  */
-async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS } = {}) {
+async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries = HTML_FETCH_RETRIES } = {}) {
   const origin = (() => {
     try {
       return new URL(url).origin;
@@ -22,31 +37,51 @@ async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS } = {}) {
       return referer || '';
     }
   })();
-  const res = await axios.get(url, {
-    timeout,
-    maxRedirects: 5,
-    responseType: 'text',
-    validateStatus: (s) => s >= 200 && s < 400,
-    headers: {
-      'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
-      Accept:
-        'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8,my;q=0.7',
-      'Cache-Control': 'no-cache',
-      Pragma: 'no-cache',
-      'Upgrade-Insecure-Requests': '1',
-      'Sec-Ch-Ua': '"Chromium";v="131", "Not_A Brand";v="24"',
-      'Sec-Ch-Ua-Mobile': '?0',
-      'Sec-Ch-Ua-Platform': '"Windows"',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': referer ? 'cross-site' : 'none',
-      'Sec-Fetch-User': '?1',
-      ...(referer ? { Referer: referer } : {}),
-      ...(origin ? { Origin: origin } : {}),
-    },
-  });
-  return typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+  const maxTries = Math.max(1, Number(retries) || 1);
+  let lastErr;
+  for (let attempt = 1; attempt <= maxTries; attempt += 1) {
+    try {
+      const res = await axios.get(url, {
+        timeout,
+        maxRedirects: 5,
+        responseType: 'text',
+        validateStatus: (s) => s >= 200 && s < 400,
+        httpAgent: scraperHttpAgent,
+        httpsAgent: scraperHttpsAgent,
+        headers: {
+          'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
+          Accept:
+            'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9,vi;q=0.8,my;q=0.7',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+          Connection: 'close',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Ch-Ua': '"Chromium";v="131", "Not_A Brand";v="24"',
+          'Sec-Ch-Ua-Mobile': '?0',
+          'Sec-Ch-Ua-Platform': '"Windows"',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': referer ? 'cross-site' : 'none',
+          'Sec-Fetch-User': '?1',
+          ...(referer ? { Referer: referer } : {}),
+          ...(origin ? { Origin: origin } : {}),
+        },
+      });
+      return typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+    } catch (err) {
+      lastErr = err;
+      if (!isTransientHttpError(err) || attempt >= maxTries) throw err;
+      logger.warn('HTML fetch retry after transient error', {
+        url,
+        attempt,
+        error: err.message,
+        code: err.code,
+      });
+      await sleep(400 * attempt);
+    }
+  }
+  throw lastErr;
 }
 
 function parseListStreamGroups(html) {
@@ -619,6 +654,9 @@ function streamsFromCapture(page, sourceName, config, matchPageUrl) {
 
 module.exports = {
   axiosGetHtml,
+  isTransientHttpError,
+  scraperHttpAgent,
+  scraperHttpsAgent,
   parseListStreamGroups,
   findStreamPatterns,
   flvToM3u8,

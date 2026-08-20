@@ -61,6 +61,21 @@ assert('jwplayer file', Boolean(
 ));
 assert('day-month helper', parseDayMonthDate('20', '08', '2026') === '2026-08-20');
 
+{
+  const { isTransientHttpError } = require('../src/sources/httpStreamExtractor');
+  const { isBrowserLaunchError } = require('../src/browser/puppeteerManager');
+  assert(
+    'socket hang up is retried',
+    isTransientHttpError({ message: 'socket hang up', code: 'ECONNRESET' })
+  );
+  assert('403 is not treated as hang-up', !isTransientHttpError({ message: 'Request failed with status code 403' }));
+  assert(
+    'browser launch helper exists',
+    typeof isBrowserLaunchError === 'function' &&
+      isBrowserLaunchError(new Error('Failed to launch the browser process'))
+  );
+}
+
 if (process.exitCode) {
   console.error('highlight parse tests failed');
   process.exit(1);

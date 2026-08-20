@@ -2,7 +2,14 @@ const axios = require('axios');
 const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
 const { DEFAULT_UA } = require('../browser/puppeteerManager');
-const { findStreamPatterns, pickStreamUrl, flvToM3u8 } = require('./httpStreamExtractor');
+const {
+  findStreamPatterns,
+  pickStreamUrl,
+  flvToM3u8,
+  isTransientHttpError,
+  scraperHttpAgent,
+  scraperHttpsAgent,
+} = require('./httpStreamExtractor');
 
 const BASE_URL = 'https://www.myanmartvchannels.com/';
 const CHANNELS_URL = `${BASE_URL}tv-channels.html`;
@@ -103,7 +110,12 @@ class MyanmarTvSource {
           maxRedirects: 5,
           responseType: 'text',
           validateStatus: (s) => s >= 200 && s < 400,
-          headers: this.headers(this.baseUrl),
+          httpAgent: scraperHttpAgent,
+          httpsAgent: scraperHttpsAgent,
+          headers: {
+            ...this.headers(this.baseUrl),
+            Connection: 'close',
+          },
         });
         return typeof res.data === 'string' ? res.data : String(res.data);
       } catch (error) {
@@ -112,8 +124,9 @@ class MyanmarTvSource {
       }
     }
 
-    // EC2 / CDN 403 fallback via Chromium
-    if (this.browser && /403|401|429|ECONNRESET|ETIMEDOUT/i.test(String(lastError?.message || ''))) {
+    // EC2 / CDN 403 or dropped keep-alive sockets → Chromium
+    const failText = `${lastError?.code || ''} ${lastError?.message || ''}`;
+    if (this.browser && (isTransientHttpError(lastError) || /403|401|429/i.test(failText))) {
       logger.warn('MyanmarTV axios failed — trying puppeteer', {
         url,
         error: lastError.message,

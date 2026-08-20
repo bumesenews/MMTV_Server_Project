@@ -416,10 +416,17 @@ class PuppeteerManager {
           break;
         } catch (err) {
           lastErr = err;
-          if (!isBrowserLaunchError(err)) throw err;
+          const msg = String(err?.message || err || '');
+          const retryable =
+            typeof isBrowserLaunchError === 'function'
+              ? isBrowserLaunchError(err)
+              : /failed to launch|snap cgroup|target closed|session closed|createTarget|connection closed|launch timeout/i.test(
+                  msg
+                );
+          if (!retryable) throw err;
           logger.warn('Chromium launch failed — trying next binary', {
             executablePath: exe,
-            error: String(err.message || err).split('\n')[0],
+            error: msg.split('\n')[0],
           });
         }
       }
@@ -887,6 +894,8 @@ module.exports = {
   PuppeteerManager,
   DEFAULT_UA,
   resolveChromePath,
+  isBrowserLaunchError,
+  isTargetClosedError,
   isSnapLauncher,
   LINUX_CHROMIUM_DEFAULT: LINUX_CHROMIUM_SNAP_WRAPPER,
   LINUX_CHROMIUM_SNAP_WRAPPER,
