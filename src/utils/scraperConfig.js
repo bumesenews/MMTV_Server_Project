@@ -11,6 +11,20 @@ function parsePositiveInt(value, fallback) {
   return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
 }
 
+/**
+ * How many player tabs / embed pages to fetch per source (TOM, HDTOM, …).
+ * Extra tabs are axios HTML — cheap vs Chrome — but still multiply work.
+ * 1GB default: 2 (TOM + HDTOM). Set HTTP_STREAM_MAX_EMBEDS=4 for all tabs.
+ */
+function maxPlayerStreams(env = process.env) {
+  const raw = env.HTTP_STREAM_MAX_EMBEDS;
+  if (raw != null && String(raw).trim() !== '') {
+    return Math.min(8, parsePositiveInt(raw, 2));
+  }
+  if (String(env.LOW_MEMORY_MODE || '').toLowerCase() === 'false') return 6;
+  return 2;
+}
+
 function parseMinutesList(value, fallbackList) {
   const raw = String(value == null ? '' : value).trim();
   const parts = raw
@@ -127,6 +141,7 @@ function loadScraperConfig(env = process.env) {
     scraperConcurrency,
     streamFindLeadMin: streamExtractLeadMin,
     puppeteerConcurrency: parsePositiveInt(env.PUPPETEER_CONCURRENCY, 1),
+    httpStreamMaxEmbeds: maxPlayerStreams(env),
   };
 }
 
@@ -135,6 +150,7 @@ const CONFIG = loadScraperConfig();
 module.exports = {
   parsePositiveInt,
   parseMinutesList,
+  maxPlayerStreams,
   buildMatchUrlSlots,
   buildStreamSearchSlots,
   loadScraperConfig,
@@ -152,4 +168,5 @@ module.exports = {
   MAX_POST_KICKOFF_ATTEMPTS: CONFIG.streamMaxAttempts,
   SCRAPER_CONCURRENCY: CONFIG.scraperConcurrency,
   PUPPETEER_CONCURRENCY: CONFIG.puppeteerConcurrency,
+  HTTP_STREAM_MAX_EMBEDS: CONFIG.httpStreamMaxEmbeds,
 };

@@ -7,9 +7,9 @@ const { extractStreamsFromPage, dedupeStreams, IFRAME_SRC_ATTRS } = require('./s
 const { sleep, DEFAULT_M3U8_PATTERNS, resolvePlayerWait } = require('./baseStreamingSource');
 const { cleanText } = require('../utils/normalize');
 const { isBrowserProtocolError } = require('../utils/streamExtractPolicy');
+const { maxPlayerStreams } = require('../utils/scraperConfig');
 
 const AXIOS_TIMEOUT_MS = Number(process.env.HTTP_STREAM_TIMEOUT_MS || 20000);
-const MAX_EMBEDS = Number(process.env.HTTP_STREAM_MAX_EMBEDS || 6);
 
 /**
  * Shared axios HTML client for stream discovery.
@@ -133,22 +133,65 @@ function parseStreamButtons(html, config = {}) {
   const attrs = config.attrs || {};
   const buttonSelector =
     asList(selectors.streamButtons || selectors.qualityButton).join(', ') ||
-    '#tv_links a.player-link, a.player-link[data-link], [data-link]';
+    '#tv_links a.player-link, a.player-link[data-link], [data-link], a[href*="/link/"]';
   const indexAttr = attrs.streamIndex || 'data-link';
 
   $(buttonSelector).each((_, el) => {
     const anchor = $(el);
     const rawIndex = anchor.attr(indexAttr);
-    if (rawIndex == null || rawIndex === '') return;
-    const index = Number(rawIndex);
+    const href = String(anchor.attr('href') || '');
+    const linkNum = href.match(/\/link\/(\d+)/i);
+    let index = rawIndex != null && rawIndex !== '' ? Number(rawIndex) : NaN;
+    if (!Number.isFinite(index) && linkNum) index = Number(linkNum[1]) - 1;
     if (!Number.isFinite(index)) return;
     const name = cleanText(anchor.text()) || `Link ${index + 1}`;
     const key = `${index}::${name}`;
     if (seen.has(key)) return;
     seen.add(key);
-    buttons.push({ index, name });
+    buttons.push({ index, name, href: href || null });
   });
   return buttons;
+}
+
+const PLAYER_TAB_SELECTORS =
+  '#tv_links a, a.player-link, a[href*="/link/"], [data-link], .list-server a, .server-list a, .cdn-list a, .server-item a, .quality-item a';
+
+function parsePlayerTabs(html, matchPageUrl, config = {}) {
+  const $ = load(html);
+  const tabs = [];
+  const seen = new Set();
+  const add = (rawUrl, name) => {
+    if (!rawUrl) return;
+    const raw = String(rawUrl).trim();
+    if (!raw || /^\d+$/.test(raw)) return;
+    let href;
+    try {
+      href = new URL(rawUrl, matchPageUrl).href.split('#')[0];
+    } catch {
+      return;
+    }
+    if (!/^https?:\/\//i.test(href)) return;
+    const key = href.replace(/\/$/, '').toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    tabs.push({ url: href, name: cleanText(name) || 'HD' });
+  };
+
+  add(matchPageUrl, 'HD');
+  const extra = asList(config.selectors?.streamButtons || config.selectors?.qualityButton)
+    .concat(PLAYER_TAB_SELECTORS.split(',').map((s) => s.trim()))
+    .filter(Boolean)
+    .join(', ');
+  $(extra).each((_, el) => {
+    const anchor = $(el);
+    const href =
+      anchor.attr('href') ||
+      anchor.attr('data-href') ||
+      anchor.attr('data-url') ||
+      anchor.attr('data-link');
+    add(href, anchor.text());
+  });
+  return tabs;
 }
 
 function extractIframeSrcs(html, baseUrl) {
@@ -190,13 +233,14 @@ async function extractStreamsViaAxios({
   sourceName,
   config = {},
 }) {
-  const html = await axiosGetHtml(matchPageUrl, { referer: matchPageUrl });
-  const streamGroups = parseListStreamGroups(html);
-  const buttons = parseStreamButtons(html, config);
+  const maxEmbeds = maxPlayerStreams();
+  const firstHtml = await axiosGetHtml(matchPageUrl, { referer: matchPageUrl });
+  const tabs = parsePlayerTabs(firstHtml, matchPageUrl, config).slice(0, maxEmbeds);
   const streams = [];
   const sourcePriority = Number(config.priority || 0);
+  const htmlByUrl = new Map([[matchPageUrl, firstHtml]]);
 
-  const push = (url, quality = 'HD', via = 'axios') => {
+  const push = (url, quality = 'HD', via = 'axios', pageUrl = matchPageUrl) => {
     const normalized = normalizeStreamUrl(url);
     if (!normalized) return;
     streams.push({
@@ -206,12 +250,12 @@ async function extractStreamsViaAxios({
       url: normalized,
       headers: playbackHeadersForClient(
         mergePlaybackHeaders({
-          streamHeaders: { Referer: matchPageUrl },
+          streamHeaders: { Referer: pageUrl },
           sourceConfig: config,
-          matchPageUrl,
+          matchPageUrl: pageUrl,
         })
       ),
-      matchPageUrl,
+      matchPageUrl: pageUrl,
       active: true,
       priority: sourcePriority,
       checkedAt: new Date().toISOString(),
@@ -219,15 +263,16 @@ async function extractStreamsViaAxios({
     });
   };
 
-  if (buttons.length && streamGroups.length) {
-    for (const button of buttons.slice(0, MAX_EMBEDS)) {
-      const embedUrl = Array.isArray(streamGroups[button.index])
-        ? streamGroups[button.index][0]
-        : '';
-      if (!embedUrl || !/^https?:\/\//i.test(embedUrl)) continue;
+  const extractFromHtml = async (html, pageUrl, tabName) => {
+    const before = streams.length;
+    const streamGroups = parseListStreamGroups(html);
+    const buttons = parseStreamButtons(html, config);
+
+    const tryEmbed = async (embedUrl, name, via = 'axios-list_stream') => {
+      if (!embedUrl || !/^https?:\/\//i.test(embedUrl)) return;
       try {
-        const url = await extractUrlFromEmbed(embedUrl, matchPageUrl);
-        if (url) push(url, button.name || 'HD', 'axios-list_stream');
+        const url = await extractUrlFromEmbed(embedUrl, pageUrl);
+        if (url) push(url, name || tabName || 'HD', via, pageUrl);
       } catch (err) {
         logger.debug('axios embed failed', {
           source: sourceName,
@@ -235,43 +280,64 @@ async function extractStreamsViaAxios({
           error: err.message,
         });
       }
-    }
-  }
+    };
 
-  if (!streams.length && streamGroups.length) {
-    const embeds = [
-      ...new Set(
-        streamGroups.flat().filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u))
-      ),
-    ].slice(0, MAX_EMBEDS);
-    for (const [index, embedUrl] of embeds.entries()) {
+    const groupCount = Array.isArray(streamGroups) ? streamGroups.length : 0;
+    for (let i = 0; i < Math.min(groupCount, maxEmbeds); i += 1) {
+      const group = Array.isArray(streamGroups[i]) ? streamGroups[i] : [];
+      const embed = group.find((u) => typeof u === 'string' && /^https?:\/\//i.test(u));
+      const button = buttons.find((b) => b.index === i);
+      await tryEmbed(embed, button?.name || tabName || `Link ${i + 1}`);
+    }
+
+    if (streams.length === before && streamGroups.length) {
+      const embeds = [
+        ...new Set(
+          streamGroups.flat().filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u))
+        ),
+      ].slice(0, maxEmbeds);
+      for (const [i, embedUrl] of embeds.entries()) {
+        await tryEmbed(embedUrl, buttons[i]?.name || tabName || `Link ${i + 1}`);
+      }
+    }
+
+    if (streams.length === before) {
+      for (const embedUrl of extractIframeSrcs(html, pageUrl).slice(0, maxEmbeds)) {
+        await tryEmbed(embedUrl, tabName, 'axios-iframe');
+      }
+    }
+
+    if (streams.length === before) {
+      const direct = pickStreamUrl(findStreamPatterns(html, pageUrl));
+      if (direct) push(direct, tabName || 'HD', 'axios-direct', pageUrl);
+    }
+  };
+
+  const matchKey = String(matchPageUrl).replace(/\/$/, '').toLowerCase();
+  const extraTabs = tabs.filter(
+    (t) => String(t.url).replace(/\/$/, '').toLowerCase() !== matchKey
+  );
+
+  await extractFromHtml(firstHtml, matchPageUrl, tabs[0]?.name || 'HD');
+
+  for (const tab of extraTabs) {
+    const unique = new Set(streams.map((s) => s.url)).size;
+    if (unique >= maxEmbeds) break;
+    let html = htmlByUrl.get(tab.url);
+    if (!html) {
       try {
-        const url = await extractUrlFromEmbed(embedUrl, matchPageUrl);
-        if (url) push(url, `Link ${index + 1}`, 'axios-list_stream');
+        html = await axiosGetHtml(tab.url, { referer: matchPageUrl });
+        htmlByUrl.set(tab.url, html);
       } catch (err) {
-        logger.debug('axios embed failed', {
+        logger.debug('player tab fetch failed', {
           source: sourceName,
-          embedUrl,
+          url: tab.url,
           error: err.message,
         });
+        continue;
       }
     }
-  }
-
-  if (!streams.length) {
-    for (const embedUrl of extractIframeSrcs(html, matchPageUrl).slice(0, MAX_EMBEDS)) {
-      try {
-        const url = await extractUrlFromEmbed(embedUrl, matchPageUrl);
-        if (url) push(url, 'HD', 'axios-iframe');
-      } catch {
-        // ignore
-      }
-    }
-  }
-
-  if (!streams.length) {
-    const direct = pickStreamUrl(findStreamPatterns(html, matchPageUrl));
-    if (direct) push(direct, 'HD', 'axios-direct');
+    await extractFromHtml(html, tab.url, tab.name);
   }
 
   return dedupeStreams(streams);
@@ -563,4 +629,6 @@ module.exports = {
   extractStreamsAxiosThenPuppeteer,
   runAxiosThenPuppeteer,
   extractIframeSrcs,
+  parsePlayerTabs,
+  parseStreamButtons,
 };

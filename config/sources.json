@@ -49,7 +49,7 @@
         "awayTeam": [".away-team", ".team-away", ".team.away", ".away .name", ".team2"],
         "time": [".match-time", ".time", ".kickoff", ".hour", ".start-time"],
         "matchLink": ["a", "a.match-link", "a[href*='/truc-tiep']", "a[href*='/live']", "a[href*='/watch']"],
-        "qualityButton": [".quality-btn", ".server-btn", ".stream-option", ".btn-quality", ".list-server button", ".server-list a", ".cdn-list button"],
+        "qualityButton": [".quality-btn", ".server-btn", ".stream-option", ".btn-quality", ".list-server button", ".server-list a", ".cdn-list button", "#tv_links a", "a.player-link", "a[href*='/link/']"],
         "iframe": ["iframe", "iframe.player", "iframe#player", ".player-container iframe", ".embed iframe"],
         "video": ["video", "video source", "#player video"]
       },
@@ -103,7 +103,7 @@
         "awayTeam": [".away-team", ".team2", ".club-away"],
         "time": [".time", ".kick-off", ".match-hour"],
         "matchLink": ["a", "a[href*='/live']", "a[href*='/watch']"],
-        "qualityButton": [".server-item", ".quality-item", ".btn-quality", ".list-server a", ".cdn-list button"],
+        "qualityButton": [".server-item", ".quality-item", ".btn-quality", ".list-server a", ".cdn-list button", "#tv_links a", "a.player-link", "a[href*='/link/']"],
         "iframe": ["iframe", ".embed iframe", "#player iframe"],
         "video": ["video", "video source"]
       },
@@ -159,7 +159,7 @@
         "awayTeam": [".away-team", ".team-away", ".team.away", ".away .name", ".team2"],
         "time": [".match-time", ".time", ".kickoff", ".hour", ".start-time"],
         "matchLink": ["a", "a.match-link", "a[href*='/truc-tiep']", "a[href*='/live']", "a[href*='/watch']"],
-        "qualityButton": [".quality-btn", ".server-btn", ".stream-option", ".btn-quality", ".list-server button", ".server-list a", ".cdn-list button"],
+        "qualityButton": [".quality-btn", ".server-btn", ".stream-option", ".btn-quality", ".list-server button", ".server-list a", ".cdn-list button", "#tv_links a", "a.player-link", "a[href*='/link/']"],
         "iframe": ["iframe", "iframe.player", "iframe#player", ".player-container iframe", ".embed iframe"],
         "video": ["video", "video source", "#player video"]
       },
@@ -213,7 +213,7 @@
         "awayTeam": [".away", ".team-away", ".away-name", ".name-away"],
         "time": [".time", ".match-time", ".start-time"],
         "matchLink": ["a", "a[href*='/live']", "a[href*='/truc-tiep']"],
-        "qualityButton": [".quality", ".server", ".btn-server", ".stream-btn", ".list-btn button"],
+        "qualityButton": [".quality", ".server", ".btn-server", ".stream-btn", ".list-btn button", "#tv_links a", "a.player-link", "a[href*='/link/']"],
         "iframe": ["iframe", "iframe[src*='player']", "#live-player iframe"],
         "video": ["video", "video source"]
       },

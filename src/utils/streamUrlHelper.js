@@ -799,6 +799,15 @@ function compareTeamIdentity(fotmobName, streamName, normalizer) {
     }
   }
 
+  // Distinctive first token: Jagiellonia ↔ Jagiellonia Białystok.
+  // 8+ chars so Milan / Inter / Forest cannot attach to a longer club name.
+  if (shortTok.length === 1 && longTok.length >= 2) {
+    const head = shortTok[0];
+    if (head.length >= 8 && head === longTok[0]) {
+      return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };
+    }
+  }
+
   // Multi-token containment only (avoids "milan" matching "inter milan")
   if (shortTok.length >= 2 && longer.includes(shorter)) {
     return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };

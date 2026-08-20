@@ -22,6 +22,7 @@ const {
   MAX_POST_KICKOFF_ATTEMPTS,
 } = require('../src/utils/streamExtractPolicy');
 const { DEFAULT_UA } = require('../src/browser/puppeteerManager');
+const { MATCH_URL_STATUS } = require('../src/utils/streamUrlHelper');
 
 const ZONE = 'Asia/Yangon';
 let passed = 0;
@@ -532,6 +533,15 @@ async function run() {
       'socolive/cakhia/xoilac all present',
       sources.join(',') === 'cakhia,socolive,xoilac'
     );
+    const twoLabels = validator.dedupeAndRank([
+      { source: 'socolive', url: `${url}?cdn=tom`, quality: 'TOM', active: true, validation: { ok: true, playlistHash: 'abc' } },
+      { source: 'socolive', url: `${url}?cdn=hdtom`, quality: 'HDTOM', active: true, validation: { ok: true, playlistHash: 'abc' } },
+    ]);
+    assert(
+      'TOM and HDTOM stay both when play URLs differ',
+      twoLabels.length === 2,
+      `got ${twoLabels.length}`
+    );
 
     const { mergeStreamLists } = require('../src/services/matchesSyncService');
     const merged = mergeStreamLists(
@@ -540,6 +550,18 @@ async function run() {
     );
     assert('sync merge adds second source', merged.streams.length === 2 && merged.added === 1);
 
+    const pages = {
+      socolive: 'https://socolivepp.tv/truc-tiep/basel-vs-barcelona/',
+      cakhia: 'https://cakhiazvm.tv/truc-tiep/basel-vs-barcelona/',
+      xoilac: 'https://xoilacxtr.tv/truc-tiep/basel-vs-barcelona/',
+    };
+    const matchUrlSearch = {
+      sources: {
+        socolive: { matchUrl: pages.socolive, status: MATCH_URL_STATUS.CONFIRMED, attempts: 1, confidence: 100 },
+        cakhia: { matchUrl: pages.cakhia, status: MATCH_URL_STATUS.CONFIRMED, attempts: 1, confidence: 100 },
+        xoilac: { matchUrl: pages.xoilac, status: MATCH_URL_STATUS.CONFIRMED, attempts: 1, confidence: 100 },
+      },
+    };
     const payload = generateFlutterJson([
       {
         matchId: 'basel_barcelona_20260816',
@@ -552,6 +574,8 @@ async function run() {
         status: 'LIVE',
         streams: ranked,
         streamStatus: 'AVAILABLE',
+        sourcePages: pages,
+        matchUrlSearch,
       },
     ]);
     assert('Flutter streamCount is 3', payload.matches[0].streamCount === 3);
@@ -573,6 +597,8 @@ async function run() {
         streams: [
           { source: 'socolive', url, quality: 'Link 1', active: true, validation: { ok: true } },
         ],
+        sourcePages: pages,
+        matchUrlSearch,
         streamSearch: {
           sources: {
             cakhia: { status: 'AVAILABLE' },

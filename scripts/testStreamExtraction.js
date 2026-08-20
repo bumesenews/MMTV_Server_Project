@@ -20,6 +20,7 @@ const {
   runAxiosThenPuppeteer,
   findStreamPatterns,
   extractIframeSrcs,
+  parsePlayerTabs,
 } = require('../src/sources/httpStreamExtractor');
 const { isFrameUsable } = require('../src/sources/streamExtractor');
 const { resolvePlayerWait } = require('../src/sources/baseStreamingSource');
@@ -121,6 +122,46 @@ function engineWith(sources, extra = {}) {
     validator: extra.validator || new FakeValidator(),
     scraperMonitor: extra.scraperMonitor || null,
   });
+}
+
+console.log('\n=== Socolive TOM / HDTOM player tabs ===');
+{
+  const page =
+    'https://socolivepp.tv/truc-tiep/mjallby-aif-vs-red-bull-salzburg-luc-2300-ngay-20-08-2026/';
+  const html = `
+    <div id="tv_links">
+      <a class="player-link" href="${page}link/1">TOM</a>
+      <a class="player-link" href="${page}link/2">HDTOM</a>
+      <a class="player-link" href="${page}link/3">VIP</a>
+      <a class="player-link" href="${page}link/4">H265</a>
+    </div>`;
+  const tabs = parsePlayerTabs(html, page);
+  const names = tabs.map((t) => t.name);
+  const urls = tabs.map((t) => t.url);
+  assert(
+    'parses TOM and HDTOM /link/ pages',
+    names.includes('TOM') && names.includes('HDTOM'),
+    JSON.stringify(names)
+  );
+  assert(
+    'keeps distinct player URLs',
+    urls.some((u) => /\/link\/1/.test(u)) && urls.some((u) => /\/link\/2/.test(u)),
+    JSON.stringify(urls)
+  );
+  assert(
+    'keeps all 4 player tabs',
+    names.includes('VIP') && names.includes('H265') && urls.filter((u) => /\/link\/\d+/.test(u)).length === 4,
+    JSON.stringify(names)
+  );
+}
+
+{
+  const { maxPlayerStreams } = require('../src/utils/scraperConfig');
+  assert('1GB cap is TOM+HDTOM (2)', maxPlayerStreams({}) === 2);
+  assert(
+    'HTTP_STREAM_MAX_EMBEDS overrides 1GB cap',
+    maxPlayerStreams({ HTTP_STREAM_MAX_EMBEDS: '4' }) === 4
+  );
 }
 
 console.log('\n=== Source skip / retry policy ===');

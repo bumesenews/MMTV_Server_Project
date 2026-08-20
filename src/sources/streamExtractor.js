@@ -3,6 +3,7 @@ const { mergePlaybackHeaders, playbackHeadersForClient } = require('../utils/str
 const { sleep } = require('./baseStreamingSource');
 const { cleanText } = require('../utils/normalize');
 const { isBrowserProtocolError } = require('../utils/streamExtractPolicy');
+const { maxPlayerStreams } = require('../utils/scraperConfig');
 
 const IFRAME_SRC_ATTRS = [
   'src',
@@ -153,8 +154,9 @@ async function extractStreamsFromPage({
 
   const qualitySelectors = selectors.qualityButton || [];
   const buttons = page.isClosed() ? [] : await discoverQualityButtons(page, qualitySelectors);
+  const clickLimit = maxPlayerStreams();
 
-  for (const button of buttons) {
+  for (const button of buttons.slice(0, clickLimit)) {
     try {
       const before = new Set(
         (page.__streamCapture?.getUniqueStreams() || []).map((s) => s.url)

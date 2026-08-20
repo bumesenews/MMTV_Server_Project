@@ -165,6 +165,15 @@ async function run() {
     assert('STREAM_MAX_ATTEMPTS=3', cfg.streamMaxAttempts === 3);
     assert('STREAM_POST_KICKOFF_MAX_MINUTES=15', cfg.streamPostKickoffMaxMinutes === 15);
     assert('SCRAPER_CONCURRENCY=2', cfg.scraperConcurrency === 2);
+    assert('1GB default player tabs = TOM+HDTOM (2)', cfg.httpStreamMaxEmbeds === 2);
+    assert(
+      'HTTP_STREAM_MAX_EMBEDS=4 keeps all tabs',
+      loadScraperConfig({ HTTP_STREAM_MAX_EMBEDS: '4' }).httpStreamMaxEmbeds === 4
+    );
+    assert(
+      'LOW_MEMORY_MODE=false allows 6 player tabs',
+      loadScraperConfig({ LOW_MEMORY_MODE: 'false' }).httpStreamMaxEmbeds === 6
+    );
     assert(
       'MATCH_URL_PRE_KICKOFF_MINUTES=60,45,30',
       cfg.matchUrlPreKickoffMinutes.join(',') === '60,45,30'
@@ -865,8 +874,8 @@ async function run() {
   console.log('\n=== Collapse alias-renamed duplicate matches ===');
   {
     const { syncMatchesForDelivery } = require('../src/services/matchesSyncService');
-    const kickoff = '2026-08-19T01:30:00.000+06:30';
-    const nowSec = toUtcUnixSeconds(kickoff) - 4 * 3600;
+    const kickoff = DateTime.now().setZone(ZONE).plus({ hours: 4 }).toISO();
+    const nowSec = Math.floor(Date.now() / 1000);
     const oldRow = {
       matchId: 'fenerbahce_lyon_20260819',
       fotmobMatchId: 5987803,

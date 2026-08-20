@@ -572,8 +572,11 @@ class StreamValidator {
       if (!stream?.url) continue;
       const src = String(stream.source || 'unknown').trim().toLowerCase() || 'unknown';
       const norm = normalizeStreamUrl(stream.url);
+      const label = String(stream.quality || stream.name || '')
+        .toLowerCase()
+        .trim();
       const hashKey = stream.validation?.playlistHash
-        ? `${src}:hash:${stream.validation.playlistHash}`
+        ? `${src}:hash:${stream.validation.playlistHash}:q:${label}`
         : null;
       const keys = [`${src}:url:${norm}`, `${src}:exact:${String(stream.url).toLowerCase()}`];
       if (hashKey) keys.push(hashKey);

@@ -337,6 +337,45 @@ console.log('\n=== Matching identity (home + away + date + kickoff) ===');
   );
 }
 
+{
+  const url =
+    'https://socolivepp.tv/truc-tiep/jagiellonia-vs-fc-saburtalo-luc-2300-ngay-20-08-2026/';
+  const parsed = parseStreamUrl(url);
+  const fotmob = fotmobFromParsed(parsed, {
+    homeTeam: 'Jagiellonia Białystok',
+    awayTeam: 'Iberia 1999',
+    league: 'UEFA Europa League Qualification',
+  });
+  fotmob.kickoff = yangonKickoff('2026-08-20T22:30:00').toISO();
+  fotmob.date = '2026-08-20';
+  fotmob.time = '22:30';
+  const r = scoreUrl(fotmob, url);
+  assert(
+    '13p. Socolive Jagiellonia vs Saburtalo matches FotMob Iberia 1999',
+    r.accepted,
+    JSON.stringify({
+      reason: r.reason,
+      home: r.home,
+      away: r.away,
+      yangon: parsed.yangonTime,
+      status: r.status,
+    })
+  );
+  const emptyNormalizer = new Normalizer({ teams: [] });
+  const jaga = compareTeamIdentity('Jagiellonia Białystok', 'Jagiellonia', emptyNormalizer);
+  const milan = compareTeamIdentity('Inter Milan', 'Milan', emptyNormalizer);
+  assert(
+    '13q. Jagiellonia short slug matches without teams.json',
+    jaga.score > 0,
+    JSON.stringify(jaga)
+  );
+  assert(
+    '13r. Inter Milan still does not match bare Milan',
+    milan.score === 0,
+    JSON.stringify(milan)
+  );
+}
+
 console.log('\n=== Multiple matches at the same time ===');
 {
   const kick = yangonKickoff('2026-08-15T19:30:00');
