@@ -529,7 +529,12 @@ async function run() {
     m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't45', attempt: 2 }, 't2');
     m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't30', attempt: 3 }, 't3');
     m = finalizeMatchUrlStatus(m, toUtcUnixSeconds(kickoffIso(0)));
-    assert('Match URL never found → MATCH_URL_FAILED', m.matchUrlStatus === MATCH_URL_STATUS.FAILED);
+    assert(
+      'Match URL never found before kickoff stays SEARCHING for catch-up',
+      m.matchUrlStatus === MATCH_URL_STATUS.SEARCHING
+    );
+    m = finalizeMatchUrlStatus(m, toUtcUnixSeconds(m.kickoff) + 121 * 60);
+    assert('Match URL never found after live window → MATCH_URL_FAILED', m.matchUrlStatus === MATCH_URL_STATUS.FAILED);
   }
 
   console.log('\n=== sourcePages follow discovery only ===');

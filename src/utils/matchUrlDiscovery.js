@@ -226,17 +226,23 @@ function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
   const st = getSourceMatchUrlState(fixture, sourceName);
   if (sourceHasSavedMatchUrl(st)) return false;
 
+  const cooldownSec = Math.max(1, STREAM_SEARCH_INTERVAL_MINUTES) * 60;
   const liveSlot = resolveMatchUrlLiveSlot(fixture?.kickoff, nowSec);
   if (liveSlot) {
     if ((Number(st.liveAttempts) || 0) >= MATCH_URL_MAX_ATTEMPTS) return false;
-    const cooldownSec = Math.max(1, STREAM_SEARCH_INTERVAL_MINUTES) * 60;
     return lastAttemptAgeSec(st.lastAttemptAt, nowSec) >= cooldownSec;
   }
 
-  if (isFailedMatchUrlStatus(st.status)) return false;
-  if (st.attempts >= MATCH_URL_MAX_ATTEMPTS) return false;
   const slot = resolveMatchUrlSearchSlot(fixture?.kickoff, nowSec);
   if (!slot) return false;
+
+  // Listings often appear after the −30 miss. Keep hunting in the last
+  // pre-kickoff window even after MATCH_URL_FAILED, with the same cooldown.
+  if (isFailedMatchUrlStatus(st.status) || st.attempts >= MATCH_URL_MAX_ATTEMPTS) {
+    if (slot.early) return false;
+    return lastAttemptAgeSec(st.lastAttemptAt, nowSec) >= cooldownSec;
+  }
+
   if (slot.early) {
     return !st.slotsDone[slot.id];
   }
@@ -244,7 +250,6 @@ function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
 
   // Leftover budget: old tEarly/t30 rows marked the slot done after 1 miss,
   // skipping −60/−45. Keep searching until 3 attempts, with interval cooldown.
-  const cooldownSec = Math.max(1, STREAM_SEARCH_INTERVAL_MINUTES) * 60;
   return lastAttemptAgeSec(st.lastAttemptAt, nowSec) >= cooldownSec;
 }
 
@@ -362,14 +367,22 @@ function finalizeMatchUrlStatus(fixture, nowSec) {
       matchUrlStatus: MATCH_URL_STATUS.SEARCHING,
     };
   }
-  const attempts = Number(next.matchUrlAttempts) || 0;
-  if (
-    (mins != null && mins <= -MATCH_LIVE_DURATION_MIN) ||
-    attempts >= MATCH_URL_MAX_ATTEMPTS
-  ) {
+  if (mins != null && mins <= -MATCH_LIVE_DURATION_MIN) {
     return {
       ...next,
       matchUrlStatus: MATCH_URL_STATUS.FAILED,
+    };
+  }
+  // Three pre-kickoff misses are not terminal — live catch-up still runs.
+  if (
+    !next.matchUrl &&
+    next.matchUrlStatus === MATCH_URL_STATUS.FAILED &&
+    mins != null &&
+    mins > 0
+  ) {
+    return {
+      ...next,
+      matchUrlStatus: MATCH_URL_STATUS.SEARCHING,
     };
   }
   return {
@@ -408,7 +421,7 @@ function aggregateMatchUrlFields(fixture) {
   let bestSource = fixture.matchUrlSource || null;
   let maxAttempts = 0;
   let lastAt = fixture.lastMatchUrlAttemptAt || null;
-  let anyFailed = false;
+  let allFailed = true;
   let sourceCount = 0;
 
   for (const [name, raw] of Object.entries(search.sources || {})) {
@@ -429,7 +442,7 @@ function aggregateMatchUrlFields(fixture) {
           ? MATCH_URL_STATUS.FAILED
           : MATCH_URL_STATUS.PENDING;
     }
-    if (status === MATCH_URL_STATUS.FAILED) anyFailed = true;
+    if (status !== MATCH_URL_STATUS.FAILED) allFailed = false;
     const rank = isConfirmedMatchUrlStatus(status)
       ? 200 + conf
       : status === MATCH_URL_STATUS.FOUND
@@ -461,7 +474,7 @@ function aggregateMatchUrlFields(fixture) {
   }
 
   let matchUrlStatus = bestUrl ? bestStatus : MATCH_URL_STATUS.PENDING;
-  if (!bestUrl && (anyFailed || maxAttempts >= MATCH_URL_MAX_ATTEMPTS) && sourceCount) {
+  if (!bestUrl && allFailed && sourceCount) {
     matchUrlStatus = MATCH_URL_STATUS.FAILED;
   }
 

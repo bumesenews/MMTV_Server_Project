@@ -30,9 +30,16 @@
         "欧联",
         "UEFA EL",
         "Europa League UEFA",
-        "欧洲联赛",
-        "Europa League Qualification",
+        "欧洲联赛"
+      ]
+    },
+    {
+      "standardName": "UEFA Europa League Qualification",
+      "fotmobIds": [937349],
+      "aliases": [
         "UEFA Europa League Qualification",
+        "Europa League Qualification",
+        "INT Europa League Qualification",
         "UEL Qualification"
       ]
     },

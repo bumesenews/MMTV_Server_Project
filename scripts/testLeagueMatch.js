@@ -40,6 +40,27 @@ if (uclQ !== 'UEFA Champions League') {
   console.error('FAIL: UCL qualification id 937348 must map to UEFA Champions League, got', uclQ);
   process.exit(1);
 }
+const uel = n.filterAllowedLeague('Europa League', {});
+if (uel !== 'UEFA Europa League') {
+  console.error('FAIL: Europa League must map to UEFA Europa League, got', uel);
+  process.exit(1);
+}
+const uelQ = n.filterAllowedLeague('INT Europa League Qualification', {
+  country: 'INT',
+  fotmobId: 937349,
+});
+if (uelQ !== 'UEFA Europa League Qualification') {
+  console.error(
+    'FAIL: UEL qualification id 937349 must stay Qualification, not UEFA Europa League, got',
+    uelQ
+  );
+  process.exit(1);
+}
+const uelQAlias = n.filterAllowedLeague('Europa League Qualification', {});
+if (uelQAlias !== 'UEFA Europa League Qualification') {
+  console.error('FAIL: Europa League Qualification alias mapped to', uelQAlias);
+  process.exit(1);
+}
 const stale = isFalseEnglishPremierLabel({
   league: 'English Premier League (EPL)',
   homeTeam: 'Chelsea U18',

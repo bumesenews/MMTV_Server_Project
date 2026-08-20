@@ -458,6 +458,7 @@ class Normalizer {
       return {
         ...match,
         league: fixed,
+        leagueName: fixed,
         country: country || match.country || null,
       };
     }
@@ -487,6 +488,7 @@ class Normalizer {
         return {
           ...match,
           league: display,
+          leagueName: display,
           country: country || match.country || null,
         };
       }

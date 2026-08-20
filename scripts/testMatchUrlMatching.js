@@ -475,9 +475,15 @@ console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
 
   m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't60', attempt: 1 }, 't1');
   m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't45', attempt: 2 }, 't2');
-  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't30', attempt: 3 }, 't3');
+  m = applySourceDiscoveryResult(
+    m,
+    'cakhia',
+    null,
+    { id: 't30', attempt: 3 },
+    new Date((kickSec - 30 * 60) * 1000).toISOString()
+  );
   assert(
-    '4b. Not stuck unknown — no further pre-kickoff Today-page search',
+    '4b. Right after the −30 miss, cooldown blocks another Today-page scrape',
     needsMatchUrlDiscovery(m, 'cakhia', kickSec - 30 * 60) === false
   );
   m = finalizeMatchUrlStatus(m, kickSec);
@@ -549,6 +555,45 @@ console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
   assert(
     '4e. Genuine t30 miss still uses cooldown',
     needsMatchUrlDiscovery(genuineT30, 'cakhia', kickSec - 20 * 60) === false
+  );
+
+  const threeMiss = applySourceDiscoveryResult(
+    { ...fixtureBase },
+    'cakhia',
+    null,
+    { id: 't60', attempt: 1 },
+    new Date((kickSec - 50 * 60) * 1000).toISOString()
+  );
+  const threeMiss2 = applySourceDiscoveryResult(
+    threeMiss,
+    'cakhia',
+    null,
+    { id: 't45', attempt: 2 },
+    new Date((kickSec - 40 * 60) * 1000).toISOString()
+  );
+  const threeMiss3 = applySourceDiscoveryResult(
+    threeMiss2,
+    'cakhia',
+    null,
+    { id: 't30', attempt: 3 },
+    new Date((kickSec - 28 * 60) * 1000).toISOString()
+  );
+  assert(
+    '4i. After 3 misses, last pre-kickoff window retries once cooldown elapses',
+    threeMiss3.matchUrlSearch.sources.cakhia.status === MATCH_URL_STATUS.FAILED &&
+      needsMatchUrlDiscovery(threeMiss3, 'cakhia', kickSec - 20 * 60) === true
+  );
+  const mixed = applySourceDiscoveryResult(
+    threeMiss3,
+    'xoilac',
+    null,
+    { id: 't30', attempt: 1 },
+    new Date((kickSec - 20 * 60) * 1000).toISOString()
+  );
+  assert(
+    '4j. Overall status stays PENDING while another source is still searching',
+    mixed.matchUrlStatus === MATCH_URL_STATUS.PENDING &&
+      mixed.matchUrlSearch.sources.xoilac.status === MATCH_URL_STATUS.PENDING
   );
 }
 

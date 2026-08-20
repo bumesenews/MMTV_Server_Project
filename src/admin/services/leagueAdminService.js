@@ -4,6 +4,7 @@ const { JsonStore } = require('../store/jsonStore');
 const DEFAULT_LEAGUES = [
   'UEFA Champions League',
   'UEFA Europa League',
+  'UEFA Europa League Qualification',
   'English Premier League (EPL)',
   'La Liga',
   'Serie A',
