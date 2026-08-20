@@ -27,6 +27,8 @@ class GitHubService {
       mainlive: env.GITHUB_MAINLIVE_PATH || 'mainlive.json',
       matches: env.GITHUB_MATCHES_PATH || env.GITHUB_DATA_PATH || 'matches.json',
       highlight: env.GITHUB_HIGHLIGHTS_PATH || 'highlight.json',
+      highlight1: env.GITHUB_HIGHLIGHT1_PATH || 'highlight1.json',
+      highlight2: env.GITHUB_HIGHLIGHT2_PATH || 'highlight2.json',
       myanmartv: env.GITHUB_CHANNELS_PATH || 'myanmartv.json',
       tips: env.GITHUB_TIPS_PATH || 'tips.json',
     };
@@ -103,7 +105,7 @@ class GitHubService {
     if (feedKey === 'matches' || feedKey === 'mainlive') {
       return !Array.isArray(payload.matches) || payload.matches.length === 0;
     }
-    if (feedKey === 'highlight') {
+    if (feedKey === 'highlight' || feedKey === 'highlight1' || feedKey === 'highlight2') {
       return !Array.isArray(payload.highlights) || payload.highlights.length === 0;
     }
     if (feedKey === 'myanmartv') {
@@ -213,7 +215,15 @@ class GitHubService {
     const feeds = {};
     let anyUploaded = false;
 
-    for (const key of ['mainlive', 'matches', 'highlight', 'myanmartv', 'tips']) {
+    for (const key of [
+      'mainlive',
+      'matches',
+      'highlight',
+      'highlight1',
+      'highlight2',
+      'myanmartv',
+      'tips',
+    ]) {
       if (bundle[key] == null) {
         feeds[key] = { uploaded: false, reason: 'missing' };
         continue;

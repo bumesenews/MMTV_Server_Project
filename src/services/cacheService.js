@@ -13,6 +13,8 @@ class CacheService {
       mainlive: path.join(this.deliveryDir, 'mainlive.json'),
       matches: path.join(this.deliveryDir, 'matches.json'),
       highlight: path.join(this.deliveryDir, 'highlight.json'),
+      highlight1: path.join(this.deliveryDir, 'highlight1.json'),
+      highlight2: path.join(this.deliveryDir, 'highlight2.json'),
       myanmartv: path.join(this.deliveryDir, 'myanmartv.json'),
       tips: path.join(this.deliveryDir, 'tips.json'),
     };
@@ -57,6 +59,8 @@ class CacheService {
       mainlive: this.readJson(this.deliveryFiles.mainlive),
       matches: this.readJson(this.deliveryFiles.matches),
       highlight: this.readJson(this.deliveryFiles.highlight),
+      highlight1: this.readJson(this.deliveryFiles.highlight1),
+      highlight2: this.readJson(this.deliveryFiles.highlight2),
       myanmartv: this.readJson(this.deliveryFiles.myanmartv),
       tips: this.readJson(this.deliveryFiles.tips),
     };
@@ -76,7 +80,15 @@ class CacheService {
     this.ensureDir();
     const previous = this.getDeliveryBundle();
     const changed = {};
-    const keys = ['mainlive', 'matches', 'highlight', 'myanmartv', 'tips'];
+    const keys = [
+      'mainlive',
+      'matches',
+      'highlight',
+      'highlight1',
+      'highlight2',
+      'myanmartv',
+      'tips',
+    ];
 
     for (const key of keys) {
       if (bundle[key] == null) {
@@ -99,6 +111,12 @@ class CacheService {
       matches: Array.isArray(bundle.matches?.matches) ? bundle.matches.matches.length : 0,
       highlights: Array.isArray(bundle.highlight?.highlights)
         ? bundle.highlight.highlights.length
+        : 0,
+      highlight1: Array.isArray(bundle.highlight1?.highlights)
+        ? bundle.highlight1.highlights.length
+        : 0,
+      highlight2: Array.isArray(bundle.highlight2?.highlights)
+        ? bundle.highlight2.highlights.length
         : 0,
       channels: Array.isArray(bundle.myanmartv) ? bundle.myanmartv.length : 0,
       tips: Number(bundle.tips?.count) || 0,

@@ -1,0 +1,273 @@
+{
+  "source": "https://socolivepp.tv/",
+  "scraped_at": "2026-08-20T07:15:42.963Z",
+  "count": 19,
+  "highlights": [
+    {
+      "id": "highlight2:nec-nijmegen-vs-fk-bodo-glimt-0200-20-08",
+      "title": "NEC Nijmegen vs FK Bodo Glimt (02:00 – 20/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-20-014345-1.png",
+      "url": "https://socolivepp.tv/video-highlight/nec-nijmegen-vs-fk-bodo-glimt-0200-20-08/",
+      "match_date": "2026-08-20",
+      "embed_url": "https://app.videas.fr/embed/media/24cacea8-3e53-426d-ba13-398eaacedfbb/?title=false&logo=false",
+      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/93/a3/93a39884-167f-444c-a660-364cfc43b730/playlist.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://app.videas.fr/embed/media/24cacea8-3e53-426d-ba13-398eaacedfbb/?title=false&logo=false"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:celtic-f-c-vs-lask-linz-0200-20-08",
+      "title": "Celtic F.C. vs LASK Linz (02:00 – 20/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-20-014100-1.png",
+      "url": "https://socolivepp.tv/video-highlight/celtic-f-c-vs-lask-linz-0200-20-08/",
+      "match_date": "2026-08-20",
+      "embed_url": "https://app.videas.fr/embed/media/885ea4fc-2603-498a-bdbf-458549916e79/?title=false&logo=false",
+      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/f4/8e/f48ee092-6fd0-42a2-8104-3659e238db46/playlist.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://app.videas.fr/embed/media/885ea4fc-2603-498a-bdbf-458549916e79/?title=false&logo=false"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:barcelona-vs-al-ahly-fc-0100-20-08",
+      "title": "Barcelona vs Al Ahly FC (01:00 – 20/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-20-013735-1-1.png",
+      "url": "https://socolivepp.tv/video-highlight/barcelona-vs-al-ahly-fc-0100-20-08/",
+      "match_date": "2026-08-20",
+      "embed_url": "https://app.videas.fr/embed/media/4d0480af-d567-4915-bab2-9ddb2c539c6f/?title=false&logo=false",
+      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/52/59/5259dc7b-153a-4adc-b4a8-d3725e731e5a/playlist.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://app.videas.fr/embed/media/4d0480af-d567-4915-bab2-9ddb2c539c6f/?title=false&logo=false"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:atletico-madrid-vs-malaga-0200-20-08",
+      "title": "Atletico Madrid vs Malaga (02:00 – 20/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-20-013345-1.png",
+      "url": "https://socolivepp.tv/video-highlight/atletico-madrid-vs-malaga-0200-20-08/",
+      "match_date": "2026-08-20",
+      "embed_url": "https://app.videas.fr/embed/media/a402081d-62c2-4e4b-bb48-f49480b51023/?title=false&logo=false",
+      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/7c/73/7c7332cc-1d0d-4088-b2c7-3fdf60645fb4/playlist.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://app.videas.fr/embed/media/a402081d-62c2-4e4b-bb48-f49480b51023/?title=false&logo=false"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:fenerbahce-vs-lyon-0200-19-08",
+      "title": "Fenerbahce vs Lyon (02:00 – 19/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-19-000142-1.png",
+      "url": "https://socolivepp.tv/video-highlight/fenerbahce-vs-lyon-0200-19-08/",
+      "match_date": "2026-08-19",
+      "embed_url": "https://app.videas.fr/embed/media/c784f4ed-c03a-4b29-983c-5f9ab12af83d/?title=false&logo=false",
+      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/b7/e9/b7e95d52-4319-45b2-85d3-b3e716693910/playlist.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://app.videas.fr/embed/media/c784f4ed-c03a-4b29-983c-5f9ab12af83d/?title=false&logo=false"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:heidenheim-vs-bayern-munich-2300-18-08",
+      "title": "Heidenheim vs Bayern Munich (23:00 – 18/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-19-000637-1.png",
+      "url": "https://socolivepp.tv/video-highlight/heidenheim-vs-bayern-munich-2300-18-08/",
+      "match_date": "2026-08-18",
+      "embed_url": "https://app.videas.fr/embed/media/a219bacd-41f5-40f3-8e3b-f4792e7dfd7b/?title=false&logo=false",
+      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/27/22/2722450d-48ec-42af-84be-e145d464c9c0/playlist.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://app.videas.fr/embed/media/a219bacd-41f5-40f3-8e3b-f4792e7dfd7b/?title=false&logo=false"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:dep-la-coruna-vs-elche-cf-0200-18-08",
+      "title": "Dep. La Coruna vs Elche CF (02:00 – 18/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-17-233507-1-1.png",
+      "url": "https://socolivepp.tv/video-highlight/dep-la-coruna-vs-elche-cf-0200-18-08/",
+      "match_date": "2026-08-18",
+      "embed_url": "https://ok.ru/videoembed/16418581514821",
+      "m3u8": "https://ok.ru/video/16418581514821/&quot;,/&quot;link/&quot;:/&quot;/video/16418581514821/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19154913200709\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=Jkxup6IT_AfjLi82udBM2Ash0yc\\&quot;,\\&quot;frequency\\&quot;:2,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:110,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:3},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:1920,\\&quot;height\\&quot;:1080},\\&quot;failoverHosts\\&quot;:[\\&quot;vd692.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16418581514821\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;mobile\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd617.okcdn.ru/?expires=1787296242891\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.180.203.16\\\\u0026type=4\\\\u0026sig=fGE-yq6uMe8\\\\u0026ct=0\\\\u0026urls=176.112.172.8\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19154913200709\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false},{\\&quot;name\\&quot;:\\&quot;lowest\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd617.okcdn.ru/?expires=1787296242891\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.180.203.16\\\\u0026type=0\\\\u0026sig=Ph5qcgxPIx0\\\\u0026ct=0\\\\u0026urls=176.112.172.8\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19154913200709\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false},{\\&quot;name\\&quot;:\\&quot;low\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd617.okcdn.ru/?expires=1787296242891\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.180.203.16\\\\u0026type=1\\\\u0026sig=5gbWSGK6Rqs\\\\u0026ct=0\\\\u0026urls=176.112.172.8\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19154913200709\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false},{\\&quot;name\\&quot;:\\&quot;sd\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd617.okcdn.ru/?expires=1787296242891\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.180.203.16\\\\u0026type=2\\\\u0026sig=Y5kLIlbKW2k\\\\u0026ct=0\\\\u0026urls=176.112.172.8\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19154913200709\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false},{\\&quot;name\\&quot;:\\&quot;hd\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd617.okcdn.ru/?expires=1787296242891\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.180.203.16\\\\u0026type=3\\\\u0026sig=XKpkF5xmdfI\\\\u0026ct=0\\\\u0026urls=176.112.172.8\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19154913200709\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false},{\\&quot;name\\&quot;:\\&quot;full\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd617.okcdn.ru/?expires=1787296242891\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.180.203.16\\\\u0026type=5\\\\u0026sig=FCP16UCPfTo\\\\u0026ct=0\\\\u0026urls=176.112.172.8\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19154913200709\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;metadataUrl\\&quot;:\\&quot;https://vd617.okcdn.ru/?expires=1787296242891\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ch=-1610167797\\\\u0026ms=185.180.203.16\\\\u0026type=1\\\\u0026sig=E1vyfjCz1oQ\\\\u0026ct=6\\\\u0026urls=176.112.172.8\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19154913200709\\&quot;,\\&quot;hlsManifestUrl\\&quot;:\\&quot;https://vd617.okcdn.ru/video.m3u8?cmd=videoPlayerCdn\\\\u0026expires=1787296242891\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ch=-536166974\\\\u0026ms=185.180.203.16\\\\u0026type=2\\\\u0026sig=WTSO3KQjuY8\\\\u0026ct=8\\\\u0026urls=176.112.172.8\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19154913200709\\&quot;,\\&quot;autoplay\\&quot;:{\\&quot;autoplayEnabled\\&quot;:true,\\&quot;timeFromEnabled\\&quot;:true,\\&quot;noRec\\&quot;:false,\\&quot;fullScreenExit\\&quot;:false,\\&quot;vitrinaSection\\&quot;:\\&quot;recommended_movie\\&quot;},\\&quot;security\\&quot;:{\\&quot;url\\&quot;:\\&quot;https://vd617.okcdn.ru/usr_login\\&quot;,\\&quot;cookie\\&quot;:\\&quot;vdsig\\&quot;},\\&quot;p2pInfo\\&quot;:{\\&quot;isPeerEnabled\\&quot;:false,\\&quot;ubsc\\&quot;:0,\\&quot;pbsc\\&quot;:0,\\&quot;mptpc\\&quot;:0,\\&quot;pctmt\\&quot;:0,\\&quot;pbesc\\&quot;:0,\\&quot;prrt\\&quot;:0,\\&quot;srt\\&quot;:0,\\&quot;swrt\\&quot;:0,\\&quot;dctt\\&quot;:0},\\&quot;stunServers\\&quot;:[{\\&quot;urls\\&quot;:[\\&quot;stun:videostun.okcdn.ru:19302\\&quot;]}],\\&quot;episodes\\&quot;:[]}&quot;,&quot;saveLastPlayingTimeFrom&quot;:&quot;30&quot;,&quot;castId&quot;:&quot;559D7832&quot;,&quot;noDownload&quot;:&quot;1&quot;,&quot;locale&quot;:&quot;en&quot;,&quot;noChatLikes&quot;:&quot;1&quot;,&quot;noChannel&quot;:&quot;1&quot;,&quot;webmSec&quot;:&quot;20&quot;,&quot;enabledLocalStorage&quot;:&quot;1&quot;,&quot;minCacheTime&quot;:&quot;120&quot;,&quot;maxCachePartOfDurationMQ&quot;:&quot;30&quot;,&quot;checkMQ&quot;:&quot;1&quot;,&quot;noTrailer&quot;:&quot;1&quot;,&quot;recSlot&quot;:&quot;7178&quot;,&quot;noOldDash&quot;:&quot;1&quot;,&quot;noLikeButton&quot;:&quot;1&quot;,&quot;maxCachePartOfDuration&quot;:&quot;10&quot;,&quot;isAnonym&quot;:&quot;1&quot;,&quot;jidx&quot;:&quot;1&quot;,&quot;hideWatermark&quot;:&quot;0&quot;,&quot;isEmbed&quot;:&quot;1&quot;,&quot;noOkliveBanner&quot;:&quot;1&quot;,&quot;minCacheTimeMQ&quot;:&quot;20&quot;,&quot;adLogFullscreen&quot;:&quot;1&quot;,&quot;adLogFeed&quot;:&quot;1&quot;,&quot;adLogExternal&quot;:&quot;1&quot;,&quot;ldChunk&quot;:&quot;2000&quot;,&quot;showChat&quot;:&quot;1&quot;,&quot;ldBuffer&quot;:&quot;6000&quot;,&quot;feedAdLogic&quot;:&quot;15,3,3,14400&quot;,&quot;siteId&quot;:&quot;504&quot;,&quot;location&quot;:&quot;AnonymVideoEmbed/anonymVideoEmbed/anonym&quot;,&quot;watchCoverageEvent&quot;:&quot;watch_coverage_record&quot;,&quot;hideExpand&quot;:&quot;1&quot;,&quot;adLogic&quot;:&quot;15,0,3,14400&quot;,&quot;checkAutoplayBrowsers&quot;:&quot;safari,chrome,opera,yandex,firefox&quot;}}",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16418581514821"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:rc-lens-vs-psg-0145-17-08",
+      "title": "RC Lens vs PSG (01:45 – 17/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-17-031041-1.png",
+      "url": "https://socolivepp.tv/video-highlight/rc-lens-vs-psg-0145-17-08/",
+      "match_date": "2026-08-17",
+      "embed_url": "https://ok.ru/videoembed/16406924888645",
+      "m3u8": "https://ok.ru/video/16406924888645/&quot;,/&quot;link/&quot;:/&quot;/video/16406924888645/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19134646848069\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=amJ_Hkzn-S2XkozJUjgxfElqqCw\\&quot;,\\&quot;frequency\\&quot;:5,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:123,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:4},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:1920,\\&quot;height\\&quot;:1080},\\&quot;failoverHosts\\&quot;:[\\&quot;vd656.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16406924888645\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;full\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd451.okcdn.ru/?expires=1787296244083\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.180.203.55\\\\u0026type=5\\\\u0026sig=fdEbqyNPTwo\\\\u0026ct=0\\\\u0026urls=178.237.23.7\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134646848069\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;ondemandHls\\&quot;:\\&quot;https://vd451.okcdn.ru/expires/1787296244083/clientType/0/srcIp/45.41.109.141/type/2/mid/16406924888645/id/19134646848069/ms/185.180.203.55/zs/43/srcAg/CHROME/urls/178.237.23.7/oq/0/pr/10/ct/28/sig/6unkni27iFc/ondemand/hls4_19134646848069.CMWUuMfA3QNAxfKXtsAaUAofpL-9uXqkOw.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16406924888645"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:liverpool-vs-como-0000-17-08",
+      "title": "Liverpool vs Como (00:00 – 17/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-17-031407-1-1.png",
+      "url": "https://socolivepp.tv/video-highlight/liverpool-vs-como-0000-17-08/",
+      "match_date": "2026-08-17",
+      "embed_url": "https://ok.ru/videoembed/16406928493125",
+      "m3u8": "https://ok.ru/video/16406928493125/&quot;,/&quot;link/&quot;:/&quot;/video/16406928493125/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19134651828805\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=-8HXKzXrBRxBizuUFXIgrbRDY5c\\&quot;,\\&quot;frequency\\&quot;:5,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:105,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:3},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:1280,\\&quot;height\\&quot;:720},\\&quot;failoverHosts\\&quot;:[\\&quot;vd610.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16406928493125\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;hd\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd553.okcdn.ru/?expires=1787296246065\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.226.55.63\\\\u0026type=3\\\\u0026sig=HN8rmGrJ0m4\\\\u0026ct=0\\\\u0026urls=95.163.35.109\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134651828805\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;ondemandHls\\&quot;:\\&quot;https://vd553.okcdn.ru/expires/1787296246065/clientType/0/srcIp/45.41.109.141/type/2/mid/16406928493125/id/19134651828805/ms/185.226.55.63/zs/43/srcAg/CHROME/urls/95.163.35.109/oq/0/pr/10/ct/28/sig/Spmw0Qi55I8/ondemand/hls4_19134651828805.CMWUlMnA3QNAxfKXtsAaUArRKURJFWSpCQ.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16406928493125"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:espanyol-vs-levante-0000-17-08",
+      "title": "Espanyol vs Levante (00:00 – 17/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-17-023833-1.png",
+      "url": "https://socolivepp.tv/video-highlight/espanyol-vs-levante-0000-17-08/",
+      "match_date": "2026-08-17",
+      "embed_url": "https://ok.ru/videoembed/16406898084421",
+      "m3u8": "https://ok.ru/video/16406898084421/&quot;,/&quot;link/&quot;:/&quot;/video/16406898084421/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19134609295941\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=epV5IfoDvoYdn8LcDLFW8H7CY8U\\&quot;,\\&quot;frequency\\&quot;:2,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:111,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:3},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:852,\\&quot;height\\&quot;:480},\\&quot;failoverHosts\\&quot;:[\\&quot;vd524.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16406898084421\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;mobile\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd373.okcdn.ru/?expires=1787296245066\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=95.163.35.86\\\\u0026type=4\\\\u0026sig=YD6Zhtdlfgc\\\\u0026ct=0\\\\u0026urls=185.226.55.34\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134609295941\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false},{\\&quot;name\\&quot;:\\&quot;lowest\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd373.okcdn.ru/?expires=1787296245066\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=95.163.35.86\\\\u0026type=0\\\\u0026sig=xAj3fkDd34s\\\\u0026ct=0\\\\u0026urls=185.226.55.34\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134609295941\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false},{\\&quot;name\\&quot;:\\&quot;low\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd373.okcdn.ru/?expires=1787296245066\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=95.163.35.86\\\\u0026type=1\\\\u0026sig=c_jRFwjxgRg\\\\u0026ct=0\\\\u0026urls=185.226.55.34\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134609295941\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false},{\\&quot;name\\&quot;:\\&quot;sd\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd373.okcdn.ru/?expires=1787296245066\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=95.163.35.86\\\\u0026type=2\\\\u0026sig=qIdatH2E5EQ\\\\u0026ct=0\\\\u0026urls=185.226.55.34\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134609295941\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;metadataUrl\\&quot;:\\&quot;https://vd373.okcdn.ru/?expires=1787296245066\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ch=649554692\\\\u0026ms=95.163.35.86\\\\u0026type=1\\\\u0026sig=Dl8ooph87KA\\\\u0026ct=6\\\\u0026urls=185.226.55.34\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134609295941\\&quot;,\\&quot;hlsManifestUrl\\&quot;:\\&quot;https://vd373.okcdn.ru/video.m3u8?cmd=videoPlayerCdn\\\\u0026expires=1787296245066\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ch=-1107745692\\\\u0026ms=95.163.35.86\\\\u0026type=2\\\\u0026sig=KWcl_VLgEOQ\\\\u0026ct=8\\\\u0026urls=185.226.55.34\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134609295941\\&quot;,\\&quot;autoplay\\&quot;:{\\&quot;autoplayEnabled\\&quot;:true,\\&quot;timeFromEnabled\\&quot;:true,\\&quot;noRec\\&quot;:false,\\&quot;fullScreenExit\\&quot;:false,\\&quot;vitrinaSection\\&quot;:\\&quot;recommended_movie\\&quot;},\\&quot;security\\&quot;:{\\&quot;url\\&quot;:\\&quot;https://vd373.okcdn.ru/usr_login\\&quot;,\\&quot;cookie\\&quot;:\\&quot;vdsig\\&quot;},\\&quot;p2pInfo\\&quot;:{\\&quot;isPeerEnabled\\&quot;:false,\\&quot;ubsc\\&quot;:0,\\&quot;pbsc\\&quot;:0,\\&quot;mptpc\\&quot;:0,\\&quot;pctmt\\&quot;:0,\\&quot;pbesc\\&quot;:0,\\&quot;prrt\\&quot;:0,\\&quot;srt\\&quot;:0,\\&quot;swrt\\&quot;:0,\\&quot;dctt\\&quot;:0},\\&quot;stunServers\\&quot;:[{\\&quot;urls\\&quot;:[\\&quot;stun:videostun.okcdn.ru:19302\\&quot;]}],\\&quot;episodes\\&quot;:[]}&quot;,&quot;saveLastPlayingTimeFrom&quot;:&quot;30&quot;,&quot;castId&quot;:&quot;559D7832&quot;,&quot;noDownload&quot;:&quot;1&quot;,&quot;locale&quot;:&quot;en&quot;,&quot;noChatLikes&quot;:&quot;1&quot;,&quot;noChannel&quot;:&quot;1&quot;,&quot;webmSec&quot;:&quot;20&quot;,&quot;enabledLocalStorage&quot;:&quot;1&quot;,&quot;minCacheTime&quot;:&quot;120&quot;,&quot;maxCachePartOfDurationMQ&quot;:&quot;30&quot;,&quot;checkMQ&quot;:&quot;1&quot;,&quot;noTrailer&quot;:&quot;1&quot;,&quot;recSlot&quot;:&quot;7178&quot;,&quot;noOldDash&quot;:&quot;1&quot;,&quot;noLikeButton&quot;:&quot;1&quot;,&quot;maxCachePartOfDuration&quot;:&quot;10&quot;,&quot;isAnonym&quot;:&quot;1&quot;,&quot;jidx&quot;:&quot;1&quot;,&quot;hideWatermark&quot;:&quot;0&quot;,&quot;isEmbed&quot;:&quot;1&quot;,&quot;noOkliveBanner&quot;:&quot;1&quot;,&quot;minCacheTimeMQ&quot;:&quot;20&quot;,&quot;adLogFullscreen&quot;:&quot;1&quot;,&quot;adLogFeed&quot;:&quot;1&quot;,&quot;adLogExternal&quot;:&quot;1&quot;,&quot;ldChunk&quot;:&quot;2000&quot;,&quot;showChat&quot;:&quot;1&quot;,&quot;ldBuffer&quot;:&quot;6000&quot;,&quot;feedAdLogic&quot;:&quot;15,3,3,14400&quot;,&quot;siteId&quot;:&quot;504&quot;,&quot;location&quot;:&quot;AnonymVideoEmbed/anonymVideoEmbed/anonym&quot;,&quot;watchCoverageEvent&quot;:&quot;watch_coverage_record&quot;,&quot;hideExpand&quot;:&quot;1&quot;,&quot;adLogic&quot;:&quot;15,0,3,14400&quot;,&quot;checkAutoplayBrowsers&quot;:&quot;safari,chrome,opera,yandex,firefox&quot;}}",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16406898084421"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:watford-vs-southampton-1930-16-08",
+      "title": "Watford vs Southampton (19:30 – 16/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-17-030238-1.png",
+      "url": "https://socolivepp.tv/video-highlight/watford-vs-southampton-1930-16-08/",
+      "match_date": "2026-08-16",
+      "embed_url": "https://ok.ru/videoembed/16406907783749",
+      "m3u8": "https://ok.ru/video/16406907783749/&quot;,/&quot;link/&quot;:/&quot;/video/16406907783749/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19134626531909\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=tiwKee90k_3bLjkxmuaTco-1kHY\\&quot;,\\&quot;frequency\\&quot;:5,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:113,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:3},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:1280,\\&quot;height\\&quot;:720},\\&quot;failoverHosts\\&quot;:[\\&quot;vd239.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16406907783749\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;hd\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd570.okcdn.ru/?expires=1787296252815\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=178.237.23.82\\\\u0026type=3\\\\u0026sig=gGUqpiPASi4\\\\u0026ct=0\\\\u0026urls=95.163.35.69\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134626531909\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;ondemandHls\\&quot;:\\&quot;https://vd570.okcdn.ru/expires/1787296252815/clientType/0/srcIp/45.41.109.141/type/2/mid/16406907783749/id/19134626531909/ms/178.237.23.82/zs/43/srcAg/CHROME/urls/95.163.35.69/oq/0/pr/10/ct/28/sig/GpmYB9L0yn4/ondemand/hls4_19134626531909.CMWUpL_A3QNAxfKXtsAaUAqrAOo4p-H2ag.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16406907783749"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:sevilla-vs-rayo-vallecano-0230-16-08",
+      "title": "Sevilla vs Rayo Vallecano (02:30 – 16/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/imago1081123056-1024x683-1.jpg",
+      "url": "https://socolivepp.tv/video-highlight/sevilla-vs-rayo-vallecano-0230-16-08/",
+      "match_date": "2026-08-16",
+      "embed_url": "https://cdn.videas.fr/v-medias/s5/hlsv1/d4/7c/d47ccfc8-58f7-4e54-b454-1e2d364c0bc4/1080p.m3u8",
+      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/d4/7c/d47ccfc8-58f7-4e54-b454-1e2d364c0bc4/1080p.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://cdn.videas.fr/v-medias/s5/hlsv1/d4/7c/d47ccfc8-58f7-4e54-b454-1e2d364c0bc4/1080p.m3u8"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:schalke-04-vs-real-madrid-2200-16-08",
+      "title": "Schalke 04 vs Real Madrid (22:00 – 16/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-17-032149-1.png",
+      "url": "https://socolivepp.tv/video-highlight/schalke-04-vs-real-madrid-2200-16-08/",
+      "match_date": "2026-08-16",
+      "embed_url": "https://ok.ru/videoembed/16406931311173",
+      "m3u8": "https://ok.ru/video/16406931311173/&quot;,/&quot;link/&quot;:/&quot;/video/16406931311173/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19134657792581\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=rljBRJKgVDxSbcUFWPrKE0xoUV0\\&quot;,\\&quot;frequency\\&quot;:5,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:103,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:3},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:1920,\\&quot;height\\&quot;:1080},\\&quot;failoverHosts\\&quot;:[\\&quot;vd666.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16406931311173\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;full\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd576.okcdn.ru/?expires=1787296248048\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.226.55.98\\\\u0026type=5\\\\u0026sig=JK2KW0HEPNo\\\\u0026ct=0\\\\u0026urls=178.237.23.17\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134657792581\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;ondemandHls\\&quot;:\\&quot;https://vd576.okcdn.ru/expires/1787296248048/clientType/0/srcIp/45.41.109.141/type/2/mid/16406931311173/id/19134657792581/ms/185.226.55.98/zs/43/srcAg/CHROME/urls/178.237.23.17/oq/0/pr/10/ct/28/sig/sLsY0cglR2Q/ondemand/hls4_19134657792581.CMWUwMrA3QNAxfKXtsAaUApj95Kp0UmqDw.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16406931311173"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:racing-santander-vs-villarreal-2200-16-08",
+      "title": "Racing Santander vs Villarreal (22:00 – 16/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-17-030720-1.png",
+      "url": "https://socolivepp.tv/video-highlight/racing-santander-vs-villarreal-2200-16-08/",
+      "match_date": "2026-08-16",
+      "embed_url": "https://ok.ru/videoembed/16406915516997",
+      "m3u8": "https://ok.ru/video/16406915516997/&quot;,/&quot;link/&quot;:/&quot;/video/16406915516997/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19134633871941\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=qRWbHobnFDK3lXIr_KMDH7NoszA\\&quot;,\\&quot;frequency\\&quot;:2,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:110,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:3},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:852,\\&quot;height\\&quot;:480},\\&quot;failoverHosts\\&quot;:[\\&quot;vd601.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16406915516997\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;sd\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd634.okcdn.ru/?expires=1787296247048\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.180.203.31\\\\u0026type=2\\\\u0026sig=G7SK_2rwbeg\\\\u0026ct=0\\\\u0026urls=178.237.29.64\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134633871941\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;ondemandHls\\&quot;:\\&quot;https://vd634.okcdn.ru/expires/1787296247048/clientType/0/srcIp/45.41.109.141/type/2/mid/16406915516997/id/19134633871941/ms/185.180.203.31/zs/43/srcAg/CHROME/urls/178.237.29.64/oq/0/pr/10/ct/28/sig/lW_qkc4EWGY/ondemand/hls4_19134633871941.CMWU_MLA3QNAxfKXtsAaUAonhTtRbmqtPQ.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16406915516997"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:nashville-sc-vs-inter-miami-0740-16-08",
+      "title": "Nashville SC vs Inter Miami (07:40 – 16/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/6a812c0abf73e.image-1.jpg",
+      "url": "https://socolivepp.tv/video-highlight/nashville-sc-vs-inter-miami-0740-16-08/",
+      "match_date": "2026-08-16",
+      "embed_url": "https://ok.ru/videoembed/16407062317637",
+      "m3u8": "https://ok.ru/video/16407062317637/&quot;,/&quot;link/&quot;:/&quot;/video/16407062317637/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19134846143045\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=yWzZ30KFdOLlfBWXx67mjUxNEJ8\\&quot;,\\&quot;frequency\\&quot;:5,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:127,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:4},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:640,\\&quot;height\\&quot;:360},\\&quot;failoverHosts\\&quot;:[\\&quot;vd204.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16407062317637\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;low\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd585.okcdn.ru/?expires=1787296254018\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.226.55.106\\\\u0026type=1\\\\u0026sig=1zHUHDMgtrQ\\\\u0026ct=0\\\\u0026urls=95.163.35.46\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134846143045\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;ondemandHls\\&quot;:\\&quot;https://vd585.okcdn.ru/expires/1787296254018/clientType/0/srcIp/45.41.109.141/type/2/mid/16407062317637/id/19134846143045/ms/185.226.55.106/zs/43/srcAg/CHROME/urls/95.163.35.46/oq/0/pr/10/ct/28/sig/uedvYJmV7P4/ondemand/hls4_19134846143045.CMWU_IjB3QNAxfKXtsAaUAo63AXi6Vpmww.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16407062317637"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:fc-basel-1893-vs-barcelona-2130-16-08",
+      "title": "FC Basel 1893 vs Barcelona (21:30 – 16/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-17-032540-1-1.png",
+      "url": "https://socolivepp.tv/video-highlight/fc-basel-1893-vs-barcelona-2130-16-08/",
+      "match_date": "2026-08-16",
+      "embed_url": "https://ok.ru/videoembed/16406934063685",
+      "m3u8": "https://ok.ru/video/16406934063685/&quot;,/&quot;link/&quot;:/&quot;/video/16406934063685/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19134662183493\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=LTv0HeUD2hi4YcphY4gDXPnJ7E4\\&quot;,\\&quot;frequency\\&quot;:5,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:123,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:4},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:852,\\&quot;height\\&quot;:480},\\&quot;failoverHosts\\&quot;:[\\&quot;vd634.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16406934063685\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;sd\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd549.okcdn.ru/?expires=1787296250425\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=185.226.55.59\\\\u0026type=2\\\\u0026sig=ULEIDEGEYxY\\\\u0026ct=0\\\\u0026urls=185.180.203.31\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134662183493\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;ondemandHls\\&quot;:\\&quot;https://vd549.okcdn.ru/expires/1787296250425/clientType/0/srcIp/45.41.109.141/type/2/mid/16406934063685/id/19134662183493/ms/185.226.55.59/zs/43/srcAg/CHROME/urls/185.180.203.31/oq/0/pr/10/ct/28/sig/72GCT9F2zIc/ondemand/hls4_19134662183493.CMWU6MvA3QNAxfKXtsAaUAozrwtrhH4X1A.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16406934063685"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:burnley-vs-west-ham-2200-16-08",
+      "title": "Burnley vs West Ham (22:00 – 16/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/Anh-chup-man-hinh-2026-08-17-033754-1.png",
+      "url": "https://socolivepp.tv/video-highlight/burnley-vs-west-ham-2200-16-08/",
+      "match_date": "2026-08-16",
+      "embed_url": "https://ok.ru/videoembed/16407041477189",
+      "m3u8": "https://ok.ru/video/16407041477189/&quot;,/&quot;link/&quot;:/&quot;/video/16407041477189/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19134818224709\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=1qkm051jsvwbumkh-OK-4rbc7Ys\\&quot;,\\&quot;frequency\\&quot;:5,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:135,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:4},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:640,\\&quot;height\\&quot;:360},\\&quot;failoverHosts\\&quot;:[\\&quot;vd661.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16407041477189\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;low\\&quot;,\\&quot;url\\&quot;:\\&quot;https://vd408.okcdn.ru/?expires=1787296249230\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=178.237.29.1\\\\u0026type=1\\\\u0026sig=_NdWpyJX3HY\\\\u0026ct=0\\\\u0026urls=178.237.23.12\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134818224709\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;ondemandHls\\&quot;:\\&quot;https://vd408.okcdn.ru/expires/1787296249230/clientType/0/srcIp/45.41.109.141/type/2/mid/16407041477189/id/19134818224709/ms/178.237.29.1/zs/43/srcAg/CHROME/urls/178.237.23.12/oq/0/pr/10/ct/28/sig/778IRJJqfMA/ondemand/hls4_19134818224709.CMWUhP_A3QNAxfKXtsAaUAph21L-bKKDpQ.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16407041477189"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:arsenal-vs-manchester-city-2100-16-08",
+      "title": "Arsenal vs Manchester City (21:00 – 16/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/ARS.png",
+      "url": "https://socolivepp.tv/video-highlight/arsenal-vs-manchester-city-2100-16-08/",
+      "match_date": "2026-08-16",
+      "embed_url": "https://ok.ru/videoembed/16406937537093",
+      "m3u8": "https://ok.ru/video/16406937537093/&quot;,/&quot;link/&quot;:/&quot;/video/16406937537093/&quot;,/&quot;collageInfo/&quot;:%7B/&quot;imageType/&quot;:/&quot;COLLAGE/&quot;,/&quot;url/&quot;:/&quot;https://iv.okcdn.ru/videoPreview?id=19134667819589\\\\u0026type=36\\\\u0026idx=0\\\\u0026scl=4\\\\u0026tkn=lGT50WTovlCQ40yaXzEojAdmUrM\\&quot;,\\&quot;frequency\\&quot;:5,\\&quot;height\\&quot;:44,\\&quot;width\\&quot;:80,\\&quot;count\\&quot;:151,\\&quot;tileWidth\\&quot;:40,\\&quot;tileHeight\\&quot;:4},\\&quot;status\\&quot;:\\&quot;OK\\&quot;,\\&quot;statusText\\&quot;:\\&quot;OK\\&quot;,\\&quot;isLive\\&quot;:false,\\&quot;notPublished\\&quot;:false,\\&quot;isClip\\&quot;:false,\\&quot;width\\&quot;:1920,\\&quot;height\\&quot;:1080},\\&quot;failoverHosts\\&quot;:[\\&quot;vd759.okcdn.ru\\&quot;,\\&quot;vd294.okcdn.ru\\&quot;],\\&quot;provider\\&quot;:\\&quot;UPLOADED_ODKL\\&quot;,\\&quot;service\\&quot;:\\&quot;ok\\&quot;,\\&quot;owner\\&quot;:false,\\&quot;voted\\&quot;:false,\\&quot;likeCount\\&quot;:0,\\&quot;subscribed\\&quot;:false,\\&quot;isWatchLater\\&quot;:false,\\&quot;slot\\&quot;:690,\\&quot;siteZone\\&quot;:-1,\\&quot;showAd\\&quot;:true,\\&quot;fromTime\\&quot;:0,\\&quot;author\\&quot;:{},\\&quot;admanMetadata\\&quot;:{},\\&quot;partnerId\\&quot;:-1,\\&quot;ownerMovieId\\&quot;:\\&quot;16406937537093\\&quot;,\\&quot;alwaysShowRec\\&quot;:false,\\&quot;videos\\&quot;:[{\\&quot;name\\&quot;:\\&quot;full\\&quot;,\\&quot;url\\&quot;:\\&quot;https://ok6-1.vkuser.net/?expires=1787296251622\\\\u0026srcIp=45.41.109.141\\\\u0026pr=10\\\\u0026srcAg=CHROME\\\\u0026ms=95.142.206.128\\\\u0026type=5\\\\u0026sig=iLQ55NJ23A8\\\\u0026ct=0\\\\u0026urls=95.163.35.36%3B176.112.172.69\\\\u0026clientType=0\\\\u0026zs=43\\\\u0026id=19134667819589\\&quot;,\\&quot;seekSchema\\&quot;:3,\\&quot;disallowed\\&quot;:false}],\\&quot;vkMovie\\&quot;:false,\\&quot;ondemandHls\\&quot;:\\&quot;https://ok6-1.vkuser.net/expires/1787296251622/clientType/0/srcIp/45.41.109.141/type/2/mid/16406937537093/id/19134667819589/ms/95.142.206.128/zs/43/srcAg/CHROME/urls/95.163.35.36%3B176.112.172.69/oq/0/pr/10/ct/28/sig/EzlwKIG2ijs/ondemand/hls4_19134667819589.CMWUvM3A3QNAxfKXtsAaUAquAORAYjVWyw.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://ok.ru/videoembed/16406937537093"
+      },
+      "source": "highlight2"
+    },
+    {
+      "id": "highlight2:alaves-vs-getafe-0030-16-08",
+      "title": "Alavés vs Getafe (00:30 – 16/08)",
+      "img": "https://cdn.socolivepp.tv/2026/08/download-1.jpg",
+      "url": "https://socolivepp.tv/video-highlight/alaves-vs-getafe-0030-16-08/",
+      "match_date": "2026-08-16",
+      "embed_url": "https://cdn.videas.fr/v-medias/s5/hlsv1/35/4f/354f43fa-5637-4b0d-90f7-81eca463848e/720p.m3u8",
+      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/35/4f/354f43fa-5637-4b0d-90f7-81eca463848e/720p.m3u8",
+      "headers": {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Referer": "https://cdn.videas.fr/v-medias/s5/hlsv1/35/4f/354f43fa-5637-4b0d-90f7-81eca463848e/720p.m3u8"
+      },
+      "source": "highlight2"
+    }
+  ]
+}

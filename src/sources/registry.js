@@ -69,6 +69,8 @@ function listManageableSourceNames(sourcesDoc) {
     'colatv',
     'socolive',
     'highlight',
+    'highlight1',
+    'highlight2',
     'myanmartv',
     'tips',
   ];

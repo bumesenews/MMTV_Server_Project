@@ -60,6 +60,8 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         mainlive: '/flutter/mainlive.json',
         matches: '/flutter/matches.json',
         highlight: '/flutter/highlight.json',
+        highlight1: '/flutter/highlight1.json',
+        highlight2: '/flutter/highlight2.json',
         myanmartv: '/flutter/myanmartv.json',
         tips: '/flutter/tips.json',
       },
@@ -69,6 +71,8 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         'GET /flutter/mainlive.json',
         'GET /flutter/matches.json',
         'GET /flutter/highlight.json',
+        'GET /flutter/highlight1.json',
+        'GET /flutter/highlight2.json',
         'GET /flutter/myanmartv.json',
         'GET /flutter/tips.json',
         'POST /api/pipeline/run',
@@ -105,6 +109,16 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
       count: current.highlights.length,
       highlights: current.highlights,
     });
+  });
+
+  app.get('/flutter/highlight1.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    return sendDelivery(res, 'highlight1', cache.getDelivery('highlight'));
+  });
+
+  app.get('/flutter/highlight2.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    return sendDelivery(res, 'highlight2');
   });
 
   app.get('/flutter/myanmartv.json', (req, res) => {

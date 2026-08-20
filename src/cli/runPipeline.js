@@ -21,6 +21,7 @@ async function main() {
           ok: result.ok,
           reason: result.reason,
           uploaded: result.uploaded,
+          feeds: result.feeds,
           stats: result.stats,
           github: result.github,
           count: result.delivery?.count,

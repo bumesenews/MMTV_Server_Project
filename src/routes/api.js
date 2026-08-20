@@ -95,6 +95,8 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
       mainlive: 'mainlive',
       highlight: 'highlight',
       highlights: 'highlight',
+      highlight1: 'highlight1',
+      highlight2: 'highlight2',
       channels: 'myanmartv',
       myanmartv: 'myanmartv',
       tips: 'tips',

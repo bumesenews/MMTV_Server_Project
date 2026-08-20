@@ -240,14 +240,59 @@
       }
     },
     {
-      "name": "highlight",
+      "name": "highlight1",
       "enabled": true,
       "type": "highlights",
+      "parser": "hoofoot",
+      "feed": "highlight1",
       "domains": ["https://hoofoot.com/"],
+      "paths": {
+        "list": "/"
+      },
+      "attrs": {
+        "href": ["href"],
+        "src": ["src"]
+      },
+      "selectors": {
+        "card": ["#gallery > .box > #port"],
+        "link": ["a[id^='rut']"],
+        "title": ["[id^='d']"],
+        "image": ["img"],
+        "player": ["#player a", "#player iframe", "iframe[src*='embed']"]
+      },
       "recentDays": 7,
       "retentionDays": 7,
-      "maxItems": 12,
-      "notes": "Scraped every 3 hours (HIGHLIGHT_CRON). Merge + 7-day retention via HighlightManager."
+      "maxItems": 8,
+      "notes": "Hoofoot. GitHub highlight1.json (Flutter still reads highlight.json as a copy)."
+    },
+    {
+      "name": "highlight2",
+      "enabled": true,
+      "type": "highlights",
+      "parser": "socolive",
+      "feed": "highlight2",
+      "domains": ["https://socolivepp.tv/"],
+      "paths": {
+        "list": "/video-highlight/",
+        "page": "/video-highlight/page/{page}/"
+      },
+      "attrs": {
+        "href": ["href", "data-href", "data-url"],
+        "src": ["src", "data-src", "data-lazy-src"]
+      },
+      "selectors": {
+        "card": [".highlight__item", ".splide__slide"],
+        "link": ["a[href*='video-highlight']", "a"],
+        "title": ["p", ".highlight__item__content p", "img[alt]"],
+        "image": ["[style*='background-image']", "img"],
+        "player": ["#player iframe", "iframe[src*='embed']", "iframe"],
+        "jwplayerFile": ["file"]
+      },
+      "recentDays": 5,
+      "retentionDays": 5,
+      "maxPages": 10,
+      "maxItems": 40,
+      "notes": "Socolive video-highlight last 5 days. Paginates list via axios. GitHub highlight2.json."
     },
     {
       "name": "myanmartv",

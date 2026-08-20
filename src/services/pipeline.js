@@ -310,7 +310,11 @@ class Pipeline {
 
       const sourceNames = [
         ...streamingSources.map((s) => s.name),
-        ...(this._isSourceEnabled(config.sources, 'highlight') ? ['highlight'] : []),
+        ...(this._isSourceEnabled(config.sources, 'highlight1') ||
+        this._isSourceEnabled(config.sources, 'highlight') ||
+        this._isSourceEnabled(config.sources, 'highlight2')
+          ? ['highlight']
+          : []),
         ...(this._isSourceEnabled(config.sources, 'myanmartv') ? ['myanmartv'] : []),
       ];
 
@@ -712,7 +716,8 @@ class Pipeline {
     const deliveryHighlight = this.cache.getDelivery('highlight');
     const manager = new HighlightManager({
       retentionDays: Number(
-        this.configLoader.getSourceConfig(sourcesDoc, 'highlight')?.retentionDays ||
+        this.configLoader.getSourceConfig(sourcesDoc, 'highlight1')?.retentionDays ||
+          this.configLoader.getSourceConfig(sourcesDoc, 'highlight')?.retentionDays ||
           this.configLoader.getSourceConfig(sourcesDoc, 'highlight')?.recentDays ||
           7
       ),
@@ -739,9 +744,32 @@ class Pipeline {
     };
   }
 
+  _highlightConfigs(sourcesDoc) {
+    const list = sourcesDoc?.sources || [];
+    const typed = list.filter(
+      (s) => s && (s.type === 'highlights' || s.type === 'highlight') && s.enabled !== false
+    );
+    if (typed.length) {
+      return typed.filter((s) => this._isSourceEnabled(sourcesDoc, s.name));
+    }
+    const legacy = this.configLoader.getSourceConfig(sourcesDoc, 'highlight');
+    if (legacy && this._isSourceEnabled(sourcesDoc, 'highlight')) return [legacy];
+    return [];
+  }
+
+  _highlightFeedKey(cfg = {}) {
+    const feed = String(cfg.feed || cfg.name || '').toLowerCase();
+    if (feed === 'highlight2' || cfg.parser === 'socolive') return 'highlight2';
+    if (feed === 'highlight1' || feed === 'highlight' || cfg.parser === 'hoofoot') {
+      return 'highlight1';
+    }
+    return feed.startsWith('highlight') ? feed : 'highlight1';
+  }
+
   /**
-   * Dedicated Hoofoot highlight job (every 3 hours):
-   * scrape → merge → dedupe → 7-day retention → compare → GitHub only if changed.
+   * Dedicated highlight job (HIGHLIGHT_CRON):
+   * highlight1 (Hoofoot) then highlight2 (Socolive), one source at a time for 1GB RAM.
+   * Each feed has its own GitHub file. highlight.json stays a copy of highlight1 for Flutter.
    */
   async runHighlights({ force = false } = {}) {
     if (this.highlightRunning) {
@@ -763,7 +791,6 @@ class Pipeline {
 
     this.highlightRunning = true;
     const startedAt = Date.now();
-    const manager = new HighlightManager({ retentionDays: 7 });
 
     logEvent(events.SCRAPER_START, 'Highlight scraper started', {
       force,
@@ -772,218 +799,194 @@ class Pipeline {
 
     try {
       const config = await this.configLoader.load(true);
-      if (!this._isSourceEnabled(config.sources, 'highlight')) {
-        logger.info('Highlight source disabled — skip');
+      const configs = this._highlightConfigs(config.sources);
+      if (!configs.length) {
+        logger.info('Highlight sources disabled — skip');
         return { ok: true, reason: 'disabled' };
       }
 
-      const cfg = this.configLoader.getSourceConfig(config.sources, 'highlight') || {
-        name: 'highlight',
-        domains: ['https://hoofoot.com/'],
-        recentDays: 7,
-        retentionDays: 7,
-      };
-      manager.retentionDays = Number(cfg.retentionDays ?? cfg.recentDays ?? 7);
-
-      const previousDelivery = this.cache.getDelivery('highlight');
-      let existing = [...manager.extractList(previousDelivery)];
-      if (!existing.length) {
-        existing = [...manager.extractList(this.cache.getCurrent())];
-      }
-
-      let scraped = [];
-      try {
-        const existingById = new Map(
-          existing
-            .filter((h) => h && h.id != null)
-            .map((h) => [String(h.id), h])
-        );
-        const skipEnrichIds = force
-          ? new Set()
-          : new Set(
-              existing
-                .filter((h) => h && h.id != null && String(h.m3u8 || h.embed_url || h.embedUrl || '').trim())
-                .map((h) => String(h.id))
-            );
-
-        const source = new HighlightSource({
-          config: { ...cfg, recentDays: manager.retentionDays },
-          browserManager: this.browser,
-        });
-        scraped = await source.collect({
-          extractM3u8: true,
-          skipEnrichIds,
-        });
-
-        scraped = scraped.map((h) => {
-          const prev = existingById.get(String(h.id || ''));
-          if (!prev) return h;
-          return {
-            ...h,
-            m3u8: h.m3u8 || prev.m3u8 || null,
-            embedUrl: h.embedUrl || prev.embedUrl || prev.embed_url || null,
-            headers: h.headers || prev.headers || null,
-          };
-        });
-
-        logEvent(events.SCRAPER_SUCCESS, 'Highlight scrape completed', {
-          totalHighlightsFound: scraped.length,
-          withM3u8: scraped.filter((h) => h.m3u8).length,
-          skippedEnrich: skipEnrichIds.size,
-          force,
-        });
-      } catch (err) {
-        logEvent(events.SCRAPER_ERROR, 'Highlight scrape failed — keep previous data', {
-          error: err.message,
-        });
-        if (this.admin?.sources) this.admin.sources.recordError('highlight', err.message);
-        this.lastHighlightRun = {
-          ok: false,
-          reason: 'scrape_failed',
-          error: err.message,
-          at: new Date().toISOString(),
-        };
-        return {
-          ok: false,
-          reason: 'scrape_failed',
-          kept: previousDelivery,
-          error: err.message,
-        };
-      }
-
-      if (!scraped.length && !existing.length) {
-        logger.warn('Highlight scrape returned empty and no previous data — skip upload');
-        return { ok: false, reason: 'empty', uploaded: false };
-      }
-
-      if (!scraped.length && existing.length) {
-        logger.warn('Highlight scrape returned empty — keep previous highlights.json');
-        logEvent(events.GITHUB_SKIPPED, 'No highlight changes detected. GitHub upload skipped.', {
-          reason: 'empty_scrape_keep_previous',
-        });
-        this.lastHighlightRun = {
-          ok: true,
-          reason: 'empty_scrape_keep_previous',
-          at: new Date().toISOString(),
-        };
-        return { ok: true, reason: 'empty_scrape_keep_previous', uploaded: false };
-      }
-
-      const { highlights, stats } = manager.merge({
-        existing,
-        scraped,
-        retentionDays: manager.retentionDays,
-      });
-
-      logger.info('Highlight merge stats', {
-        totalHighlightsFound: stats.scrapedCount,
-        newHighlightsAdded: stats.newAdded,
-        duplicateHighlightsRemoved: stats.duplicatesRemoved,
-        oldHighlightsRemoved: stats.oldRemoved,
-        totalAfterMerge: stats.totalAfterMerge,
-      });
-
-      if (!highlights.length && existing.length) {
-        logger.warn('Merge produced empty highlights — refuse overwrite');
-        logEvent(events.GITHUB_SKIPPED, 'No highlight changes detected. GitHub upload skipped.', {
-          reason: 'refuse_empty',
-        });
-        return { ok: false, reason: 'refuse_empty', uploaded: false };
-      }
-
-      const nextDelivery = manager.buildDelivery(highlights, {
-        source: (cfg.domains && cfg.domains[0]) || 'https://hoofoot.com/',
-        scraped_at: new Date().toISOString(),
-      });
-
-      logger.info('JSON comparison', {
-        feed: 'highlight',
-        previousCount: previousDelivery?.count ?? existing.length,
-        nextCount: nextDelivery.count,
-      });
-
-      const changed = force || manager.hasChanged(previousDelivery, nextDelivery);
-      if (!changed) {
-        logEvent(
-          events.GITHUB_SKIPPED,
-          'No highlight changes detected. GitHub upload skipped.'
-        );
-        this.lastHighlightRun = {
-          ok: true,
-          reason: 'unchanged',
-          uploaded: false,
-          stats,
-          at: new Date().toISOString(),
-          durationMs: Date.now() - startedAt,
-        };
-        return { ok: true, reason: 'unchanged', uploaded: false, stats, delivery: nextDelivery };
-      }
-
       const bundle = this.cache.getDeliveryBundle();
-      bundle.highlight = nextDelivery;
-      this.cache.saveDeliveryBundle(bundle);
+      const feedResults = {};
+      let anyUploaded = false;
+      let lastHighlights = [];
+      const githubFeeds = {};
 
-      const current = this.cache.getCurrent();
-      if (current) {
-        this.cache.saveGenerated({
-          ...current,
-          highlights,
-          highlightCount: highlights.length,
+      for (const cfg of configs) {
+        const feedKey = this._highlightFeedKey(cfg);
+        const sourceManager = new HighlightManager({
+          retentionDays: Number(cfg.retentionDays ?? cfg.recentDays ?? 7),
         });
-      }
-
-      let github = { uploaded: false, reason: 'not_configured' };
-      try {
-        github = await this.github.uploadJsonIfChanged(
-          this.github.paths.highlight,
-          nextDelivery,
-          { previousLocal: previousDelivery, feedKey: 'highlight' }
-        );
-        if (github.uploaded) {
-          logEvent(events.GITHUB_UPLOAD, 'Highlights updated successfully.', {
-            commit: github.commit,
-            count: nextDelivery.count,
-          });
-        } else if (github.reason === 'unchanged') {
-          logEvent(
-            events.GITHUB_SKIPPED,
-            'No highlight changes detected. GitHub upload skipped.'
-          );
-        } else if (github.reason === 'refuse_empty') {
-          logger.warn('Highlight GitHub upload refused empty overwrite');
+        const previousDelivery =
+          this.cache.getDelivery(feedKey) ||
+          (feedKey === 'highlight1' ? this.cache.getDelivery('highlight') : null);
+        let existing = [...sourceManager.extractList(previousDelivery)];
+        if (!existing.length && feedKey === 'highlight1') {
+          existing = [...sourceManager.extractList(this.cache.getCurrent())];
         }
-      } catch (err) {
-        logEvent(events.SCRAPER_ERROR, 'Highlight GitHub upload failed', {
-          error: err.message,
+
+        let scraped = [];
+        try {
+          const existingById = new Map(
+            existing
+              .filter((h) => h && h.id != null)
+              .map((h) => [String(h.id), h])
+          );
+          const skipEnrichIds = force
+            ? new Set()
+            : new Set(
+                existing
+                  .filter(
+                    (h) =>
+                      h &&
+                      h.id != null &&
+                      String(h.m3u8 || h.embed_url || h.embedUrl || '').trim()
+                  )
+                  .map((h) => String(h.id))
+              );
+
+          const source = new HighlightSource({
+            config: { ...cfg, recentDays: sourceManager.retentionDays },
+            browserManager: this.browser,
+          });
+          scraped = await source.collect({
+            extractM3u8: true,
+            skipEnrichIds,
+          });
+          scraped = scraped.map((h) => {
+            const prev = existingById.get(String(h.id || ''));
+            if (!prev) return h;
+            return {
+              ...h,
+              m3u8: h.m3u8 || prev.m3u8 || null,
+              embedUrl: h.embedUrl || prev.embedUrl || prev.embed_url || null,
+              headers: h.headers || prev.headers || null,
+            };
+          });
+          logEvent(events.SCRAPER_SUCCESS, `${cfg.name} scrape completed`, {
+            feed: feedKey,
+            totalHighlightsFound: scraped.length,
+            withM3u8: scraped.filter((h) => h.m3u8).length,
+            skippedEnrich: skipEnrichIds.size,
+          });
+        } catch (err) {
+          logEvent(events.SCRAPER_ERROR, `${cfg.name} scrape failed — keep previous data`, {
+            feed: feedKey,
+            error: err.message,
+          });
+          if (this.admin?.sources) this.admin.sources.recordError(cfg.name, err.message);
+          feedResults[feedKey] = { ok: false, reason: 'scrape_failed', error: err.message };
+          continue;
+        }
+
+        if (!scraped.length && existing.length) {
+          logger.warn(`${cfg.name} scrape empty — keep previous ${feedKey}.json`);
+          feedResults[feedKey] = { ok: true, reason: 'empty_scrape_keep_previous' };
+          continue;
+        }
+        if (!scraped.length && !existing.length) {
+          feedResults[feedKey] = { ok: false, reason: 'empty' };
+          continue;
+        }
+
+        const { highlights, stats } = sourceManager.merge({
+          existing,
+          scraped,
+          retentionDays: sourceManager.retentionDays,
         });
-        github = { uploaded: false, reason: 'github_error', error: err.message };
-      }
-      await getGithubMonitor().inspectResult(github).catch(() => {});
+        if (!highlights.length && existing.length) {
+          feedResults[feedKey] = { ok: false, reason: 'refuse_empty' };
+          continue;
+        }
 
-      if (this.admin?.sources) {
-        this.admin.sources.recordSuccess(
-          'highlight',
-          highlights.filter((h) => h.m3u8).length
-        );
+        const nextDelivery = sourceManager.buildDelivery(highlights, {
+          source: (cfg.domains && cfg.domains[0]) || '',
+          scraped_at: new Date().toISOString(),
+        });
+        const changed = force || sourceManager.hasChanged(previousDelivery, nextDelivery);
+        bundle[feedKey] = nextDelivery;
+        if (feedKey === 'highlight1') {
+          bundle.highlight = nextDelivery;
+          lastHighlights = highlights;
+        }
+
+        let github = { uploaded: false, reason: 'unchanged' };
+        if (changed) {
+          try {
+            github = await this.github.uploadJsonIfChanged(this.github.paths[feedKey], nextDelivery, {
+              previousLocal: previousDelivery,
+              feedKey,
+            });
+            if (feedKey === 'highlight1' && this.github.paths.highlight) {
+              const alias = await this.github.uploadJsonIfChanged(
+                this.github.paths.highlight,
+                nextDelivery,
+                { previousLocal: this.cache.getDelivery('highlight'), feedKey: 'highlight' }
+              );
+              githubFeeds.highlight = alias;
+              if (alias.uploaded) anyUploaded = true;
+            }
+            if (github.uploaded) {
+              anyUploaded = true;
+              logEvent(events.GITHUB_UPLOAD, `${feedKey} updated successfully.`, {
+                commit: github.commit,
+                count: nextDelivery.count,
+              });
+            }
+          } catch (err) {
+            github = { uploaded: false, reason: 'github_error', error: err.message };
+            logEvent(events.SCRAPER_ERROR, `${feedKey} GitHub upload failed`, {
+              error: err.message,
+            });
+          }
+        } else {
+          logEvent(events.GITHUB_SKIPPED, `No ${feedKey} changes detected. GitHub upload skipped.`);
+        }
+        githubFeeds[feedKey] = github;
+        await getGithubMonitor().inspectResult(github).catch(() => {});
+
+        if (this.admin?.sources) {
+          this.admin.sources.recordSuccess(
+            cfg.name,
+            highlights.filter((h) => h.m3u8).length
+          );
+        }
+        feedResults[feedKey] = {
+          ok: true,
+          reason: github.uploaded ? 'updated' : github.reason,
+          uploaded: Boolean(github.uploaded),
+          stats,
+          count: nextDelivery.count,
+        };
       }
 
+      this.cache.saveDeliveryBundle(bundle);
+      if (lastHighlights.length) {
+        const current = this.cache.getCurrent();
+        if (current) {
+          this.cache.saveGenerated({
+            ...current,
+            highlights: lastHighlights,
+            highlightCount: lastHighlights.length,
+          });
+        }
+      }
+
+      const anyOk = Object.values(feedResults).some((r) => r.ok);
       this.lastHighlightRun = {
-        ok: true,
-        reason: github.uploaded ? 'updated' : github.reason,
-        uploaded: Boolean(github.uploaded),
-        stats,
-        github,
+        ok: anyOk,
+        reason: anyUploaded ? 'updated' : 'completed',
+        uploaded: anyUploaded,
+        feeds: feedResults,
+        github: { uploaded: anyUploaded, feeds: githubFeeds },
         at: new Date().toISOString(),
         durationMs: Date.now() - startedAt,
       };
-
       logEvent(events.SCRAPER_SUCCESS, 'Highlight job completed', this.lastHighlightRun);
       return {
-        ok: true,
-        uploaded: Boolean(github.uploaded),
-        stats,
-        delivery: nextDelivery,
-        github,
+        ok: anyOk,
+        uploaded: anyUploaded,
+        feeds: feedResults,
+        github: this.lastHighlightRun.github,
       };
     } catch (err) {
       logEvent(events.SCRAPER_ERROR, 'Highlight job fatal error', { error: err.message });
