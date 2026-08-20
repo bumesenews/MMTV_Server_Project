@@ -713,7 +713,8 @@ class Pipeline {
    * Main pipeline only reuses last successful stores — no live scrape each tick.
    */
   async _collectExtraContent(sourcesDoc, previous) {
-    const deliveryHighlight = this.cache.getDelivery('highlight');
+    const deliveryHighlight =
+      this.cache.getDelivery('highlight1') || this.cache.getDelivery('highlight');
     const manager = new HighlightManager({
       retentionDays: Number(
         this.configLoader.getSourceConfig(sourcesDoc, 'highlight1')?.retentionDays ||
@@ -905,7 +906,6 @@ class Pipeline {
         const changed = force || sourceManager.hasChanged(previousDelivery, nextDelivery);
         bundle[feedKey] = nextDelivery;
         if (feedKey === 'highlight1') {
-          bundle.highlight = nextDelivery;
           lastHighlights = highlights;
         }
 
@@ -916,15 +916,6 @@ class Pipeline {
               previousLocal: previousDelivery,
               feedKey,
             });
-            if (feedKey === 'highlight1' && this.github.paths.highlight) {
-              const alias = await this.github.uploadJsonIfChanged(
-                this.github.paths.highlight,
-                nextDelivery,
-                { previousLocal: this.cache.getDelivery('highlight'), feedKey: 'highlight' }
-              );
-              githubFeeds.highlight = alias;
-              if (alias.uploaded) anyUploaded = true;
-            }
             if (github.uploaded) {
               anyUploaded = true;
               logEvent(events.GITHUB_UPLOAD, `${feedKey} updated successfully.`, {

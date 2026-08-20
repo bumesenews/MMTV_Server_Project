@@ -59,7 +59,7 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
       feeds: {
         mainlive: '/flutter/mainlive.json',
         matches: '/flutter/matches.json',
-        highlight: '/flutter/highlight.json',
+        highlight: '/flutter/highlight1.json',
         highlight1: '/flutter/highlight1.json',
         highlight2: '/flutter/highlight2.json',
         myanmartv: '/flutter/myanmartv.json',
@@ -70,7 +70,6 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         'GET /api/matches',
         'GET /flutter/mainlive.json',
         'GET /flutter/matches.json',
-        'GET /flutter/highlight.json',
         'GET /flutter/highlight1.json',
         'GET /flutter/highlight2.json',
         'GET /flutter/myanmartv.json',
@@ -99,16 +98,7 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
 
   app.get('/flutter/highlight.json', (req, res) => {
     if (!publicJson && !requireApiKey(req, res)) return;
-    const delivery = cache.getDelivery('highlight');
-    if (delivery) return res.json(delivery);
-    const current = cache.getCurrent();
-    if (!current?.highlights) return res.status(404).json({ ok: false, error: 'No data' });
-    return res.json({
-      source: 'https://hoofoot.com/',
-      scraped_at: current.generatedAt || new Date().toISOString(),
-      count: current.highlights.length,
-      highlights: current.highlights,
-    });
+    return sendDelivery(res, 'highlight1', cache.getDelivery('highlight'));
   });
 
   app.get('/flutter/highlight1.json', (req, res) => {
