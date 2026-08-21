@@ -24,7 +24,9 @@ class SourceAdminService {
 
   knownNames(sourcesDoc = null) {
     const fromStore = Object.keys(this.store.read().sources || {});
-    return [...new Set([...listManageableSourceNames(sourcesDoc), ...fromStore])];
+    return [...new Set([...listManageableSourceNames(sourcesDoc), ...fromStore])].filter(
+      (name) => name !== 'highlight'
+    );
   }
 
   list(sourcesDoc = null) {
@@ -65,17 +67,20 @@ class SourceAdminService {
   }
 
   recordSuccess(name, streamCount = 0) {
+    const names = name === 'highlight1' ? ['highlight1', 'highlight'] : [name];
     this.store.update((doc) => {
-      const cur = doc.sources?.[name] || { name, enabled: true, totalStreamsCollected: 0 };
       doc.sources = doc.sources || {};
-      doc.sources[name] = {
-        ...cur,
-        name,
-        lastSuccessAt: new Date().toISOString(),
-        lastStreamCount: streamCount,
-        totalStreamsCollected: (cur.totalStreamsCollected || 0) + streamCount,
-        lastError: null,
-      };
+      for (const key of names) {
+        const cur = doc.sources?.[key] || { name: key, enabled: true, totalStreamsCollected: 0 };
+        doc.sources[key] = {
+          ...cur,
+          name: key,
+          lastSuccessAt: new Date().toISOString(),
+          lastStreamCount: streamCount,
+          totalStreamsCollected: (cur.totalStreamsCollected || 0) + streamCount,
+          lastError: null,
+        };
+      }
       return doc;
     });
   }

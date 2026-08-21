@@ -68,7 +68,6 @@ function listManageableSourceNames(sourcesDoc) {
     'xoilac',
     'mitomtm',
     'socolive',
-    'highlight',
     'highlight1',
     'highlight2',
     'myanmartv',

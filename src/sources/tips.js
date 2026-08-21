@@ -147,7 +147,7 @@ class TipsSource {
 
   async fetchHtml(url) {
     try {
-      const html = await axiosGetHtml(url, { referer: this.baseUrl, timeout: 20000 });
+      const html = await axiosGetHtml(url, { referer: this.baseUrl, timeout: 25000, retries: 5 });
       if (html && html.includes('pttable')) return html;
       logger.debug('PredictZ axios HTML missing pttable, trying browser', { url });
     } catch (err) {

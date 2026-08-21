@@ -105,6 +105,11 @@ function isBrowserLaunchError(err) {
   );
 }
 
+/** Alias — older builds called this name and crashed with "is not defined". */
+function isBrowserLauncherError(err) {
+  return isBrowserLaunchError(err);
+}
+
 function linuxChromeCandidates() {
   return [
     process.env.PUPPETEER_EXECUTABLE_PATH,
@@ -417,13 +422,7 @@ class PuppeteerManager {
         } catch (err) {
           lastErr = err;
           const msg = String(err?.message || err || '');
-          const retryable =
-            typeof isBrowserLaunchError === 'function'
-              ? isBrowserLaunchError(err)
-              : /failed to launch|snap cgroup|target closed|session closed|createTarget|connection closed|launch timeout/i.test(
-                  msg
-                );
-          if (!retryable) throw err;
+          if (!isBrowserLaunchError(err) && !isBrowserLauncherError(err)) throw err;
           logger.warn('Chromium launch failed — trying next binary', {
             executablePath: exe,
             error: msg.split('\n')[0],
@@ -895,6 +894,7 @@ module.exports = {
   DEFAULT_UA,
   resolveChromePath,
   isBrowserLaunchError,
+  isBrowserLauncherError,
   isTargetClosedError,
   isSnapLauncher,
   LINUX_CHROMIUM_DEFAULT: LINUX_CHROMIUM_SNAP_WRAPPER,

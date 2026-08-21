@@ -1,13 +1,14 @@
 const { load } = require('cheerio');
 const { DateTime } = require('luxon');
 const { logger, logEvent, events } = require('../utils/logger');
-const { DEFAULT_UA } = require('../browser/puppeteerManager');
+const { DEFAULT_UA, runExclusivePuppeteerTask } = require('../browser/puppeteerManager');
 const { HighlightManager } = require('../services/highlightManager');
 const {
   axiosGetHtml,
   findStreamPatterns,
   flvToM3u8,
   pickStreamUrl,
+  isTransientHttpError,
 } = require('./httpStreamExtractor');
 
 const HOOFOOT_URL = 'https://hoofoot.com/';
@@ -284,7 +285,11 @@ class HighlightSource {
     let lastListError = null;
     for (const attempt of tries) {
       try {
-        const html = await axiosGetHtml(url, { referer: attempt.referer });
+        const html = await axiosGetHtml(url, {
+          referer: attempt.referer,
+          timeout: 20000,
+          retries: 3,
+        });
         if (html && html.length > 500 && !/just a moment|cf-browser-verification|access denied/i.test(html)) {
           logger.debug('Highlight list fetched via axios', { url, referer: attempt.referer });
           return html;
@@ -296,6 +301,8 @@ class HighlightSource {
           url,
           referer: attempt.referer,
         });
+        // Hang-ups will not be fixed by a different Referer — fall through to Chromium.
+        if (isTransientHttpError(err)) break;
       }
     }
 
@@ -303,18 +310,20 @@ class HighlightSource {
       throw lastListError || new Error(`Failed to fetch highlight list ${url}`);
     }
     logger.warn('Highlight list axios failed — falling back to puppeteer', { url });
-    const listPage = await this.browser.newPage();
-    try {
-      await listPage.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
-      await listPage.goto(url, {
-        waitUntil: 'domcontentloaded',
-        timeout: Math.min(Number(this.browser.timeout) || 45000, 25000),
-      });
-      await sleep(2000);
-      return await listPage.content();
-    } finally {
-      await this.browser.safeClosePage(listPage);
-    }
+    return runExclusivePuppeteerTask(async () => {
+      const listPage = await this.browser.newPage();
+      try {
+        await listPage.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
+        await listPage.goto(url, {
+          waitUntil: 'domcontentloaded',
+          timeout: Math.min(Number(this.browser.timeout) || 45000, 25000),
+        });
+        await sleep(2000);
+        return await listPage.content();
+      } finally {
+        await this.browser.safeClosePage(listPage);
+      }
+    });
   }
 
   extractEmbedFromHtml(html, pageUrl) {
@@ -535,18 +544,20 @@ class HighlightSource {
     }
 
     if (!embedUrl && this.browser && this.parser !== 'socolive') {
-      const page = await this.browser.newPage();
-      try {
-        await page.goto(item.url, {
-          waitUntil: 'domcontentloaded',
-          timeout: this.browser.timeout,
-        });
-        await sleep(1200);
-        const html = await page.content();
-        embedUrl = this.extractEmbedFromHtml(html, item.url);
-      } finally {
-        await this.browser.safeClosePage(page);
-      }
+      await runExclusivePuppeteerTask(async () => {
+        const page = await this.browser.newPage();
+        try {
+          await page.goto(item.url, {
+            waitUntil: 'domcontentloaded',
+            timeout: this.browser.timeout,
+          });
+          await sleep(1200);
+          const html = await page.content();
+          embedUrl = this.extractEmbedFromHtml(html, item.url);
+        } finally {
+          await this.browser.safeClosePage(page);
+        }
+      });
     }
 
     if (!m3u8 && embedUrl && embedUrl !== item.url) {
@@ -579,26 +590,28 @@ class HighlightSource {
     // 2) puppeteer-core fallback (skip for highlight2 — too heavy on 1GB when paging 5 days)
     if (!this.browser || this.parser === 'socolive') return null;
 
-    const page = await this.browser.newInterceptPage([/\.m3u8/i]);
-    try {
-      await page.goto(embedUrl, {
-        waitUntil: 'domcontentloaded',
-        timeout: this.browser.timeout,
-      });
-      await sleep(3000);
-      await page.click('video, .vjs-big-play-button, .play-button, button').catch(() => {});
-      await sleep(3500);
+    return runExclusivePuppeteerTask(async () => {
+      const page = await this.browser.newInterceptPage([/\.m3u8/i]);
+      try {
+        await page.goto(embedUrl, {
+          waitUntil: 'domcontentloaded',
+          timeout: this.browser.timeout,
+        });
+        await sleep(3000);
+        await page.click('video, .vjs-big-play-button, .play-button, button').catch(() => {});
+        await sleep(3500);
 
-      const network = (page.__streamCapture?.getUniqueStreams() || []).map((s) => s.url);
-      const html = await page.content();
-      const htmlUrls = findStreamPatterns(html, embedUrl).flatMap((url) => {
-        const hls = flvToM3u8(url);
-        return hls ? [hls, url] : [url];
-      });
-      return pickBestM3u8([...network, ...htmlUrls]);
-    } finally {
-      await this.browser.safeClosePage(page);
-    }
+        const network = (page.__streamCapture?.getUniqueStreams() || []).map((s) => s.url);
+        const html = await page.content();
+        const htmlUrls = findStreamPatterns(html, embedUrl).flatMap((url) => {
+          const hls = flvToM3u8(url);
+          return hls ? [hls, url] : [url];
+        });
+        return pickBestM3u8([...network, ...htmlUrls]);
+      } finally {
+        await this.browser.safeClosePage(page);
+      }
+    });
   }
 }
 

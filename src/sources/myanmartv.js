@@ -1,21 +1,18 @@
-const axios = require('axios');
 const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
-const { DEFAULT_UA } = require('../browser/puppeteerManager');
+const { DEFAULT_UA, runExclusivePuppeteerTask } = require('../browser/puppeteerManager');
 const {
+  axiosGetHtml,
   findStreamPatterns,
   pickStreamUrl,
   flvToM3u8,
   isTransientHttpError,
-  scraperHttpAgent,
-  scraperHttpsAgent,
 } = require('./httpStreamExtractor');
 
 const BASE_URL = 'https://www.myanmartvchannels.com/';
 const CHANNELS_URL = `${BASE_URL}tv-channels.html`;
 const FETCH_CONCURRENCY = Number(process.env.MYANMARTV_CONCURRENCY || 2);
-const FETCH_RETRIES = 3;
-const FETCH_DELAY_MS = 1500;
+const FETCH_RETRIES = 5;
 const FETCH_TIMEOUT_MS = 30000;
 
 const ALLOWED_CHANNEL_PATHS = new Set([
@@ -103,46 +100,36 @@ class MyanmarTvSource {
 
   async fetchHtml(url) {
     let lastError;
-    for (let attempt = 1; attempt <= FETCH_RETRIES; attempt += 1) {
-      try {
-        const res = await axios.get(url, {
-          timeout: FETCH_TIMEOUT_MS,
-          maxRedirects: 5,
-          responseType: 'text',
-          validateStatus: (s) => s >= 200 && s < 400,
-          httpAgent: scraperHttpAgent,
-          httpsAgent: scraperHttpsAgent,
-          headers: {
-            ...this.headers(this.baseUrl),
-            Connection: 'close',
-          },
-        });
-        return typeof res.data === 'string' ? res.data : String(res.data);
-      } catch (error) {
-        lastError = error;
-        if (attempt < FETCH_RETRIES) await sleep(FETCH_DELAY_MS);
-      }
+    try {
+      return await axiosGetHtml(url, {
+        referer: this.baseUrl,
+        timeout: FETCH_TIMEOUT_MS,
+        retries: FETCH_RETRIES,
+      });
+    } catch (error) {
+      lastError = error;
     }
 
-    // EC2 / CDN 403 or dropped keep-alive sockets → Chromium
     const failText = `${lastError?.code || ''} ${lastError?.message || ''}`;
     if (this.browser && (isTransientHttpError(lastError) || /403|401|429/i.test(failText))) {
       logger.warn('MyanmarTV axios failed — trying puppeteer', {
         url,
         error: lastError.message,
       });
-      const page = await this.browser.newPage();
-      try {
-        await page.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
-        await page.goto(url, {
-          waitUntil: 'domcontentloaded',
-          timeout: this.browser.timeout,
-        });
-        await sleep(2000);
-        return await page.content();
-      } finally {
-        await this.browser.safeClosePage(page);
-      }
+      return runExclusivePuppeteerTask(async () => {
+        const page = await this.browser.newPage();
+        try {
+          await page.setUserAgent(process.env.USER_AGENT || DEFAULT_UA);
+          await page.goto(url, {
+            waitUntil: 'domcontentloaded',
+            timeout: this.browser.timeout,
+          });
+          await sleep(2000);
+          return await page.content();
+        } finally {
+          await this.browser.safeClosePage(page);
+        }
+      });
     }
 
     throw lastError || new Error(`Failed to fetch ${url}`);
@@ -252,30 +239,32 @@ class MyanmarTvSource {
 
     if (!this.browser) return streamUrl;
 
-    const page = await this.browser.newInterceptPage([/\.m3u8/i, /\.flv/i]);
-    try {
-      await page.goto(channel.url, {
-        waitUntil: 'domcontentloaded',
-        timeout: this.browser.timeout,
-      });
-      await sleep(2500);
-      await page.click('video, .vjs-big-play-button, .play-button, button').catch(() => {});
-      await sleep(2500);
+    return runExclusivePuppeteerTask(async () => {
+      const page = await this.browser.newInterceptPage([/\.m3u8/i, /\.flv/i]);
+      try {
+        await page.goto(channel.url, {
+          waitUntil: 'domcontentloaded',
+          timeout: this.browser.timeout,
+        });
+        await sleep(2500);
+        await page.click('video, .vjs-big-play-button, .play-button, button').catch(() => {});
+        await sleep(2500);
 
-      const network = (page.__streamCapture?.getUniqueStreams() || []).map((s) => s.url);
-      const html = await page.content();
-      const htmlUrls = findStreamPatterns(html, channel.url).flatMap((url) => {
-        const hls = flvToM3u8(url);
-        return hls ? [hls, url] : [url];
-      });
-      return (
-        pickStreamUrl([...network, ...htmlUrls, ...findStreamPatterns(html, channel.url)]) ||
-        this.extractStreamUrl(html) ||
-        ''
-      );
-    } finally {
-      await this.browser.safeClosePage(page);
-    }
+        const network = (page.__streamCapture?.getUniqueStreams() || []).map((s) => s.url);
+        const html = await page.content();
+        const htmlUrls = findStreamPatterns(html, channel.url).flatMap((url) => {
+          const hls = flvToM3u8(url);
+          return hls ? [hls, url] : [url];
+        });
+        return (
+          pickStreamUrl([...network, ...htmlUrls, ...findStreamPatterns(html, channel.url)]) ||
+          this.extractStreamUrl(html) ||
+          ''
+        );
+      } finally {
+        await this.browser.safeClosePage(page);
+      }
+    });
   }
 
   async collect({ skipStream = false } = {}) {

@@ -11,17 +11,29 @@ const { cleanText } = require('../utils/normalize');
 const { isBrowserProtocolError } = require('../utils/streamExtractPolicy');
 const { maxPlayerStreams } = require('../utils/scraperConfig');
 
-const AXIOS_TIMEOUT_MS = Number(process.env.HTTP_STREAM_TIMEOUT_MS || 20000);
-const HTML_FETCH_RETRIES = Math.max(1, Number(process.env.HTTP_HTML_RETRIES || 3));
+const AXIOS_TIMEOUT_MS = Number(process.env.HTTP_STREAM_TIMEOUT_MS || 25000);
+const HTML_FETCH_RETRIES = Math.max(1, Number(process.env.HTTP_HTML_RETRIES || 5));
 
-// Node 18+ keep-alive reuses dead CDN sockets → "socket hang up" on 1GB hosts.
-const scraperHttpAgent = new http.Agent({ keepAlive: false });
-const scraperHttpsAgent = new https.Agent({ keepAlive: false });
+// Dead keep-alive + broken IPv6 on EC2 → "socket hang up". Prefer IPv4, no reuse.
+function createScraperAgents() {
+  const opts = {
+    keepAlive: false,
+    maxSockets: 8,
+    timeout: AXIOS_TIMEOUT_MS,
+    family: 4,
+  };
+  return {
+    httpAgent: new http.Agent(opts),
+    httpsAgent: new https.Agent(opts),
+  };
+}
+
+const { httpAgent: scraperHttpAgent, httpsAgent: scraperHttpsAgent } = createScraperAgents();
 
 function isTransientHttpError(err) {
-  const code = String(err?.code || err?.cause?.code || '');
-  const msg = String(err?.message || err || '');
-  return /ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ENETUNREACH|EPIPE|ECONNABORTED|socket hang up|socket closed|network socket disconnected|aborted|timeout|502|503|504/i.test(
+  const code = String(err?.code || err?.cause?.code || err?.cause?.cause?.code || '');
+  const msg = String(err?.message || err?.cause?.message || err || '');
+  return /ECONNRESET|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN|ENOTFOUND|ENETUNREACH|EPIPE|ECONNABORTED|UND_ERR_SOCKET|UND_ERR_CONNECT_TIMEOUT|socket hang up|soket hang up|socket closed|network socket disconnected|aborted|timeout|502|503|504/i.test(
     `${code} ${msg}`
   );
 }
@@ -44,6 +56,7 @@ async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries 
       const res = await axios.get(url, {
         timeout,
         maxRedirects: 5,
+        family: 4,
         responseType: 'text',
         validateStatus: (s) => s >= 200 && s < 400,
         httpAgent: scraperHttpAgent,
@@ -76,9 +89,9 @@ async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries 
         url,
         attempt,
         error: err.message,
-        code: err.code,
+        code: err.code || err.cause?.code,
       });
-      await sleep(400 * attempt);
+      await sleep(700 * attempt);
     }
   }
   throw lastErr;
@@ -708,6 +721,7 @@ module.exports = {
   isTransientHttpError,
   scraperHttpAgent,
   scraperHttpsAgent,
+  createScraperAgents,
   parseListStreamGroups,
   findStreamPatterns,
   flvToM3u8,
