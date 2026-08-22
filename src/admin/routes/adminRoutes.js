@@ -1,6 +1,8 @@
 const express = require('express');
 const { authRequired, requireRole, ROLES } = require('../auth/middleware');
 const { formatDate, formatTime, toYangon } = require('../../utils/time');
+const { clearSourceMatchUrl } = require('../../utils/matchUrlDiscovery');
+const { assertFeedKey, feedSummary } = require('../services/feedAdminService');
 const { collectSourceFailuresFromMatches } = require('../services/dashboardService');
 
 function createAdminRouter(ctx) {
@@ -464,6 +466,106 @@ function createAdminRouter(ctx) {
     }
   });
 
+  // ---------- Manual match URLs (streaming site page — scraper extracts m3u8) ----------
+  router.get('/matches/:matchId/match-url', auth, (req, res) => {
+    const ov = ctx.overrides.get(req.params.matchId);
+    res.json({ ok: true, manualMatchUrls: ov?.manualMatchUrls || [] });
+  });
+
+  router.post('/matches/:matchId/match-url', auth, editor, async (req, res) => {
+    try {
+      const { matchId } = req.params;
+      const body = req.body || {};
+      const entry = ctx.overrides.addManualMatchUrl(matchId, {
+        source: body.source,
+        url: body.matchUrl || body.url,
+        addedBy: req.admin.username,
+      });
+
+      const current = ctx.cache.getCurrent();
+      if (!current?.matches) {
+        throw new Error('Match cache not available');
+      }
+      const idx = current.matches.findIndex((m) => m.matchId === matchId);
+      if (idx < 0) {
+        throw new Error('Match not found in cache. Run the scraper first or create the match.');
+      }
+
+      current.matches[idx] = ctx.overrides.applyManualMatchUrlsToFixture(current.matches[idx]);
+      ctx.cache.writeJson(ctx.cache.currentPath, current);
+
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'manual_match_url_add' },
+      });
+
+      ctx.logService.add({
+        category: 'manual_match_url',
+        action: 'add',
+        message: `Added manual match URL for ${matchId} (${entry.source})`,
+        actor: req.admin.username,
+        meta: { matchId, source: entry.source, url: entry.url },
+      });
+
+      // Kick stream extraction on the confirmed page URL (non-blocking).
+      ctx.pipeline
+        .run({ forceStreamCheck: true })
+        .catch((err) => {
+          ctx.logService.add({
+            category: 'scraper',
+            action: 'manual_match_url_extract',
+            message: `Stream extract after manual match URL failed: ${err.message}`,
+            actor: req.admin.username,
+            meta: { matchId },
+          });
+        });
+
+      res.json({
+        ok: true,
+        entry,
+        match: current.matches[idx],
+        published,
+      });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.delete('/matches/:matchId/match-url/:source', auth, editor, async (req, res) => {
+    try {
+      const { matchId } = req.params;
+      const source = decodeURIComponent(req.params.source);
+      ctx.overrides.removeManualMatchUrl(matchId, source);
+
+      const current = ctx.cache.getCurrent();
+      if (current?.matches) {
+        const idx = current.matches.findIndex((m) => m.matchId === matchId);
+        if (idx >= 0) {
+          let next = clearSourceMatchUrl(current.matches[idx], source);
+          next = ctx.overrides.applyManualMatchUrlsToFixture(next);
+          current.matches[idx] = next;
+          ctx.cache.writeJson(ctx.cache.currentPath, current);
+        }
+      }
+
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'manual_match_url_delete' },
+      });
+
+      ctx.logService.add({
+        category: 'manual_match_url',
+        action: 'delete',
+        message: `Removed manual match URL for ${matchId} (${source})`,
+        actor: req.admin.username,
+      });
+
+      res.json({ ok: true, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
   // ---------- Leagues ----------
   router.get('/leagues', auth, (_req, res) => {
     res.json({ ok: true, leagues: ctx.leagues.list() });
@@ -758,6 +860,128 @@ function createAdminRouter(ctx) {
       res.json({ ok: true, entry });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  // ---------- Delivery feeds (highlight1, highlight2, tips, myanmartv) ----------
+  router.get('/feeds', auth, (_req, res) => {
+    const feeds = ['highlight1', 'highlight2', 'tips', 'myanmartv'].map((key) => {
+      const data = ctx.cache.getDelivery(key);
+      return {
+        feedKey: key,
+        data,
+        summary: feedSummary(key, data),
+      };
+    });
+    res.json({ ok: true, feeds });
+  });
+
+  router.get('/feeds/:feedKey', auth, (req, res) => {
+    try {
+      const feedKey = assertFeedKey(req.params.feedKey);
+      const data = ctx.cache.getDelivery(feedKey);
+      res.json({
+        ok: true,
+        feedKey,
+        data,
+        summary: feedSummary(feedKey, data),
+      });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.put('/feeds/:feedKey', auth, editor, async (req, res) => {
+    try {
+      const feedKey = assertFeedKey(req.params.feedKey);
+      const published = await ctx.publish.publishFeed(feedKey, req.body, {
+        actor: req.admin.username,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'feed_publish',
+        message: `Published ${feedKey}.json (${published.summary?.count ?? 0} items)`,
+        actor: req.admin.username,
+        meta: { feedKey, github: published.github },
+      });
+      res.json({ ok: true, ...published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.post('/pipeline/highlights', auth, editor, async (req, res) => {
+    try {
+      const result = await ctx.pipeline.runHighlights({
+        force: Boolean(req.body?.force),
+      });
+      ctx.logService.add({
+        category: 'scraper',
+        action: 'highlights_run',
+        message: `Highlight job ok=${result.ok}`,
+        actor: req.admin.username,
+        meta: result,
+      });
+      if (result.reason === 'already_running' || result.reason === 'pipeline_running') {
+        return res.status(409).json({
+          ok: false,
+          error: 'Another job is running. Try again shortly.',
+          reason: result.reason,
+        });
+      }
+      res.json({ ok: Boolean(result.ok), ...result });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.post('/pipeline/channels', auth, editor, async (req, res) => {
+    try {
+      const result = await ctx.pipeline.runMyanmarTv({
+        force: Boolean(req.body?.force),
+      });
+      ctx.logService.add({
+        category: 'scraper',
+        action: 'channels_run',
+        message: `MyanmarTV job ok=${result.ok}`,
+        actor: req.admin.username,
+        meta: result,
+      });
+      if (['already_running', 'pipeline_running', 'highlight_running', 'tips_running'].includes(result.reason)) {
+        return res.status(409).json({
+          ok: false,
+          error: 'Another job is running. Try again shortly.',
+          reason: result.reason,
+        });
+      }
+      res.json({ ok: Boolean(result.ok), ...result });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.post('/pipeline/tips', auth, editor, async (req, res) => {
+    try {
+      const result = await ctx.pipeline.runTips({
+        force: Boolean(req.body?.force),
+      });
+      ctx.logService.add({
+        category: 'scraper',
+        action: 'tips_run',
+        message: `Tips job ok=${result.ok}`,
+        actor: req.admin.username,
+        meta: result,
+      });
+      if (['already_running', 'pipeline_running', 'highlight_running', 'channels_running'].includes(result.reason)) {
+        return res.status(409).json({
+          ok: false,
+          error: 'Another job is running. Try again shortly.',
+          reason: result.reason,
+        });
+      }
+      res.json({ ok: Boolean(result.ok), ...result });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
     }
   });
 

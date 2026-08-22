@@ -1,6 +1,7 @@
 const path = require('path');
 const crypto = require('crypto');
 const { JsonStore } = require('../store/jsonStore');
+const { applyAdminMatchUrl } = require('../../utils/matchUrlDiscovery');
 
 function newId() {
   return crypto.randomUUID();
@@ -104,6 +105,60 @@ class OverrideService {
     return true;
   }
 
+  addManualMatchUrl(matchId, input = {}) {
+    const source = String(input.source || '').trim().toLowerCase();
+    const url = String(input.url || input.matchUrl || '').trim();
+    if (!source) throw new Error('Source is required (e.g. cakhia, xoilac)');
+    if (!url) throw new Error('Match URL is required');
+    try {
+      const parsed = new URL(url);
+      if (!/^https?:$/i.test(parsed.protocol)) throw new Error('Invalid URL protocol');
+    } catch {
+      throw new Error('Invalid Match URL');
+    }
+
+    const all = this.all();
+    const current = all[matchId] || defaultOverride();
+    const entry = {
+      source,
+      url,
+      addedAt: new Date().toISOString(),
+      addedBy: input.addedBy || null,
+    };
+    const rest = (current.manualMatchUrls || []).filter((m) => m.source !== source);
+    current.manualMatchUrls = [...rest, entry];
+    current.updatedAt = new Date().toISOString();
+    all[matchId] = current;
+    this.store.write({ matches: all });
+    return entry;
+  }
+
+  removeManualMatchUrl(matchId, source) {
+    const all = this.all();
+    const current = all[matchId];
+    if (!current) throw new Error('Match override not found');
+    const key = String(source || '').trim().toLowerCase();
+    current.manualMatchUrls = (current.manualMatchUrls || []).filter((m) => m.source !== key);
+    current.updatedAt = new Date().toISOString();
+    all[matchId] = current;
+    this.store.write({ matches: all });
+    return true;
+  }
+
+  applyManualMatchUrlsToFixture(match) {
+    if (!match?.matchId) return match;
+    const ov = this.get(match.matchId);
+    const entries = ov?.manualMatchUrls || [];
+    if (!entries.length) return match;
+
+    let next = match;
+    for (const entry of entries) {
+      if (!entry?.url || !entry?.source) continue;
+      next = applyAdminMatchUrl(next, entry.source, entry.url, entry.addedAt);
+    }
+    return next;
+  }
+
   /**
    * Merge scraper matches with admin overrides. Manual streams highest priority.
    */
@@ -122,18 +177,19 @@ class OverrideService {
 
     return (matches || [])
       .map((match) => {
+        const withManualMatchUrl = this.applyManualMatchUrlsToFixture(match);
         const ov = overrides[match.matchId];
         if (!ov) {
           return {
-            ...match,
+            ...withManualMatchUrl,
             hidden: false,
             pinned: false,
             featured: false,
-            streams: sortStreams(match.streams || [], SOURCE_PRIORITY),
+            streams: sortStreams(withManualMatchUrl.streams || [], SOURCE_PRIORITY),
           };
         }
 
-        const autoStreams = (match.streams || []).filter(
+        const autoStreams = (withManualMatchUrl.streams || []).filter(
           (s) => String(s.source || '').toLowerCase() !== 'manual'
         );
         const manual = (ov.manualStreams || [])
@@ -157,22 +213,24 @@ class OverrideService {
           }));
 
         const streams = sortStreams([...manual, ...autoStreams], SOURCE_PRIORITY);
-        const kickoff = ov.kickoff || match.kickoff;
+        const kickoff = ov.kickoff || withManualMatchUrl.kickoff;
 
         return {
-          ...match,
+          ...withManualMatchUrl,
           hidden: Boolean(ov.hidden),
           pinned: Boolean(ov.pinned),
           featured: Boolean(ov.featured),
-          status: ov.status || match.status,
-          statusLocked: Boolean(ov.statusLocked || ov.status || match.statusLocked),
+          status: ov.status || withManualMatchUrl.status,
+          statusLocked: Boolean(
+            ov.statusLocked || ov.status || withManualMatchUrl.statusLocked
+          ),
           kickoff,
-          date: ov.date || match.date,
-          time: ov.time || match.time,
-          league: ov.league || match.league,
-          leagueIcon: ov.leagueIcon || match.leagueIcon || null,
-          homeTeam: ov.homeTeam || match.homeTeam,
-          awayTeam: ov.awayTeam || match.awayTeam,
+          date: ov.date || withManualMatchUrl.date,
+          time: ov.time || withManualMatchUrl.time,
+          league: ov.league || withManualMatchUrl.league,
+          leagueIcon: ov.leagueIcon || withManualMatchUrl.leagueIcon || null,
+          homeTeam: ov.homeTeam || withManualMatchUrl.homeTeam,
+          awayTeam: ov.awayTeam || withManualMatchUrl.awayTeam,
           streams,
           hasStreams: streams.some((s) => s.active !== false && s.url),
           streamCount: streams.filter((s) => s.active !== false && s.url).length,
@@ -203,6 +261,7 @@ function defaultOverride() {
     homeTeam: null,
     awayTeam: null,
     manualStreams: [],
+    manualMatchUrls: [],
     updatedAt: new Date().toISOString(),
   };
 }

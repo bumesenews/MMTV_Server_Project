@@ -490,6 +490,56 @@ function aggregateMatchUrlFields(fixture) {
   };
 }
 
+/**
+ * Admin-supplied Match URL — treated as confirmed so discovery stops and extract runs.
+ */
+function applyAdminMatchUrl(fixture, sourceName, matchUrl, nowIso) {
+  const url = String(matchUrl || '').trim();
+  const source = String(sourceName || '').trim().toLowerCase();
+  if (!url || !source) return fixture;
+
+  const search = ensureMatchUrlSearch(fixture);
+  const prev = getSourceMatchUrlState(fixture, source);
+  search.sources[source] = {
+    matchUrl: url,
+    status: MATCH_URL_STATUS.CONFIRMED,
+    attempts: prev.attempts,
+    liveAttempts: prev.liveAttempts,
+    lastAttemptAt: nowIso || new Date().toISOString(),
+    slotsDone: prev.slotsDone,
+    confidence: 100,
+    manual: true,
+  };
+
+  const sourcePages = { ...(fixture.sourcePages || {}), [source]: url };
+  logger.info(
+    `[ MATCH URL MANUAL ] Source: ${source} Match: ${fixture?.homeTeam || '?'} vs ${fixture?.awayTeam || '?'} Match URL: ${url}`
+  );
+
+  return aggregateMatchUrlFields({
+    ...fixture,
+    sourcePages,
+    matchUrlSearch: search,
+    lastMatchUrlAttemptAt: nowIso || new Date().toISOString(),
+  });
+}
+
+function clearSourceMatchUrl(fixture, sourceName) {
+  const source = String(sourceName || '').trim().toLowerCase();
+  if (!source) return fixture;
+
+  const search = ensureMatchUrlSearch(fixture);
+  delete search.sources[source];
+  const sourcePages = { ...(fixture.sourcePages || {}) };
+  delete sourcePages[source];
+
+  return aggregateMatchUrlFields({
+    ...fixture,
+    sourcePages,
+    matchUrlSearch: search,
+  });
+}
+
 module.exports = {
   MATCH_URL_STATUS,
   MATCH_URL_MAX_ATTEMPTS,
@@ -498,6 +548,8 @@ module.exports = {
   sourceHasSavedMatchUrl,
   needsMatchUrlDiscovery,
   applySourceDiscoveryResult,
+  applyAdminMatchUrl,
+  clearSourceMatchUrl,
   skipDiscoveryKeepKnown,
   finalizeMatchUrlStatus,
   aggregateMatchUrlFields,

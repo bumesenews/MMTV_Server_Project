@@ -8,6 +8,7 @@ const {
   syncMatchesForDelivery,
   readExistingMatches,
 } = require('../../services/matchesSyncService');
+const { assertFeedKey, normalizeFeed, feedSummary, FEED_META } = require('./feedAdminService');
 
 /**
  * Applies admin overrides + league filters, writes local cache, uploads GitHub if changed.
@@ -97,6 +98,105 @@ class PublishService {
     return {
       ok: true,
       delivery: delivery.mainlive,
+      github,
+      warning: github.reason === 'github_error' ? github.error : null,
+    };
+  }
+
+  /**
+   * Admin publish for highlight1, highlight2, tips, or myanmartv feeds.
+   */
+  async publishFeed(feedKey, rawPayload, { actor = 'admin' } = {}) {
+    const key = assertFeedKey(feedKey);
+    const delivery = normalizeFeed(key, rawPayload);
+    const previous = this.cache.getDelivery(key);
+
+    const bundle = { [key]: delivery };
+    if (key === 'highlight1') {
+      bundle.highlight = delivery;
+    }
+    this.cache.saveDeliveryBundle(bundle);
+
+    if (key === 'highlight1' && Array.isArray(delivery.highlights)) {
+      const current = this.cache.getCurrent();
+      if (current) {
+        this.cache.saveGenerated({
+          ...current,
+          highlights: delivery.highlights,
+          highlightCount: delivery.count,
+        });
+      }
+    }
+
+    if (key === 'myanmartv' && Array.isArray(delivery)) {
+      const current = this.cache.getCurrent();
+      if (current) {
+        this.cache.saveGenerated({
+          ...current,
+          channels: delivery,
+          channelCount: delivery.length,
+        });
+      }
+    }
+
+    const githubFeeds = {};
+    let github = { uploaded: false, reason: 'not_configured', feeds: {} };
+
+    try {
+      github = await this.github.uploadJsonIfChanged(this.github.paths[key], delivery, {
+        previousLocal: previous,
+        feedKey: key,
+        allowEmpty: true,
+      });
+      githubFeeds[key] = github;
+
+      if (key === 'highlight1') {
+        const ghLegacy = await this.github.uploadJsonIfChanged(
+          this.github.paths.highlight,
+          delivery,
+          { previousLocal: this.cache.getDelivery('highlight'), feedKey: 'highlight', allowEmpty: true }
+        );
+        githubFeeds.highlight = ghLegacy;
+      }
+    } catch (err) {
+      github = {
+        uploaded: false,
+        reason: 'github_error',
+        error: err.message,
+        hint: err.hint || null,
+        status: err.status || null,
+        feeds: githubFeeds,
+      };
+      if (this.logService) {
+        this.logService.add({
+          category: 'github',
+          action: 'upload_failed',
+          message: err.message,
+          actor,
+          meta: { feed: key, ...github },
+        });
+      }
+    }
+
+    this.lastGithub = { ...github, at: new Date().toISOString() };
+    await getGithubMonitor().inspectResult(github).catch(() => {});
+
+    if (this.logService) {
+      this.logService.add({
+        category: 'github',
+        action: github.uploaded ? 'upload' : 'skip',
+        message: `Publish ${key}.json (${feedSummary(key, delivery).count} items, github: ${github.reason}${github.error ? ` - ${github.error}` : ''})`,
+        actor,
+        meta: { feed: key, github, summary: feedSummary(key, delivery) },
+      });
+    }
+
+    return {
+      ok: true,
+      feedKey: key,
+      label: FEED_META[key]?.label || key,
+      delivery,
+      summary: feedSummary(key, delivery),
       github,
       warning: github.reason === 'github_error' ? github.error : null,
     };

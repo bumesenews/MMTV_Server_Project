@@ -249,6 +249,11 @@ class Pipeline {
         fixtures = this._unionTodayTomorrowFixtures(fixtures);
         // Carry forward streams/sourcePages from previous matches.json
         fixtures = this._mergePreviousMatchState(fixtures);
+        if (this.admin?.overrides) {
+          fixtures = fixtures.map((f) =>
+            this.admin.overrides.applyManualMatchUrlsToFixture(f)
+          );
+        }
       } catch (err) {
         logEvent(events.SCRAPER_ERROR, 'Fixture collection failed — keep previous data', {
           error: err.message,

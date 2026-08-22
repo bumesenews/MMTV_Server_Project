@@ -131,6 +131,7 @@
       mainlive: renderMainLive,
       matches: renderMatches,
       streams: renderStreams,
+      feeds: renderFeeds,
       leagues: renderLeagues,
       teams: renderTeams,
       sources: renderSources,
@@ -520,14 +521,25 @@
 
   async function renderMatches() {
     setTitle('Matches (matches.json)');
-    const [matchData, leagueData, teamData] = await Promise.all([
+    const [matchData, leagueData, teamData, sourceData] = await Promise.all([
       api('/matches'),
       api('/leagues'),
       api('/teams'),
+      api('/sources').catch(() => ({ sources: [], config: null })),
     ]);
     state.matches = matchData.matches || [];
     const leagues = (leagueData.leagues || []).filter((l) => l.enabled !== false);
     const teams = (teamData.teams || []).filter((t) => t.enabled !== false);
+    const streamingSources = (sourceData.config?.sources || [])
+      .filter((s) => s.type === 'streaming' && s.enabled !== false)
+      .map((s) => s.name)
+      .filter(Boolean);
+    const sourceNames = streamingSources.length
+      ? streamingSources
+      : ['cakhia', 'xoilac', 'socolive', 'luongson', '90phut', 'yyzb'];
+    const sourceOpts = sourceNames
+      .map((name) => `<option value="${esc(name)}">${esc(name)}</option>`)
+      .join('');
     const leagueOpts = leagues
       .map((l) => `<option value="${esc(l.standardName)}" data-icon="${esc(l.iconUrl || '')}">${esc(l.standardName)}</option>`)
       .join('');
@@ -589,6 +601,19 @@
                   <td>
                     <div>${esc(m.matchUrlStatus || '—')}</div>
                     ${m.matchUrl ? `<div class="muted" style="font-size:0.75rem;word-break:break-all">${esc(m.matchUrl)}</div>` : ''}
+                    ${(m.override?.manualMatchUrls || []).map((u) => `
+                      <div class="muted" style="font-size:0.72rem;margin-top:4px">
+                        <span class="badge manual">${esc(u.source)}</span>
+                        <span style="word-break:break-all">${esc(u.url)}</span>
+                        <button class="secondary" style="padding:2px 6px;font-size:0.7rem;margin-left:4px" data-act="del-match-url" data-source="${esc(u.source)}">×</button>
+                      </div>`).join('')}
+                    <div class="row" style="margin-top:6px;flex-wrap:wrap;gap:4px">
+                      <select data-act="match-url-source" style="width:auto;min-width:88px">
+                        ${sourceOpts}
+                      </select>
+                      <input data-act="match-url" type="url" placeholder="https://.../truc-tiep/..." style="flex:1;min-width:140px" />
+                      <button class="secondary" data-act="save-match-url" title="Save page URL — scraper will extract m3u8">Add URL</button>
+                    </div>
                   </td>
                   <td>${esc(m.streamStatus || '—')}</td>
                   <td>${(m.streams || []).length}</td>
@@ -702,6 +727,38 @@
           toast(err.message, 'error');
         }
       });
+      tr.querySelector('[data-act="save-match-url"]')?.addEventListener('click', async () => {
+        const source = tr.querySelector('[data-act="match-url-source"]')?.value;
+        const matchUrl = tr.querySelector('[data-act="match-url"]')?.value?.trim();
+        if (!source) return toast('Select a source', 'error');
+        if (!matchUrl) return toast('Enter a match page URL', 'error');
+        try {
+          await api(`/matches/${encodeURIComponent(id)}/match-url`, {
+            method: 'POST',
+            body: JSON.stringify({ source, matchUrl }),
+          });
+          toast('Match URL saved · stream extraction started');
+          renderMatches();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+      tr.querySelectorAll('[data-act="del-match-url"]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const source = btn.dataset.source;
+          if (!confirm(`Remove manual match URL for ${source}?`)) return;
+          try {
+            await api(
+              `/matches/${encodeURIComponent(id)}/match-url/${encodeURIComponent(source)}`,
+              { method: 'DELETE' }
+            );
+            toast('Manual match URL removed');
+            renderMatches();
+          } catch (err) {
+            toast(err.message, 'error');
+          }
+        });
+      });
     });
   }
 
@@ -812,6 +869,154 @@
       }
     });
     if (matchSelect.value) loadList().catch(() => {});
+  }
+
+  const FEED_TABS = [
+    { key: 'highlight1', label: 'Highlight 1', file: 'highlight1.json', scraper: '/pipeline/highlights' },
+    { key: 'highlight2', label: 'Highlight 2', file: 'highlight2.json', scraper: '/pipeline/highlights' },
+    { key: 'tips', label: 'Tips', file: 'tips.json', scraper: '/pipeline/tips' },
+    { key: 'myanmartv', label: 'Myanmar TV', file: 'myanmartv.json', scraper: '/pipeline/channels' },
+  ];
+
+  async function renderFeeds() {
+    setTitle('Delivery Feeds');
+    const active = state.feedTab || 'highlight1';
+    const res = await api(`/feeds/${encodeURIComponent(active)}`);
+    const tab = FEED_TABS.find((t) => t.key === active) || FEED_TABS[0];
+    const jsonText = res.data != null ? JSON.stringify(res.data, null, 2) : '{\n}';
+    const summary = res.summary || {};
+
+    pageEl.innerHTML = `
+      <div class="panel">
+        <p class="muted">Edit and publish <code>${esc(tab.file)}</code> when scraping fails. Changes are saved locally and uploaded to GitHub.</p>
+        <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:12px">
+          ${FEED_TABS.map((t) => `
+            <button class="${t.key === active ? '' : 'secondary'}" data-feed-tab="${esc(t.key)}">${esc(t.label)}</button>
+          `).join('')}
+        </div>
+        <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px;flex-wrap:wrap;gap:8px">
+          <div class="muted">
+            Items: <strong>${esc(String(summary.count ?? 0))}</strong>
+            ${summary.scraped_at ? ` · scraped ${esc(summary.scraped_at)}` : ''}
+          </div>
+          <div class="row" style="flex-wrap:wrap;gap:6px">
+            <button type="button" class="secondary" id="feed-select-all">Select all</button>
+            <button type="button" class="secondary" id="feed-copy">Copy</button>
+            <button type="button" class="secondary" id="feed-paste-all">Paste all</button>
+            <button type="button" class="secondary" id="feed-clear">Clear</button>
+            <button type="button" class="secondary" id="feed-reload">Reload</button>
+            <button type="button" class="secondary" id="feed-run-scraper">Run Scraper</button>
+            <button type="button" id="feed-save">Save & Publish</button>
+          </div>
+        </div>
+        <textarea id="feed-json" spellcheck="false" style="width:100%;min-height:420px;font-family:ui-monospace,monospace;font-size:0.82rem;line-height:1.4;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:inherit"></textarea>
+        <p class="muted" style="margin-top:8px">
+          ${active === 'myanmartv'
+            ? 'Paste a JSON array of <code>{ title, img, streamUrl }</code> objects.'
+            : active === 'tips'
+              ? 'Paste the full tips object with <code>today</code> and <code>tomorrow</code> sections.'
+              : 'Paste the full highlight object with a <code>highlights</code> array, or just the highlights array.'}
+        </p>
+      </div>`;
+
+    $('#feed-json').value = jsonText;
+
+    const feedEditor = $('#feed-json');
+    const emptyTemplate = active === 'myanmartv' ? '[]' : '{\n}';
+
+    $('#feed-select-all').addEventListener('click', () => {
+      feedEditor.focus();
+      feedEditor.select();
+    });
+    $('#feed-copy').addEventListener('click', async () => {
+      try {
+        const text = feedEditor.value;
+        if (!text) return toast('Nothing to copy', 'error');
+        await navigator.clipboard.writeText(text);
+        toast('Copied to clipboard');
+      } catch {
+        feedEditor.select();
+        document.execCommand('copy');
+        toast('Copied');
+      }
+    });
+    $('#feed-paste-all').addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (!text?.trim()) return toast('Clipboard is empty', 'error');
+        feedEditor.value = text.trim();
+        toast('Replaced all JSON from clipboard');
+      } catch {
+        toast('Allow clipboard access to paste', 'error');
+      }
+    });
+    $('#feed-clear').addEventListener('click', () => {
+      if (feedEditor.value.trim() && !confirm('Clear all JSON? Paste new data then Save & Publish.')) return;
+      feedEditor.value = emptyTemplate;
+      feedEditor.focus();
+      toast('Editor cleared — paste new JSON');
+    });
+
+    pageEl.querySelectorAll('[data-feed-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        state.feedTab = btn.dataset.feedTab;
+        renderFeeds();
+      });
+    });
+
+    $('#feed-reload').addEventListener('click', () => renderFeeds());
+
+    $('#feed-run-scraper').addEventListener('click', async () => {
+      const btn = $('#feed-run-scraper');
+      try {
+        btn.disabled = true;
+        toast(`${tab.label} scraper started…`);
+        const result = await api(tab.scraper, {
+          method: 'POST',
+          body: JSON.stringify({ force: true }),
+        });
+        if (result.github?.uploaded) {
+          toast(`${tab.label} scraper OK · uploaded to GitHub`);
+        } else {
+          toast(`${tab.label} scraper finished · ${result.reason || 'done'}`);
+        }
+        renderFeeds();
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    $('#feed-save').addEventListener('click', async () => {
+      const btn = $('#feed-save');
+      let payload;
+      try {
+        payload = JSON.parse($('#feed-json').value);
+      } catch {
+        return toast('Invalid JSON — fix syntax errors first', 'error');
+      }
+      try {
+        btn.disabled = true;
+        const result = await api(`/feeds/${encodeURIComponent(active)}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+        const gh = result.github;
+        if (gh?.uploaded) {
+          toast(`${tab.label} saved · uploaded to GitHub`);
+        } else if (gh?.reason === 'github_error' || result.warning) {
+          toast(`Saved locally, GitHub failed: ${gh?.error || result.warning}`, 'error');
+        } else {
+          toast(`${tab.label} saved · GitHub: ${gh?.reason || 'unchanged'}`);
+        }
+        renderFeeds();
+      } catch (err) {
+        toast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+      }
+    });
   }
 
   async function renderLeagues() {
