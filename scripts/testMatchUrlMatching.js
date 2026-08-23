@@ -694,6 +694,68 @@ console.log('\n=== Independent sources + duplicate candidates ===');
   assert('12. Duplicate candidate URLs assign once', matched.length === 1 && matched[0].matchUrl.includes('inter-vs-juventus'));
 }
 
+console.log('\n=== Quality /link/N tabs are same fixture ===');
+{
+  const kick = yangonKickoff('2026-08-23T19:30:00');
+  const base =
+    'https://cakhiazvm.tv/truc-tiep/brighton-vs-aston-villa-luc-2000-ngay-23-08-2026/';
+  const entries = [base, `${base}link/1`].map((url) => ({
+    ...parseStreamUrl(url),
+    url,
+  }));
+  const fotmob = {
+    matchId: 'brighton-villa',
+    homeTeam: 'Brighton & Hove Albion',
+    awayTeam: 'Aston Villa',
+    kickoff: kick.toISO(),
+    date: kick.toFormat('yyyy-MM-dd'),
+    time: kick.toFormat('HH:mm'),
+    league: 'English Premier League (EPL)',
+    originalNames: {
+      fotmob: {
+        homeTeam: 'Brighton',
+        awayTeam: 'Aston Villa',
+        league: 'ENG Premier League',
+      },
+    },
+  };
+  const matched = scraper.matchFixturesToEntries([fotmob], entries);
+  assert(
+    '16. /link/N quality tabs do not block Match URL discovery',
+    matched.length === 1 &&
+      matched[0].matchUrl ===
+        'https://cakhiazvm.tv/truc-tiep/brighton-vs-aston-villa-luc-2000-ngay-23-08-2026/' &&
+      matched[0].confidence === 100,
+    JSON.stringify(matched)
+  );
+}
+
+console.log('\n=== LOSC Lille alias ===');
+{
+  const kick = yangonKickoff('2026-08-23T19:30:00');
+  const url =
+    'https://cakhiazvm.tv/truc-tiep/angers-vs-losc-lille-luc-2000-ngay-23-08-2026/';
+  const parsed = parseStreamUrl(url);
+  const fotmob = {
+    matchId: 'angers-lille',
+    homeTeam: 'Angers',
+    awayTeam: 'Lille',
+    kickoff: kick.toISO(),
+    date: kick.toFormat('yyyy-MM-dd'),
+    time: kick.toFormat('HH:mm'),
+    league: 'Ligue 1',
+    originalNames: {
+      fotmob: { homeTeam: 'Angers', awayTeam: 'Lille', league: 'FRA Ligue 1' },
+    },
+  };
+  const r = scoreUrl(fotmob, url);
+  assert(
+    '17. LOSC Lille slug matches FotMob Lille',
+    r.accepted && r.status === MATCH_URL_STATUS.CONFIRMED,
+    JSON.stringify({ score: r.score, reason: r.reason, away: r.away })
+  );
+}
+
 console.log('\n=== Transient error does not burn the attempt ===');
 {
   const { isTransientDiscoverError, matchUrlJobKey } = require('../src/utils/matchUrlDiscovery');

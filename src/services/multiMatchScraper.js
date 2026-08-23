@@ -21,6 +21,40 @@ const { needsMatchUrlDiscovery } = require('../utils/matchUrlDiscovery');
 /** Default match-detail path pattern (Vietnamese live sites). */
 const DEFAULT_LINK_PATTERN = /truc-tiep\/[^\s"'<>#?]+/gi;
 
+/** Stream quality/server tabs on the same match page — not separate fixtures. */
+const QUALITY_LINK_SUFFIX = /\/link\/\d+\/?$/i;
+
+/**
+ * Normalize a list-page match URL to the canonical fixture page (strip /link/N tabs).
+ */
+function canonicalMatchDiscoveryUrl(url) {
+  const raw = String(url || '').trim();
+  if (!raw || !/truc-tiep\//i.test(raw)) return raw;
+  try {
+    const u = new URL(raw);
+    let path = u.pathname.replace(QUALITY_LINK_SUFFIX, '');
+    path = `${path.replace(/\/+$/, '')}/`;
+    u.pathname = path;
+    u.search = '';
+    u.hash = '';
+    return u.toString();
+  } catch {
+    return `${raw.replace(QUALITY_LINK_SUFFIX, '').replace(/\/+$/, '')}/`;
+  }
+}
+
+function matchDiscoveryPathKey(url) {
+  try {
+    return new URL(canonicalMatchDiscoveryUrl(url)).pathname.toLowerCase();
+  } catch {
+    return canonicalMatchDiscoveryUrl(url).toLowerCase();
+  }
+}
+
+function isQualityLinkUrl(url) {
+  return QUALITY_LINK_SUFFIX.test(String(url || ''));
+}
+
 const CLOUDFLARE_MARKERS =
   /cloudflare|cf-browser-verification|attention required|just a moment|enable javascript and cookies|access denied|sorry, you have been blocked/i;
 
@@ -230,15 +264,17 @@ class MultiMatchScraper {
     const byUrl = new Map();
     for (const row of [...fromCheerio, ...fromRegex]) {
       if (!row?.url) continue;
-      const prev = byUrl.get(row.url);
+      const canonicalUrl = canonicalMatchDiscoveryUrl(row.url);
+      const prev = byUrl.get(canonicalUrl);
       if (!prev) {
-        byUrl.set(row.url, row);
+        byUrl.set(canonicalUrl, { ...row, url: canonicalUrl });
         continue;
       }
       // Prefer row with league/country context
-      byUrl.set(row.url, {
+      byUrl.set(canonicalUrl, {
         ...prev,
         ...row,
+        url: canonicalUrl,
         league: row.league || prev.league,
         country: row.country || prev.country,
       });
@@ -288,7 +324,7 @@ class MultiMatchScraper {
     const seen = new Set();
 
     const consider = (href, contextEl) => {
-      const abs = absoluteUrl(href, baseUrl);
+      const abs = canonicalMatchDiscoveryUrl(absoluteUrl(href, baseUrl));
       if (!abs || !/truc-tiep\//i.test(abs) || seen.has(abs)) return;
       seen.add(abs);
 
@@ -379,7 +415,7 @@ class MultiMatchScraper {
       if (!path.startsWith('/')) path = `/${path}`;
       // strip trailing junk
       path = path.replace(/["'<>].*$/, '').replace(/\/+$/, '/');
-      const abs = absoluteUrl(path, baseUrl);
+      const abs = canonicalMatchDiscoveryUrl(absoluteUrl(path, baseUrl));
       if (!abs || seen.has(abs)) continue;
       seen.add(abs);
       out.push({ url: abs, league: '', country: '' });
@@ -424,11 +460,20 @@ class MultiMatchScraper {
       }
       const candidates = [...byUrl.values()];
 
-      candidates.sort((a, b) => b.scored.score - a.scored.score);
+      candidates.sort((a, b) => {
+        const scoreDiff = b.scored.score - a.scored.score;
+        if (scoreDiff !== 0) return scoreDiff;
+        const aLink = isQualityLinkUrl(a.entry.url) ? 1 : 0;
+        const bLink = isQualityLinkUrl(b.entry.url) ? 1 : 0;
+        if (aLink !== bLink) return aLink - bLink;
+        return a.entry.url.length - b.entry.url.length;
+      });
       if (!candidates.length) continue;
       if (
         candidates.length > 1 &&
-        candidates[0].scored.score - candidates[1].scored.score < 5
+        candidates[0].scored.score - candidates[1].scored.score < 5 &&
+        matchDiscoveryPathKey(candidates[0].entry.url) !==
+          matchDiscoveryPathKey(candidates[1].entry.url)
       ) {
         logger.info(`${this.sourceName} ambiguous Match URL — skipped`, {
           matchId: fixture.matchId,
@@ -437,7 +482,17 @@ class MultiMatchScraper {
         continue;
       }
 
-      scoredRows.push({ fixture, hit: candidates[0] });
+      const winner = candidates[0];
+      scoredRows.push({
+        fixture,
+        hit: {
+          ...winner,
+          entry: {
+            ...winner.entry,
+            url: canonicalMatchDiscoveryUrl(winner.entry.url),
+          },
+        },
+      });
     }
 
     const byUrl = new Map();
@@ -562,7 +617,19 @@ function dedupeEntries(entries) {
   const map = new Map();
   for (const e of entries || []) {
     if (!e?.url) continue;
-    if (!map.has(e.url)) map.set(e.url, e);
+    const key = canonicalMatchDiscoveryUrl(e.url);
+    const row = { ...e, url: key, matchUrl: key };
+    if (!map.has(key)) {
+      map.set(key, row);
+      continue;
+    }
+    const prev = map.get(key);
+    map.set(key, {
+      ...prev,
+      ...row,
+      league: row.league || prev.league,
+      country: row.country || prev.country,
+    });
   }
   return [...map.values()];
 }
@@ -575,4 +642,5 @@ function asList(value) {
 module.exports = {
   MultiMatchScraper,
   DEFAULT_LINK_PATTERN,
+  canonicalMatchDiscoveryUrl,
 };
