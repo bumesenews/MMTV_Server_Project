@@ -64,6 +64,7 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         highlight2: '/flutter/highlight2.json',
         myanmartv: '/flutter/myanmartv.json',
         tips: '/flutter/tips.json',
+        appVersion: '/flutter/app-version.json',
       },
       endpoints: [
         'GET /api/health',
@@ -74,6 +75,7 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         'GET /flutter/highlight2.json',
         'GET /flutter/myanmartv.json',
         'GET /flutter/tips.json',
+        'GET /flutter/app-version.json',
         'POST /api/pipeline/run',
         'POST /api/admin/auth/login',
         'GET /api/admin/dashboard',
@@ -140,6 +142,14 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
   app.get('/flutter/tips.json', (req, res) => {
     if (!publicJson && !requireApiKey(req, res)) return;
     return sendDelivery(res, 'tips');
+  });
+
+  app.get('/flutter/app-version.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    if (admin?.appVersion) {
+      return res.json(admin.appVersion.readLocalForPublic());
+    }
+    return res.status(404).json({ ok: false, error: 'No data' });
   });
 
   app.use('/api', createApiRouter({ pipeline, cache, requireApiKey }));

@@ -305,13 +305,18 @@ class MultiMatchScraper {
       config.selectors?.league || [
         '.league-name',
         '.competition',
-        '.tour-title',
+        '.tournament-title',
         '.league',
-        '.tour-name',
+        '.tournament-name',
+        '.gmd-match-league',
+        'span.text-ellipsis[data-attr]',
       ]
     );
     const cardSelectors = asList(
       config.selectors?.matchCard || [
+        '.match-football-item',
+        '.main-grid-match',
+        '.grid-matches__item',
         '.match-item',
         '.match-card',
         '.fixture-item',
@@ -328,34 +333,17 @@ class MultiMatchScraper {
       if (!abs || !/truc-tiep\//i.test(abs) || seen.has(abs)) return;
       seen.add(abs);
 
-      let league = '';
-      let country = '';
-      if (contextEl && contextEl.length) {
-        for (const sel of leagueSelectors) {
-          const t = cleanText(contextEl.find(sel).first().text());
-          if (t) {
-            league = t;
-            break;
-          }
-        }
-        if (!league) {
-          const heading = cleanText(
-            contextEl
-              .closest('section, .league-block, .match-list, .list-match, .box')
-              .find('h2, h3, .title, .league-name, .competition')
-              .first()
-              .text()
-          );
-          league = heading;
-        }
-        const ccode = cleanText(
-          contextEl.attr('data-country') ||
-            contextEl.attr('data-ccode') ||
-            contextEl.find('[data-ccode]').attr('data-ccode') ||
-            ''
-        );
-        country = ccode;
-      }
+      const card = resolvePerMatchCard(contextEl);
+      const league = extractPerMatchLeague(card, leagueSelectors);
+      const country =
+        card && card.length
+          ? cleanText(
+              card.attr('data-country') ||
+                card.attr('data-ccode') ||
+                card.find('[data-ccode]').attr('data-ccode') ||
+                ''
+            )
+          : '';
 
       out.push({ url: abs, league, country });
     };
@@ -377,10 +365,10 @@ class MultiMatchScraper {
       });
     }
 
-    // All remaining truc-tiep anchors
+    // All remaining truc-tiep anchors (resolve outer card for per-match league)
     $('a[href*="truc-tiep"]').each((_, el) => {
       const $el = $(el);
-      consider($el.attr('href'), $el.parent());
+      consider($el.attr('href'), $el);
     });
 
     $('[data-href*="truc-tiep"], [data-url*="truc-tiep"], [data-link*="truc-tiep"]').each(
@@ -388,7 +376,7 @@ class MultiMatchScraper {
         const $el = $(el);
         consider(
           $el.attr('data-href') || $el.attr('data-url') || $el.attr('data-link'),
-          $el.parent()
+          $el
         );
       }
     );
@@ -611,6 +599,55 @@ function absoluteUrl(href, baseUrl) {
   } catch {
     return '';
   }
+}
+
+/** Outer match-card roots used by Cakhia / Mitom / Socolive / Xoilac list HTML. */
+const PER_MATCH_CARD_SEL =
+  '.match-football-item, .main-grid-match, .grid-matches__item, .match-item, .match-card, .fixture-item, .event-card, .event-item, .schedule-item';
+
+/**
+ * Resolve the individual match card for league extraction.
+ * Never walks up to a global list/section heading.
+ */
+function resolvePerMatchCard(contextEl) {
+  if (!contextEl || !contextEl.length) return contextEl;
+  const card = contextEl.closest(PER_MATCH_CARD_SEL);
+  return card.length ? card : contextEl;
+}
+
+/**
+ * Per-match league only: data-attr code, data-league, then card-scoped text.
+ * Prefer short stream codes (ENG PR) over visible local names when both exist.
+ */
+function extractPerMatchLeague(card, leagueSelectors = []) {
+  if (!card || !card.length) return '';
+
+  const dataAttr = cleanText(
+    card.attr('data-attr') ||
+      card.find('.gmd-match-league [data-attr]').first().attr('data-attr') ||
+      card.find('span.text-ellipsis[data-attr]').first().attr('data-attr') ||
+      card.find('[data-attr]').first().attr('data-attr') ||
+      ''
+  );
+  if (dataAttr) return dataAttr;
+
+  const dataLeague = cleanText(
+    card.attr('data-league') ||
+      card.attr('data-competition') ||
+      card.attr('data-tournament') ||
+      ''
+  );
+  if (dataLeague) return dataLeague;
+
+  const gmd = cleanText(card.find('.gmd-match-league').first().text());
+  if (gmd) return gmd;
+
+  for (const sel of asList(leagueSelectors)) {
+    const t = cleanText(card.find(sel).first().text());
+    if (t) return t;
+  }
+
+  return '';
 }
 
 function dedupeEntries(entries) {

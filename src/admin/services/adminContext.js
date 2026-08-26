@@ -8,6 +8,7 @@ const { MainLiveService } = require('./mainLiveService');
 const { TeamAdminService } = require('./teamAdminService');
 const { SourceAdminService } = require('./sourceAdminService');
 const { ConfigAdminService } = require('./configAdminService');
+const { AppVersionAdminService } = require('./appVersionAdminService');
 const { NotificationService } = require('./notificationService');
 const { PublishService } = require('./publishService');
 const { DashboardService } = require('./dashboardService');
@@ -23,6 +24,7 @@ function createAdminContext({ pipeline, cache, github, env = process.env }) {
   const teams = new TeamAdminService(dataDir, env);
   const sources = new SourceAdminService(dataDir);
   const config = new ConfigAdminService(env);
+  const appVersion = new AppVersionAdminService(env);
   const notifications = new NotificationService({ dataDir, env, logService });
   const publish = new PublishService({
     cache,
@@ -55,6 +57,7 @@ function createAdminContext({ pipeline, cache, github, env = process.env }) {
     teams,
     sources,
     config,
+    appVersion,
     notifications,
     publish,
     dashboard,

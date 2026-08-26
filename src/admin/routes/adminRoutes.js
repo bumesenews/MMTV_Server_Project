@@ -823,6 +823,62 @@ function createAdminRouter(ctx) {
     }
   });
 
+  router.get('/app-version', auth, async (_req, res) => {
+    try {
+      const result = await ctx.appVersion.get();
+      res.json({
+        ok: true,
+        content: result.content,
+        origin: result.origin,
+        path: result.path,
+        rawUrl: ctx.appVersion.rawUrl,
+        githubEnabled: ctx.appVersion.enabled,
+        remoteError: result.remoteError || null,
+      });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.put('/app-version', auth, admin, async (req, res) => {
+    try {
+      const content = req.body?.content || req.body;
+      const result = await ctx.appVersion.save(content, {
+        actor: req.admin.username,
+        message: req.body?.message,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'app_version_save',
+        message: 'Saved app version JSON',
+        actor: req.admin.username,
+        meta: { uploaded: result.uploaded, rawUrl: result.rawUrl },
+      });
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.post('/app-version/sync', auth, admin, async (req, res) => {
+    try {
+      const result = await ctx.appVersion.syncLocalToGithub({
+        actor: req.admin.username,
+        message: req.body?.message,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'app_version_sync',
+        message: 'Synced local app version JSON to GitHub',
+        actor: req.admin.username,
+        meta: result,
+      });
+      res.json({ ok: true, ...result });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
   router.patch('/sources/:name/config', auth, admin, async (req, res) => {
     try {
       const result = await ctx.config.updateSourceEntry(req.params.name, req.body || {}, {

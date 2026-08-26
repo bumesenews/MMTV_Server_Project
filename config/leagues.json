@@ -17,7 +17,8 @@
         "Champions League Qualification",
         "UEFA Champions League Qualification",
         "INT Champions League Qualification",
-        "UCL Qualification"
+        "UCL Qualification",
+        "UEFA CL"
       ]
     },
     {
@@ -30,7 +31,8 @@
         "欧联",
         "UEFA EL",
         "Europa League UEFA",
-        "欧洲联赛"
+        "欧洲联赛",
+        "UEFA EL"
       ]
     },
     {
@@ -55,9 +57,52 @@
         "England Premier League",
         "Premier League England",
         "ENG Premier League",
-        "PL"
+        "PL",
+        "ENG PR"
       ],
       "notes": "Bare 'Premier League' / EPL / PL require England context"
+    },
+    {
+      "standardName": "English Championship (ENG LCH)",
+      "fotmobIds": [48],
+      "aliases": [
+        "English Championship (ENG LCH)",
+        "English Championship",
+        "England Championship",
+        "Championship",
+        "EFL Championship",
+        "English First Division",
+        "English First Division ENG LCH",
+        "ENG LCH"
+      ]
+    },
+    {
+      "standardName": "EFL Cup (ENG LC)",
+      "fotmobIds": [133],
+      "aliases": [
+        "EFL Cup (ENG LC)",
+        "EFL Cup",
+        "English League Cup",
+        "English League Cup ENG LC",
+        "League Cup",
+        "Carabao Cup",
+        "ENG LC"
+      ],
+      "notes": "English domestic cup — not Portugal League Cup"
+    },
+    {
+      "standardName": "Liga Portugal (PRO D1)",
+      "fotmobIds": [61],
+      "aliases": [
+        "Liga Portugal (PRO D1)",
+        "Liga Portugal",
+        "Primeira Liga",
+        "Portugal Primeira Liga",
+        "Portuguese National League",
+        "Portuguese National League PRO D1",
+        "PRO D1",
+        "POR D1"
+      ]
     },
     {
       "standardName": "La Liga",
@@ -71,7 +116,8 @@
         "La Liga EA Sports",
         "西甲",
         "Liga BBVA",
-        "Liga Santander"
+        "Liga Santander",
+        "SPA D1"
       ]
     },
     {
@@ -84,7 +130,8 @@
         "Italy Serie A",
         "意甲",
         "Serie A Italy",
-        "ITA Serie A"
+        "ITA Serie A",
+        "ITA D1"
       ],
       "notes": "Do not use bare alias 'Serie A' — FotMob also uses that name for Ecuador"
     },
@@ -99,7 +146,8 @@
         "DEU Bundesliga",
         "德甲",
         "Bundesliga 1",
-        "1. Bundesliga"
+        "1. Bundesliga",
+        "GER D1"
       ],
       "notes": "German Bundesliga only — not Austria (AUT) or other Bundesligen"
     },
@@ -113,7 +161,8 @@
         "France Ligue 1",
         "FRA Ligue 1",
         "法甲",
-        "Ligue 1 Uber Eats"
+        "Ligue 1 Uber Eats",
+        "FRA D1"
       ]
     },
     {
@@ -179,7 +228,8 @@
         "European Championship",
         "EURO",
         "欧洲杯",
-        "UEFA European Championship"
+        "UEFA European Championship",
+        "UEFA EL"
       ]
     },
     {

@@ -730,6 +730,129 @@ console.log('\n=== Quality /link/N tabs are same fixture ===');
   );
 }
 
+console.log('\n=== Per-match card league extraction + fuzzy league check ===');
+{
+  const html = `
+    <div class="grid-matches__item match-football-item" data-league="Ngoại Hạng Anh">
+      <a href="/truc-tiep/brighton-vs-arsenal-luc-2100-ngay-25-08-2026/" class="redirectPopup"></a>
+      <div class="gmd-match-league">
+        <span class="text-ellipsis" data-attr="ENG PR">Ngoại Hạng Anh</span>
+      </div>
+    </div>
+  `;
+  const entries = scraper.extractMatchEntries(html, 'https://cakhiazvm.tv', {});
+  assert(
+    '18a. Extracts ENG PR from match-card data-attr into entry.league',
+    entries.length === 1 && entries[0].league === 'ENG PR',
+    JSON.stringify(entries.map((e) => ({ url: e.url, league: e.league })))
+  );
+
+  const kick = yangonKickoff('2026-08-25T20:30:00');
+  const url =
+    'https://cakhiazvm.tv/truc-tiep/brighton-vs-arsenal-luc-2100-ngay-25-08-2026/';
+  const fotmobExact = {
+    matchId: 'bri-ars',
+    homeTeam: 'Brighton',
+    awayTeam: 'Arsenal',
+    kickoff: kick.toISO(),
+    date: kick.toFormat('yyyy-MM-dd'),
+    time: kick.toFormat('HH:mm'),
+    league: 'ENG Premier League',
+    originalNames: {
+      fotmob: { league: 'ENG Premier League', homeTeam: 'Brighton', awayTeam: 'Arsenal' },
+    },
+  };
+  const exactConflict = scoreStreamMatch(
+    fotmobExact,
+    { ...parseStreamUrl(url), url, league: 'La Liga' },
+    { normalizer }
+  );
+  assert(
+    '18b. Exact team match ignores conflicting league',
+    exactConflict.accepted && exactConflict.status === MATCH_URL_STATUS.CONFIRMED,
+    JSON.stringify({ reason: exactConflict.reason, league: exactConflict.league })
+  );
+
+  const missingLeague = scoreStreamMatch(
+    fotmobExact,
+    { ...parseStreamUrl(url), url, league: '' },
+    { normalizer }
+  );
+  assert(
+    '18c. Missing stream league does not reject',
+    missingLeague.accepted === true,
+    JSON.stringify(missingLeague)
+  );
+
+  const compatible = scoreStreamMatch(
+    fotmobExact,
+    { ...parseStreamUrl(url), url, league: 'ENG PR' },
+    { normalizer }
+  );
+  assert(
+    '18d. ENG PR canonicalizes compatible with ENG Premier League',
+    compatible.accepted &&
+      compatible.league.known === true &&
+      compatible.league.matches === true,
+    JSON.stringify(compatible.league)
+  );
+
+  const vietName = scoreStreamMatch(
+    fotmobExact,
+    { ...parseStreamUrl(url), url, league: 'Ngoại Hạng Anh' },
+    { normalizer }
+  );
+  assert(
+    '18e. Ngoại Hạng Anh maps to same eng group',
+    vietName.accepted && vietName.league.matches === true,
+    JSON.stringify(vietName.league)
+  );
+
+  // Fuzzy team: unlisted spelling stays fuzzy (no teams.json alias → exact)
+  const emptyNormalizer = new Normalizer({ teams: [] });
+  const fuzzyKick = yangonKickoff('2026-08-25T20:30:00');
+  const fuzzyUrl =
+    'https://cakhiazvm.tv/truc-tiep/thailande-vs-singapore-luc-2100-ngay-25-08-2026/';
+  const fuzzyFotmob = {
+    matchId: 'tha-sgp',
+    homeTeam: 'Thailand',
+    awayTeam: 'Singapore',
+    kickoff: fuzzyKick.toISO(),
+    date: fuzzyKick.toFormat('yyyy-MM-dd'),
+    time: fuzzyKick.toFormat('HH:mm'),
+    league: 'ENG Premier League',
+  };
+  const fuzzyConflict = scoreStreamMatch(
+    fuzzyFotmob,
+    { ...parseStreamUrl(fuzzyUrl), url: fuzzyUrl, league: 'La Liga' },
+    { normalizer: emptyNormalizer }
+  );
+  assert(
+    '18f. Fuzzy team + conflicting known league → possible_league_conflict',
+    !fuzzyConflict.accepted &&
+      fuzzyConflict.reason === 'possible_league_conflict' &&
+      (fuzzyConflict.home.kind === 'fuzzy' || fuzzyConflict.away.kind === 'fuzzy'),
+    JSON.stringify({
+      reason: fuzzyConflict.reason,
+      home: fuzzyConflict.home,
+      away: fuzzyConflict.away,
+      league: fuzzyConflict.league,
+      score: fuzzyConflict.score,
+    })
+  );
+
+  const fuzzyOk = scoreStreamMatch(
+    fuzzyFotmob,
+    { ...parseStreamUrl(fuzzyUrl), url: fuzzyUrl, league: 'ENG PR' },
+    { normalizer: emptyNormalizer }
+  );
+  assert(
+    '18g. Fuzzy team + compatible ENG PR → accepted',
+    fuzzyOk.accepted === true && fuzzyOk.league.matches === true,
+    JSON.stringify({ reason: fuzzyOk.reason, league: fuzzyOk.league, home: fuzzyOk.home })
+  );
+}
+
 console.log('\n=== LOSC Lille alias ===');
 {
   const kick = yangonKickoff('2026-08-23T19:30:00');

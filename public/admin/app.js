@@ -136,6 +136,7 @@
       teams: renderTeams,
       sources: renderSources,
       config: renderConfig,
+      appversion: renderAppVersion,
       notifications: renderNotifications,
       logs: renderLogs,
       users: renderUsers,
@@ -1254,6 +1255,72 @@
         await api('/sources/config/sync', { method: 'POST', body: JSON.stringify({}) });
         toast('Local sources.json pushed to GitHub');
         renderConfig();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+  }
+
+  async function renderAppVersion() {
+    setTitle('App Version Control');
+    const data = await api('/app-version');
+    const c = data.content || {};
+    pageEl.innerHTML = `
+      <div class="panel">
+        <h3>Mobile app version / maintenance JSON</h3>
+        <p class="muted">Saves locally and publishes to GitHub raw JSON for the Burmese Stream Player app.</p>
+        <p class="muted">Raw URL: <a href="${esc(data.rawUrl)}" target="_blank" rel="noopener">${esc(data.rawUrl)}</a></p>
+        <p class="muted">Origin: ${esc(data.origin || 'local')} · GitHub: ${data.githubEnabled ? 'configured' : 'not configured (local only)'}</p>
+        ${data.remoteError ? `<p class="error">GitHub fetch failed (${esc(data.remoteError)}). Showing local copy.</p>` : ''}
+        <form id="app-version-form" class="grid-2">
+          <label><input type="checkbox" name="change" ${c.change ? 'checked' : ''} /> Force update prompt (change)</label>
+          <label><input type="checkbox" name="con" ${c.con ? 'checked' : ''} /> Maintenance mode (con)</label>
+          <label>Title<input name="title" value="${esc(c.title || '')}" required /></label>
+          <label>Subtitle<input name="subtitle" value="${esc(c.subtitle || '')}" required /></label>
+          <label style="grid-column:1/-1">Play Store link<input name="link" value="${esc(c.link || '')}" required /></label>
+          <label>Minimum version<input name="uriversion" value="${esc(c.uriversion || '')}" placeholder="1.0.0" required /></label>
+          <label>Version details<input name="uriversionDetails" value="${esc(c.uriversionDetails || '')}" required /></label>
+          <label style="grid-column:1/-1">Facebook URL<input name="facebook" value="${esc(c.facebook || '')}" /></label>
+          <label style="grid-column:1/-1">Telegram URL<input name="telegram" value="${esc(c.telegram || '')}" /></label>
+          <div style="grid-column:1/-1" class="row">
+            <button type="submit">Save &amp; Publish</button>
+            <button type="button" id="btn-sync-app-version" class="secondary">Push local to GitHub</button>
+          </div>
+        </form>
+      </div>`;
+
+    $('#app-version-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      try {
+        await api('/app-version', {
+          method: 'PUT',
+          body: JSON.stringify({
+            content: {
+              change: fd.get('change') === 'on',
+              con: fd.get('con') === 'on',
+              title: fd.get('title'),
+              subtitle: fd.get('subtitle'),
+              link: fd.get('link'),
+              uriversion: fd.get('uriversion'),
+              uriversionDetails: fd.get('uriversionDetails'),
+              facebook: fd.get('facebook'),
+              telegram: fd.get('telegram'),
+            },
+          }),
+        });
+        toast('App version JSON saved');
+        renderAppVersion();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+
+    $('#btn-sync-app-version').addEventListener('click', async () => {
+      try {
+        await api('/app-version/sync', { method: 'POST', body: JSON.stringify({}) });
+        toast('Local app version JSON pushed to GitHub');
+        renderAppVersion();
       } catch (err) {
         toast(err.message, 'error');
       }

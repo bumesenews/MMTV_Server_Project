@@ -416,15 +416,57 @@ function isMatchWithinWindow(fotmobUtcTime, streamUtcTime, windowMinutes = 30) {
  * Values are normalized lowercase keys that map to the same bucket.
  */
 const LEAGUE_COUNTRY_GROUPS = [
-  ['eng', 'england', 'english', 'epl', 'premier league', 'premierleague', '英超'],
+  [
+    'eng',
+    'england',
+    'english',
+    'epl',
+    'eng pr',
+    'premier league',
+    'premierleague',
+    'english premier league',
+    'eng premier league',
+    'ngoai hang anh',
+    '英超',
+  ],
+  [
+    'lch',
+    'eng lch',
+    'english championship',
+    'england championship',
+    'championship',
+    'english first division',
+    'english first division eng lch',
+    'efl championship',
+  ],
+  [
+    'eng-lc',
+    'eng lc',
+    'english league cup',
+    'english league cup eng lc',
+    'efl cup',
+    'carabao cup',
+    'league cup england',
+  ],
   ['spa', 'esp', 'spain', 'spanish', 'la liga', 'laliga', '西甲'],
   ['ita', 'italy', 'italian', 'serie a', 'seriea', '意甲'],
   ['ger', 'deu', 'germany', 'german', 'bundesliga', '德甲'],
   ['fra', 'france', 'french', 'ligue 1', 'ligue1', '法甲'],
-  ['por', 'portugal', 'portuguese', 'primeira', 'liga portugal'],
+  [
+    'por',
+    'portugal',
+    'portuguese',
+    'primeira',
+    'liga portugal',
+    'pro d1',
+    'por d1',
+    'portuguese national league',
+    'portuguese national league pro d1',
+    'primeira liga',
+  ],
   ['ned', 'nld', 'netherlands', 'dutch', 'eredivisie'],
   ['bra', 'brazil', 'brazilian', 'brasileirao', 'brazil serie a'],
-  ['kor', 'korea', 'k league', 'kleague', 'k-league'],
+  ['kor', 'korea', 'k league', 'kleague', 'k-league', 'kor d1'],
   ['vie', 'vietnam', 'v league', 'v.league', 'vleague'],
   ['ucl', 'champions league', 'uefa champions league', 'c1'],
   ['uel', 'europa league', 'uefa europa league'],
@@ -501,6 +543,8 @@ function collectLeagueCountryTags(source = {}, urlOrSlug = '') {
   push(source.tags);
   push(source.leagueTags);
   push(source.originalNames?.league);
+  push(source.originalNames?.fotmob?.league);
+  push(source.originalNames?.fotmob?.country);
 
   const hay = String(urlOrSlug || source.url || source.slug || '').toLowerCase();
   if (hay) {
