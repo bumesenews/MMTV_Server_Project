@@ -13,6 +13,12 @@ const {
 } = require('../utils/time');
 const { DEFAULT_UA } = require('../browser/puppeteerManager');
 const { teamLogoUrl, resolveLeagueIcon } = require('../utils/fotmobLogos');
+const {
+  H2H_MATCH_LIMIT,
+  h2hPairKey,
+  buildH2hFromMatchDetails,
+  reorientH2h,
+} = require('../utils/fotmobH2h');
 
 /**
  * FotMob fixture source ONLY — never collect streaming URLs here.
@@ -31,6 +37,8 @@ class FotMobSource {
         ...(this.config.headers || {}),
       },
     });
+    /** @type {Map<string, Promise<object|null>>} per-run H2H cache (pair key → base payload) */
+    this._h2hCache = new Map();
   }
 
   get domains() {
@@ -69,6 +77,149 @@ class FotMobSource {
       }
     }
     throw lastError || new Error('FotMob matches API unavailable');
+  }
+
+  /**
+   * Fetch matchDetails for H2H. Failures return null (fixture still published).
+   */
+  async fetchMatchDetails(fotmobMatchId) {
+    const id = Number(fotmobMatchId);
+    if (!Number.isFinite(id) || id <= 0) return null;
+
+    const candidates = [
+      this.config.api?.matchDetails,
+      `${this.domains[0]}/api/data/matchDetails`,
+      `${this.domains[0]}/api/matchDetails`,
+    ].filter(Boolean);
+
+    let lastError;
+    for (const apiBase of candidates) {
+      const url = `${apiBase}?matchId=${id}`;
+      try {
+        const { data, status } = await this.client.get(url, {
+          timeout: Number(process.env.FOTMOB_H2H_TIMEOUT_MS || 15000),
+          validateStatus: (s) => s < 500,
+        });
+        if (status === 404) {
+          lastError = new Error(`Request failed with status code 404`);
+          continue;
+        }
+        if (status >= 400) {
+          throw new Error(`Request failed with status code ${status}`);
+        }
+        return data;
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    if (lastError) {
+      logger.warn('FotMob matchDetails fetch failed', {
+        fotmobMatchId: id,
+        error: lastError.message,
+      });
+    }
+    return null;
+  }
+
+  /**
+   * Load H2H for a team pair once per scrape run (cache key is order-independent).
+   * Returns a base payload `{ matches }` (summary reoriented per fixture).
+   */
+  loadH2hBase(homeTeamId, awayTeamId, fotmobMatchId) {
+    const pairKey = h2hPairKey(homeTeamId, awayTeamId);
+    if (!pairKey) return Promise.resolve(null);
+
+    if (this._h2hCache.has(pairKey)) {
+      return this._h2hCache.get(pairKey);
+    }
+
+    const promise = (async () => {
+      const details = await this.fetchMatchDetails(fotmobMatchId);
+      if (!details) return null;
+      // Build once with an arbitrary orientation; reorientH2h recalculates summary later
+      const built = buildH2hFromMatchDetails(
+        details,
+        homeTeamId,
+        awayTeamId,
+        H2H_MATCH_LIMIT
+      );
+      return { matches: built.matches };
+    })().catch((err) => {
+      logger.warn('FotMob H2H enrich failed', {
+        pairKey,
+        fotmobMatchId,
+        error: err.message,
+      });
+      return null;
+    });
+
+    this._h2hCache.set(pairKey, promise);
+    return promise;
+  }
+
+  /**
+   * Attach `h2h` to each fixture. Cached by team-id pair; limited concurrency.
+   * Never throws — failed lookups become `h2h: null`.
+   */
+  async enrichFixturesWithH2h(fixtures) {
+    const list = Array.isArray(fixtures) ? fixtures : [];
+    if (!list.length) return list;
+
+    this._h2hCache = new Map();
+    const concurrency = Math.max(
+      1,
+      Math.min(5, Number(process.env.FOTMOB_H2H_CONCURRENCY || 3))
+    );
+
+    let cursor = 0;
+    const workers = Array.from({ length: Math.min(concurrency, list.length) }, async () => {
+      while (cursor < list.length) {
+        const idx = cursor;
+        cursor += 1;
+        const f = list[idx];
+        try {
+          const homeId = f.homeTeamId;
+          const awayId = f.awayTeamId;
+          const fotmobId = f.fotmobId || f.fotmobMatchId;
+          if (homeId == null || awayId == null || !fotmobId) {
+            f.h2h = null;
+            continue;
+          }
+          const base = await this.loadH2hBase(homeId, awayId, fotmobId);
+          if (!base) {
+            f.h2h = null;
+            continue;
+          }
+          f.h2h = reorientH2h(base, homeId, awayId);
+        } catch (err) {
+          f.h2h = null;
+          logger.warn('FotMob H2H attach failed', {
+            matchId: f.matchId,
+            error: err.message,
+          });
+        }
+      }
+    });
+
+    await Promise.all(workers);
+
+    const withData = list.filter((f) => f.h2h && Array.isArray(f.h2h.matches)).length;
+    const empty = list.filter(
+      (f) =>
+        f.h2h &&
+        Array.isArray(f.h2h.matches) &&
+        f.h2h.matches.length === 0
+    ).length;
+    const failed = list.filter((f) => f.h2h == null).length;
+    logger.info('FotMob H2H enrich complete', {
+      fixtures: list.length,
+      withHistory: withData - empty,
+      empty,
+      failed,
+      cacheEntries: this._h2hCache.size,
+    });
+
+    return list;
   }
 
   parsePayload(data, dateKey) {
@@ -285,6 +436,16 @@ class FotMobSource {
 
     if (!fixtures.length && errors.length) {
       throw new Error(`FotMob failed for all dates: ${errors.map((e) => e.error).join('; ')}`);
+    }
+
+    // Optional H2H enrichment — failures never abort fixture collection
+    try {
+      await this.enrichFixturesWithH2h(fixtures);
+    } catch (err) {
+      logger.warn('FotMob H2H enrichment skipped', { error: err.message });
+      for (const f of fixtures) {
+        if (f.h2h === undefined) f.h2h = null;
+      }
     }
 
     logEvent(events.SCRAPER_SUCCESS, 'FotMob fixture scrape success', {

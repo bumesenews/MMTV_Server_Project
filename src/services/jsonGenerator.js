@@ -134,6 +134,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
     kickoff: m.kickoff,
     timezone: m.timezone || 'Asia/Yangon',
     status: m.status || 'Scheduled',
+    h2h: m.h2h != null ? m.h2h : null,
     fotmobMatchId: m.fotmobMatchId || m.fotmobId || null,
     leagueId: m.leagueId || m.leagueFotmobId || null,
     leagueName: m.leagueName || m.league || null,

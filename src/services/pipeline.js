@@ -619,6 +619,8 @@ class Pipeline {
             : prev.matchUrlSearch && typeof prev.matchUrlSearch === 'object'
               ? prev.matchUrlSearch
               : repaired.matchUrlSearch,
+        // Keep last good H2H when this scrape could not fetch matchDetails
+        h2h: repaired.h2h != null ? repaired.h2h : prev.h2h != null ? prev.h2h : null,
         statusLocked: Boolean(prev.statusLocked),
         manual: Boolean(prev.manual || repaired.manual),
         pinned: Boolean(prev.pinned || repaired.pinned),
