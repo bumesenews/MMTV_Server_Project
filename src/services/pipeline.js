@@ -86,6 +86,60 @@ class Pipeline {
   }
 
   /**
+   * When local matches.json is empty but GitHub still has rows, pull them back
+   * so admin/Flutter are not stuck on a blank feed after expire cleanup.
+   */
+  async restoreMatchesFromGithub({ actor = 'system' } = {}) {
+    if (!this.github?.enabled) {
+      return { ok: false, reason: 'github_not_configured', restored: 0 };
+    }
+    const path = this.github.paths?.matches || this.github.dataPath || 'matches.json';
+    let remote;
+    try {
+      remote = await this.github.getFileSha(path);
+    } catch (err) {
+      return { ok: false, reason: 'github_error', error: err.message, restored: 0 };
+    }
+    const matches = Array.isArray(remote?.content?.matches)
+      ? remote.content.matches
+      : [];
+    if (!matches.length) {
+      return { ok: false, reason: 'remote_empty', restored: 0 };
+    }
+
+    const extras = {
+      highlights: this.cache.getCurrent()?.highlights || [],
+      channels: this.cache.getCurrent()?.channels || [],
+    };
+    const payload = generateFlutterJson(
+      matches.map((m) => enrichMatchState(m)),
+      {
+        configOrigin: 'github_restore',
+        sources: [],
+        restoredBy: actor,
+      },
+      extras
+    );
+    const { payload: cached } = this.cache.saveGenerated(payload);
+    const delivery = buildDeliveryBundle({
+      matchesPayload: cached,
+      highlights: extras.highlights,
+      channels: extras.channels,
+    });
+    this.cache.saveDeliveryBundle(delivery);
+    logger.info('Restored matches.json from GitHub', {
+      restored: matches.length,
+      actor,
+    });
+    return {
+      ok: true,
+      restored: matches.length,
+      matchCount: cached.matches?.length || matches.length,
+      payload: cached,
+    };
+  }
+
+  /**
    * Drop matches past kickoff+2h and refresh Scheduled/PREPARING/LIVE/END
    * from the clock. Runs even when a scrape is still in progress so a hung
    * Puppeteer cycle cannot leave stale status in matches.json.
@@ -97,9 +151,17 @@ class Pipeline {
     this._expiring = true;
     try {
       await this._ensureNormalizerLoaded();
-      const existing = readExistingMatches(this.cache);
+      let existing = readExistingMatches(this.cache);
       if (!existing.length) {
-        return { ok: true, changed: false, removed: 0 };
+        const restored = await this.restoreMatchesFromGithub({
+          actor: `${actor}:auto`,
+        });
+        if (restored.ok) {
+          existing = readExistingMatches(this.cache);
+        }
+        if (!existing.length) {
+          return { ok: true, changed: false, removed: 0, restored };
+        }
       }
 
       const extras = {
@@ -125,6 +187,24 @@ class Pipeline {
         return { ok: true, changed: false, removed: sync.removedExpired || 0 };
       }
 
+      // Never wipe local matches to [] — keep previous until scrape replaces.
+      // (GitHub already refuses empty; local must not diverge to blank admin.)
+      if (
+        this.cache.isEmptyPayload(payload) &&
+        (previous?.matches?.length || existing.length)
+      ) {
+        logger.warn('Expire would empty matches.json — keeping previous feed', {
+          removedExpired: sync.removedExpired,
+          previousCount: previous?.matches?.length || existing.length,
+        });
+        return {
+          ok: true,
+          changed: false,
+          removed: sync.removedExpired || 0,
+          reason: 'refuse_empty',
+        };
+      }
+
       logger.info('Refreshing matches.json (expire/status)', {
         removedExpired: sync.removedExpired,
         matchCount: sync.matches.length,
@@ -141,16 +221,14 @@ class Pipeline {
           changed: Boolean(published.changed),
           removed: sync.removedExpired || 0,
           github: published.github,
+          reason: published.reason,
         };
       }
 
       const previousCache = this.cache.getCurrent();
-      const intentionalEmptyCleanup =
-        sync.removedExpired > 0 && sync.matches.length === 0;
       if (
         this.cache.isEmptyPayload(payload) &&
-        previousCache?.matches?.length &&
-        !intentionalEmptyCleanup
+        previousCache?.matches?.length
       ) {
         return { ok: false, reason: 'empty_payload', removed: sync.removedExpired };
       }
@@ -214,6 +292,11 @@ class Pipeline {
     logEvent(events.SCRAPER_START, 'Pipeline start');
 
     try {
+      if (!readExistingMatches(this.cache).length) {
+        await this.restoreMatchesFromGithub({ actor: 'pipeline:auto' }).catch(
+          () => null
+        );
+      }
       const config = await this.configLoader.load(true);
       let leagues = config.leagues?.allowedLeagues || config.leagues?.leagues || [];
       if (this.admin?.leagues) {
@@ -389,12 +472,9 @@ class Pipeline {
         extras
       );
       const previousCache = this.cache.getCurrent();
-      const intentionalEmptyCleanup =
-        sync.removedExpired > 0 && sync.matches.length === 0;
       if (
         this.cache.isEmptyPayload(payload) &&
-        previousCache?.matches?.length &&
-        !intentionalEmptyCleanup
+        previousCache?.matches?.length
       ) {
         logger.warn('Generated empty payload — keeping previous valid data');
         logEvent(events.GITHUB_SKIPPED, 'Skip upload — empty generation');

@@ -64,6 +64,7 @@
     $('#btn-logout').addEventListener('click', () => logout(true));
     $('#btn-refresh').addEventListener('click', () => renderPage(true));
     $('#btn-run-pipeline').addEventListener('click', runPipeline);
+    $('#btn-restore-matches')?.addEventListener('click', restoreMatchesFromGithub);
     $('#btn-menu').addEventListener('click', () => $('.sidebar').classList.toggle('open'));
     $('#nav').addEventListener('click', (e) => {
       const btn = e.target.closest('button[data-page]');
@@ -104,6 +105,21 @@
       renderPage();
     } catch (err) {
       $('#login-error').textContent = err.message;
+    }
+  }
+
+  async function restoreMatchesFromGithub() {
+    const btn = $('#btn-restore-matches');
+    try {
+      if (btn) btn.disabled = true;
+      toast('Restoring matches.json from GitHub…');
+      const result = await api('/matches/restore-from-github', { method: 'POST', body: '{}' });
+      toast(`Restored ${result.restored || result.matchCount || 0} matches from GitHub`);
+      renderPage(true);
+    } catch (err) {
+      toast(err.message, 'error');
+    } finally {
+      if (btn) btn.disabled = false;
     }
   }
 

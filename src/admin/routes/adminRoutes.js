@@ -189,6 +189,36 @@ function createAdminRouter(ctx) {
   });
 
   // ---------- Matches (scraped matches.json) ----------
+  router.post('/matches/restore-from-github', auth, editor, async (req, res) => {
+    try {
+      if (!ctx.pipeline?.restoreMatchesFromGithub) {
+        return res.status(500).json({ ok: false, error: 'Pipeline restore unavailable' });
+      }
+      const result = await ctx.pipeline.restoreMatchesFromGithub({
+        actor: req.admin?.username || 'admin',
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'matches_restore_github',
+        message: result.ok
+          ? `Restored ${result.restored} matches from GitHub`
+          : `Restore failed: ${result.reason || 'unknown'}`,
+        actor: req.admin.username,
+        meta: result,
+      });
+      if (!result.ok) {
+        return res.status(400).json({
+          ok: false,
+          error: result.reason || 'restore_failed',
+          ...result,
+        });
+      }
+      return res.json(result);
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   router.get('/matches', auth, (_req, res) => {
     const delivery =
       typeof ctx.cache.getDelivery === 'function'
