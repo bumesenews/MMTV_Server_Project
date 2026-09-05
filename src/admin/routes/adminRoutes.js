@@ -1,6 +1,6 @@
 const express = require('express');
 const { authRequired, requireRole, ROLES } = require('../auth/middleware');
-const { formatDate, formatTime, toYangon } = require('../../utils/time');
+const { formatDate, formatTime, toYangon, combineDateAndTime } = require('../../utils/time');
 const { clearSourceMatchUrl } = require('../../utils/matchUrlDiscovery');
 const { assertFeedKey, feedSummary } = require('../services/feedAdminService');
 const { collectSourceFailuresFromMatches } = require('../services/dashboardService');
@@ -351,6 +351,18 @@ function createAdminRouter(ctx) {
           patch.date = formatDate(dt);
           patch.time = formatTime(dt);
         }
+      } else if (patch.date || patch.time) {
+        // datetime-local / admin wall clock → Asia/Yangon (not browser UTC)
+        const existing = ctx.overrides.get(matchId) || {};
+        const currentMatch =
+          ctx.cache.getCurrent()?.matches?.find((m) => m.matchId === matchId) || {};
+        const date = patch.date || existing.date || currentMatch.date;
+        const time = patch.time || existing.time || currentMatch.time || '00:00';
+        const dt = combineDateAndTime(date, time);
+        if (!dt || !dt.isValid) throw new Error('Invalid date/time');
+        patch.kickoff = dt.toISO();
+        patch.date = formatDate(dt);
+        patch.time = formatTime(dt);
       }
       if (patch.status != null) patch.statusLocked = true;
       const override = ctx.overrides.updateMatch(matchId, patch);

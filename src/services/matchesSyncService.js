@@ -108,6 +108,63 @@ function findStoredMatch(byId, incoming) {
   return null;
 }
 
+/**
+ * Prefer previous Match URL / stream search state when the incoming scrape
+ * only has an empty shell ({ sources: {}, slotsDone: {} }).
+ * Per-source: never let a stub without matchUrl wipe a saved URL.
+ */
+function mergeSourceSearchEntry(prev, incoming) {
+  const p = prev && typeof prev === 'object' ? prev : null;
+  const n = incoming && typeof incoming === 'object' ? incoming : null;
+  if (!p) return n;
+  if (!n) return p;
+  const prevUrl = String(p.matchUrl || '').trim();
+  const nextUrl = String(n.matchUrl || '').trim();
+  return {
+    ...p,
+    ...n,
+    matchUrl: nextUrl || prevUrl || null,
+    attempts: Math.max(Number(n.attempts) || 0, Number(p.attempts) || 0),
+    liveAttempts: Math.max(Number(n.liveAttempts) || 0, Number(p.liveAttempts) || 0),
+    confidence: Math.max(Number(n.confidence) || 0, Number(p.confidence) || 0),
+    lastAttemptAt: n.lastAttemptAt || p.lastAttemptAt || null,
+    slotsDone: { ...(p.slotsDone || {}), ...(n.slotsDone || {}) },
+    // Keep stronger status when incoming has no URL of its own
+    status: nextUrl || !prevUrl ? n.status || p.status : p.status || n.status,
+  };
+}
+
+function mergeSearchSources(prevSources, nextSources) {
+  const names = new Set([
+    ...Object.keys(prevSources || {}),
+    ...Object.keys(nextSources || {}),
+  ]);
+  const out = {};
+  for (const name of names) {
+    out[name] = mergeSourceSearchEntry(prevSources?.[name], nextSources?.[name]);
+  }
+  return out;
+}
+
+function mergeSearchState(prev, incoming) {
+  const p = prev && typeof prev === 'object' ? prev : null;
+  const n = incoming && typeof incoming === 'object' ? incoming : null;
+  if (!p && !n) return undefined;
+  if (!p) return n;
+  if (!n) return p;
+  const prevSources = p.sources && typeof p.sources === 'object' ? p.sources : {};
+  const nextSources = n.sources && typeof n.sources === 'object' ? n.sources : {};
+  return {
+    ...p,
+    ...n,
+    started: Boolean(n.started || p.started),
+    stopped: Boolean(n.stopped || p.stopped),
+    stopTime: n.stopTime || p.stopTime || null,
+    slotsDone: { ...(p.slotsDone || {}), ...(n.slotsDone || {}) },
+    sources: mergeSearchSources(prevSources, nextSources),
+  };
+}
+
 function combineMatchRecords(prev, incoming) {
   const mergedStreams = mergeStreamLists(prev.streams || [], incoming.streams || []);
   const next = enrichMatchState({
@@ -123,9 +180,21 @@ function combineMatchRecords(prev, incoming) {
       ...(prev.streamAttempts || {}),
       ...(incoming.streamAttempts || {}),
     },
-    streamSearch: incoming.streamSearch || prev.streamSearch,
+    streamSearch: mergeSearchState(prev.streamSearch, incoming.streamSearch),
     matchUrl: incoming.matchUrl || prev.matchUrl || null,
-    matchUrlStatus: incoming.matchUrlStatus || prev.matchUrlStatus || null,
+    matchUrlStatus: (() => {
+      const url = incoming.matchUrl || prev.matchUrl || null;
+      const a = incoming.matchUrlStatus || null;
+      const b = prev.matchUrlStatus || null;
+      if (!url) return a || b || null;
+      const rank = (s) => {
+        if (s === 'MATCH_URL_CONFIRMED' || s === 'MATCH_CONFIRMED') return 3;
+        if (s === 'MATCH_URL_FOUND') return 2;
+        if (s === 'MATCH_URL_SEARCHING') return 1;
+        return 0;
+      };
+      return rank(a) >= rank(b) ? a || b : b || a;
+    })(),
     matchUrlAttempts: Math.max(
       Number(incoming.matchUrlAttempts) || 0,
       Number(prev.matchUrlAttempts) || 0
@@ -133,7 +202,7 @@ function combineMatchRecords(prev, incoming) {
     lastMatchUrlAttemptAt:
       incoming.lastMatchUrlAttemptAt || prev.lastMatchUrlAttemptAt || null,
     matchUrlSource: incoming.matchUrlSource || prev.matchUrlSource || null,
-    matchUrlSearch: incoming.matchUrlSearch || prev.matchUrlSearch,
+    matchUrlSearch: mergeSearchState(prev.matchUrlSearch, incoming.matchUrlSearch),
     sourcePages: {
       ...(prev.sourcePages || {}),
       ...(incoming.sourcePages || {}),

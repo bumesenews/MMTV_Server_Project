@@ -37,6 +37,14 @@
     toast._t = setTimeout(() => el.classList.add('hidden'), 3200);
   }
 
+  /** datetime-local value → { date, time } as Asia/Yangon wall clock (do not use Date/UTC). */
+  function yangonDateTimeLocalParts(value) {
+    const raw = String(value || '').trim();
+    const m = raw.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})(?::\d{2})?/);
+    if (!m) return null;
+    return { date: m[1], time: m[2] };
+  }
+
   function logout(clear = true) {
     if (clear) localStorage.removeItem('adminToken');
     state.token = '';
@@ -217,7 +225,7 @@
 
     pageEl.innerHTML = `
       <div class="panel">
-        <p class="muted">Admin-only feed published to <code>mainlive.json</code> on GitHub. Separate from scraped <code>matches.json</code>.</p>
+        <p class="muted">Admin-only feed published to <code>mainlive.json</code> on GitHub. Separate from scraped <code>matches.json</code>. Date/time are <strong>Asia/Yangon</strong>.</p>
         <h3>Add MainLive Match</h3>
         <form id="mainlive-create-form" class="grid-2">
           <label>League
@@ -234,8 +242,8 @@
           </label>
           <label>Away team logo URL<input name="awayLogo" placeholder="https://.../away.png" /></label>
           <datalist id="mainlive-team-list">${teamOpts}</datalist>
-          <label>Date<input name="date" type="date" required /></label>
-          <label>Time<input name="time" type="time" required /></label>
+          <label>Date (Asia/Yangon)<input name="date" type="date" required /></label>
+          <label>Time (Asia/Yangon)<input name="time" type="time" required /></label>
           <label>Status
             <select name="status">
               <option>Scheduled</option>
@@ -248,7 +256,7 @@
               <strong>Stream URLs</strong>
               <button type="button" class="secondary" id="mainlive-add-stream">+ Add stream</button>
             </div>
-            <p class="muted" style="margin:0 0 8px">Add as many as you have (HD, SD, Full HD, …).</p>
+            <p class="muted" style="margin:0 0 8px">Add as many as you have (HD, SD, Full HD, …). Referer / User-Agent / Cookie are optional per stream.</p>
             <div id="mainlive-streams"></div>
           </div>
           <div style="grid-column:1/-1"><button type="submit">Create MainLive Match</button></div>
@@ -285,8 +293,8 @@
                       <select data-act="status">
                         ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
                       </select>
-                      <input data-act="kickoff" type="datetime-local" style="width:auto" />
-                      <button class="secondary" data-act="save-kickoff">Set Time</button>
+                      <input data-act="kickoff" type="datetime-local" style="width:auto" title="Asia/Yangon wall clock" />
+                      <button class="secondary" data-act="save-kickoff" title="Saved as Asia/Yangon">Set Time (Yangon)</button>
                       <button class="danger" data-act="delete">Delete</button>
                     </div>
                   </td>
@@ -299,18 +307,35 @@
     const form = $('#mainlive-create-form');
     const streamsBox = $('#mainlive-streams');
     const defaultQualities = ['HD', 'SD', 'Full HD'];
-    const addStreamRow = (name = 'HD', url = '') => {
+    const addStreamRow = (name = 'HD', url = '', headers = {}) => {
       const row = document.createElement('div');
-      row.className = 'row mainlive-stream-row';
-      row.style.cssText = 'gap:8px;margin-bottom:8px;align-items:flex-end';
+      row.className = 'mainlive-stream-row';
+      row.style.cssText =
+        'border:1px solid var(--border, #333);border-radius:8px;padding:10px;margin-bottom:10px';
+      const ua = headers['User-Agent'] || headers.userAgent || '';
+      const referer = headers.Referer || headers.referer || '';
+      const cookie = headers.Cookie || headers.cookie || '';
       row.innerHTML = `
-        <label style="flex:0 0 120px">Name
-          <input name="streamName[]" value="${esc(name)}" placeholder="HD / SD" list="mainlive-quality-list" />
-        </label>
-        <label style="flex:1">URL
-          <input name="streamUrl[]" value="${esc(url)}" placeholder="https://.../index.m3u8" />
-        </label>
-        <button type="button" class="danger" data-remove-stream>Remove</button>
+        <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap">
+          <label style="flex:0 0 120px">Name
+            <input name="streamName[]" value="${esc(name)}" placeholder="HD / SD" list="mainlive-quality-list" />
+          </label>
+          <label style="flex:1;min-width:220px">m3u8 URL
+            <input name="streamUrl[]" value="${esc(url)}" placeholder="https://.../index.m3u8" />
+          </label>
+          <button type="button" class="danger" data-remove-stream>Remove</button>
+        </div>
+        <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+          <label style="flex:1;min-width:180px">User-Agent
+            <input name="streamUa[]" value="${esc(ua)}" placeholder="Mozilla/5.0 ..." />
+          </label>
+          <label style="flex:1;min-width:180px">Referer
+            <input name="streamReferer[]" value="${esc(referer)}" placeholder="https://source.example/" />
+          </label>
+          <label style="flex:1;min-width:180px">Cookie (optional)
+            <input name="streamCookie[]" value="${esc(cookie)}" placeholder="optional" />
+          </label>
+        </div>
       `;
       row.querySelector('[data-remove-stream]').addEventListener('click', () => {
         row.remove();
@@ -338,13 +363,23 @@
       const fd = new FormData(form);
       const names = fd.getAll('streamName[]');
       const urls = fd.getAll('streamUrl[]');
+      const uas = fd.getAll('streamUa[]');
+      const referers = fd.getAll('streamReferer[]');
+      const cookies = fd.getAll('streamCookie[]');
       const streams = [];
       for (let i = 0; i < Math.max(names.length, urls.length); i += 1) {
         const url = String(urls[i] || '').trim();
         if (!url) continue;
+        const headers = {
+          'User-Agent': String(uas[i] || '').trim(),
+          Referer: String(referers[i] || '').trim(),
+        };
+        const cookie = String(cookies[i] || '').trim();
+        if (cookie) headers.Cookie = cookie;
         streams.push({
           name: String(names[i] || 'HD').trim() || 'HD',
           url,
+          headers,
         });
       }
       try {
@@ -406,12 +441,14 @@
       tr.querySelector('[data-act="save-kickoff"]')?.addEventListener('click', async () => {
         const val = tr.querySelector('[data-act="kickoff"]').value;
         if (!val) return toast('Pick a kickoff time', 'error');
+        const parts = yangonDateTimeLocalParts(val);
+        if (!parts) return toast('Invalid date/time', 'error');
         try {
           await api(`/mainlive/${encodeURIComponent(id)}`, {
             method: 'PATCH',
-            body: JSON.stringify({ kickoff: new Date(val).toISOString() }),
+            body: JSON.stringify({ date: parts.date, time: parts.time }),
           });
-          toast('Kickoff updated');
+          toast('Kickoff updated (Asia/Yangon)');
           renderMainLive();
         } catch (err) {
           toast(err.message, 'error');
@@ -437,7 +474,11 @@
       id: s.id,
       name: s.name || s.quality || 'HD',
       url: s.url || '',
-      headers: s.headers || { 'User-Agent': '', Referer: '' },
+      headers: {
+        'User-Agent': s.headers?.['User-Agent'] || '',
+        Referer: s.headers?.Referer || '',
+        ...(s.headers?.Cookie ? { Cookie: s.headers.Cookie } : {}),
+      },
       active: s.active !== false,
       type: s.type || 'm3u8',
     }));
@@ -446,18 +487,24 @@
       'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px';
     const card = document.createElement('div');
     card.className = 'panel';
-    card.style.cssText = 'width:min(640px,100%);max-height:90vh;overflow:auto';
+    card.style.cssText = 'width:min(720px,100%);max-height:90vh;overflow:auto';
 
     const syncFromDom = () => {
       const rows = [...card.querySelectorAll('#ml-stream-list [data-i]')];
       streams = rows.map((row) => {
         const i = Number(row.dataset.i);
         const prev = streams[i] || {};
+        const headers = {
+          'User-Agent': row.querySelector('[data-ua]')?.value.trim() || '',
+          Referer: row.querySelector('[data-referer]')?.value.trim() || '',
+        };
+        const cookie = row.querySelector('[data-cookie]')?.value.trim() || '';
+        if (cookie) headers.Cookie = cookie;
         return {
           id: prev.id,
           name: row.querySelector('[data-name]').value.trim() || 'HD',
           url: row.querySelector('[data-url]').value.trim(),
-          headers: prev.headers || { 'User-Agent': '', Referer: '' },
+          headers,
           active: prev.active !== false,
           type: prev.type || 'm3u8',
         };
@@ -467,12 +514,20 @@
     const renderList = () => {
       card.innerHTML = `
         <h3>Streams · ${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</h3>
+        <p class="muted" style="margin-top:0">Per stream: m3u8 URL plus optional User-Agent, Referer, and Cookie.</p>
         <div id="ml-stream-list">
           ${streams.map((s, i) => `
-            <div class="row" style="gap:8px;margin-bottom:8px;align-items:flex-end" data-i="${i}">
-              <label style="flex:0 0 120px">Name<input data-name value="${esc(s.name || 'HD')}" list="mainlive-quality-list" /></label>
-              <label style="flex:1">URL<input data-url value="${esc(s.url || '')}" /></label>
-              <button type="button" class="danger" data-del>Remove</button>
+            <div style="border:1px solid var(--border,#333);border-radius:8px;padding:10px;margin-bottom:10px" data-i="${i}">
+              <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap">
+                <label style="flex:0 0 120px">Name<input data-name value="${esc(s.name || 'HD')}" list="mainlive-quality-list" /></label>
+                <label style="flex:1;min-width:220px">m3u8 URL<input data-url value="${esc(s.url || '')}" placeholder="https://.../index.m3u8" /></label>
+                <button type="button" class="danger" data-del>Remove</button>
+              </div>
+              <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
+                <label style="flex:1;min-width:160px">User-Agent<input data-ua value="${esc(s.headers?.['User-Agent'] || '')}" placeholder="Mozilla/5.0 ..." /></label>
+                <label style="flex:1;min-width:160px">Referer<input data-referer value="${esc(s.headers?.Referer || '')}" placeholder="https://source.example/" /></label>
+                <label style="flex:1;min-width:160px">Cookie (optional)<input data-cookie value="${esc(s.headers?.Cookie || '')}" placeholder="optional" /></label>
+              </div>
             </div>
           `).join('') || '<p class="muted">No streams yet.</p>'}
         </div>
@@ -492,7 +547,11 @@
       });
       card.querySelector('#ml-add')?.addEventListener('click', () => {
         syncFromDom();
-        streams.push({ name: 'SD', url: '' });
+        streams.push({
+          name: 'SD',
+          url: '',
+          headers: { 'User-Agent': '', Referer: '' },
+        });
         renderList();
       });
       card.querySelector('#ml-close')?.addEventListener('click', () => overlay.remove());
@@ -631,8 +690,8 @@
                       <select data-act="status">
                         ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
                       </select>
-                      <input data-act="kickoff" type="datetime-local" style="width:auto" />
-                      <button class="secondary" data-act="save-kickoff">Set Time</button>
+                      <input data-act="kickoff" type="datetime-local" style="width:auto" title="Asia/Yangon wall clock" />
+                      <button class="secondary" data-act="save-kickoff" title="Saved as Asia/Yangon">Set Time (Yangon)</button>
                       <button class="danger" data-act="delete">${m.isManual || m.manual ? 'Delete' : 'Hide'}</button>
                     </div>
                   </td>
@@ -707,12 +766,14 @@
       tr.querySelector('[data-act="save-kickoff"]')?.addEventListener('click', async () => {
         const val = tr.querySelector('[data-act="kickoff"]').value;
         if (!val) return toast('Pick a kickoff time', 'error');
+        const parts = yangonDateTimeLocalParts(val);
+        if (!parts) return toast('Invalid date/time', 'error');
         try {
           await api(`/matches/${encodeURIComponent(id)}`, {
             method: 'PATCH',
-            body: JSON.stringify({ kickoff: new Date(val).toISOString() }),
+            body: JSON.stringify({ date: parts.date, time: parts.time }),
           });
-          toast('Kickoff updated');
+          toast('Kickoff updated (Asia/Yangon)');
           renderMatches();
         } catch (err) {
           toast(err.message, 'error');

@@ -578,6 +578,49 @@ class Pipeline {
       if (!byFotmob.has(String(fm))) byFotmob.set(String(fm), m);
     }
 
+    const mergeSourceEntry = (prev, incoming) => {
+      const p = prev && typeof prev === 'object' ? prev : null;
+      const n = incoming && typeof incoming === 'object' ? incoming : null;
+      if (!p) return n;
+      if (!n) return p;
+      const prevUrl = String(p.matchUrl || '').trim();
+      const nextUrl = String(n.matchUrl || '').trim();
+      return {
+        ...p,
+        ...n,
+        matchUrl: nextUrl || prevUrl || null,
+        attempts: Math.max(Number(n.attempts) || 0, Number(p.attempts) || 0),
+        liveAttempts: Math.max(Number(n.liveAttempts) || 0, Number(p.liveAttempts) || 0),
+        confidence: Math.max(Number(n.confidence) || 0, Number(p.confidence) || 0),
+        lastAttemptAt: n.lastAttemptAt || p.lastAttemptAt || null,
+        slotsDone: { ...(p.slotsDone || {}), ...(n.slotsDone || {}) },
+        status: nextUrl || !prevUrl ? n.status || p.status : p.status || n.status,
+      };
+    };
+    const mergeSearch = (prev, incoming) => {
+      const p = prev && typeof prev === 'object' ? prev : null;
+      const n = incoming && typeof incoming === 'object' ? incoming : null;
+      if (!p && !n) return undefined;
+      if (!p) return n;
+      if (!n) return p;
+      const prevSources = p.sources && typeof p.sources === 'object' ? p.sources : {};
+      const nextSources = n.sources && typeof n.sources === 'object' ? n.sources : {};
+      const names = new Set([...Object.keys(prevSources), ...Object.keys(nextSources)]);
+      const sources = {};
+      for (const name of names) {
+        sources[name] = mergeSourceEntry(prevSources[name], nextSources[name]);
+      }
+      return {
+        ...p,
+        ...n,
+        started: Boolean(n.started || p.started),
+        stopped: Boolean(n.stopped || p.stopped),
+        stopTime: n.stopTime || p.stopTime || null,
+        slotsDone: { ...(p.slotsDone || {}), ...(n.slotsDone || {}) },
+        sources,
+      };
+    };
+
     return (fixtures || []).map((f) => {
       const fm = f.fotmobMatchId || f.fotmobId;
       const prev =
@@ -598,14 +641,21 @@ class Pipeline {
           ...(prev.streamAttempts || {}),
           ...(repaired.streamAttempts || {}),
         },
-        streamSearch:
-          repaired.streamSearch && typeof repaired.streamSearch === 'object'
-            ? repaired.streamSearch
-            : prev.streamSearch && typeof prev.streamSearch === 'object'
-              ? prev.streamSearch
-              : repaired.streamSearch,
+        streamSearch: mergeSearch(prev.streamSearch, repaired.streamSearch),
         matchUrl: repaired.matchUrl || prev.matchUrl || null,
-        matchUrlStatus: repaired.matchUrlStatus || prev.matchUrlStatus || null,
+        matchUrlStatus: (() => {
+          const url = repaired.matchUrl || prev.matchUrl || null;
+          const a = repaired.matchUrlStatus || null;
+          const b = prev.matchUrlStatus || null;
+          if (!url) return a || b || null;
+          const rank = (s) => {
+            if (s === 'MATCH_URL_CONFIRMED' || s === 'MATCH_CONFIRMED') return 3;
+            if (s === 'MATCH_URL_FOUND') return 2;
+            if (s === 'MATCH_URL_SEARCHING') return 1;
+            return 0;
+          };
+          return rank(a) >= rank(b) ? a || b : b || a;
+        })(),
         matchUrlAttempts: Math.max(
           Number(repaired.matchUrlAttempts) || 0,
           Number(prev.matchUrlAttempts) || 0
@@ -613,12 +663,7 @@ class Pipeline {
         lastMatchUrlAttemptAt:
           repaired.lastMatchUrlAttemptAt || prev.lastMatchUrlAttemptAt || null,
         matchUrlSource: repaired.matchUrlSource || prev.matchUrlSource || null,
-        matchUrlSearch:
-          repaired.matchUrlSearch && typeof repaired.matchUrlSearch === 'object'
-            ? repaired.matchUrlSearch
-            : prev.matchUrlSearch && typeof prev.matchUrlSearch === 'object'
-              ? prev.matchUrlSearch
-              : repaired.matchUrlSearch,
+        matchUrlSearch: mergeSearch(prev.matchUrlSearch, repaired.matchUrlSearch),
         // Keep last good H2H when this scrape could not fetch matchDetails
         h2h: repaired.h2h != null ? repaired.h2h : prev.h2h != null ? prev.h2h : null,
         statusLocked: Boolean(prev.statusLocked),

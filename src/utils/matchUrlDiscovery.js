@@ -166,9 +166,37 @@ function discoveredMatchUrl(raw) {
 }
 
 /**
- * sourcePages must follow per-source discovery. Ignore leftover sister-site
- * slugs when this source never saved its own Match URL.
+ * sourcePages must follow per-source discovery. Keep previously saved pages
+ * unless a source explicitly cleared/failed without a URL — never drop all
+ * pages just because matchUrlSearch.sources has empty stubs.
  */
+function sanitizeSourcePages(fixture) {
+  const search = ensureMatchUrlSearch(fixture);
+  const prev = { ...(fixture.sourcePages || {}) };
+  const names = Object.keys(search.sources || {});
+  if (!names.length) return prev;
+
+  const next = {};
+  for (const name of names) {
+    const raw = search.sources[name] || {};
+    const url = discoveredMatchUrl(raw);
+    if (url) {
+      next[name] = url;
+      continue;
+    }
+    // Keep last known page while still pending/searching (or legacy page-only rows)
+    if (prev[name] && !isFailedMatchUrlStatus(raw.status)) {
+      next[name] = prev[name];
+    }
+  }
+  // Preserve pages for sources not present in this search object
+  for (const [name, url] of Object.entries(prev)) {
+    if (!url || next[name]) continue;
+    if (!names.includes(name)) next[name] = url;
+  }
+  return next;
+}
+
 function getSourceMatchUrlState(fixture, sourceName) {
   const search = ensureMatchUrlSearch(fixture);
   const raw = search.sources?.[sourceName] || {};
@@ -389,22 +417,6 @@ function finalizeMatchUrlStatus(fixture, nowSec) {
     ...next,
     matchUrlStatus: next.matchUrlStatus || MATCH_URL_STATUS.PENDING,
   };
-}
-
-function sanitizeSourcePages(fixture) {
-  const search = ensureMatchUrlSearch(fixture);
-  const prev = { ...(fixture.sourcePages || {}) };
-  const names = Object.keys(search.sources || {});
-  if (!names.length) return prev;
-
-  const next = {};
-  for (const name of names) {
-    const raw = search.sources[name] || {};
-    const url = discoveredMatchUrl(raw);
-    if (!url) continue;
-    next[name] = url;
-  }
-  return next;
 }
 
 function aggregateMatchUrlFields(fixture) {

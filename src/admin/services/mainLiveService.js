@@ -144,6 +144,7 @@ class MainLiveService {
             : next.streams?.[0]?.name || next.streams?.[0]?.quality || 'HD',
         userAgent: next.streams?.[0]?.headers?.['User-Agent'],
         referer: next.streams?.[0]?.headers?.Referer,
+        cookie: next.streams?.[0]?.headers?.Cookie,
       });
       next.hasStreams = next.streams.length > 0;
       next.streamCount = next.streams.length;
@@ -168,6 +169,7 @@ class MainLiveService {
       streamName: input.name || input.quality || input.streamName,
       userAgent: input.userAgent || input.headers?.['User-Agent'],
       referer: input.referer || input.headers?.Referer,
+      cookie: input.cookie || input.headers?.Cookie,
     });
     if (!built.length) throw new Error('Stream URL is required');
 
@@ -250,6 +252,26 @@ function newStreamId() {
 }
 
 /**
+ * Build stream.headers for Flutter playback (UA / Referer / optional Cookie).
+ */
+function normalizeStreamHeaders(raw = {}, fallback = {}) {
+  const src = raw && typeof raw === 'object' ? raw : {};
+  const headers = {
+    'User-Agent': String(
+      src['User-Agent'] || src['user-agent'] || src.userAgent || fallback.userAgent || ''
+    ).trim(),
+    Referer: String(
+      src.Referer || src.referer || fallback.referer || ''
+    ).trim(),
+  };
+  const cookie = String(
+    src.Cookie || src.cookie || fallback.cookie || ''
+  ).trim();
+  if (cookie) headers.Cookie = cookie;
+  return headers;
+}
+
+/**
  * Accept either:
  * - streams: [{ name|quality, url, headers?, type? }, ...]
  * - legacy streamUrl + streamName
@@ -264,16 +286,6 @@ function normalizeStreamsInput(input = {}) {
       if (!url) continue;
       const name =
         String(raw.name || raw.quality || raw.streamName || 'HD').trim() || 'HD';
-      const headers =
-        raw.headers && typeof raw.headers === 'object'
-          ? {
-              'User-Agent': raw.headers['User-Agent'] || raw.userAgent || '',
-              Referer: raw.headers.Referer || raw.headers.referer || raw.referer || '',
-            }
-          : {
-              'User-Agent': raw.userAgent || '',
-              Referer: raw.referer || '',
-            };
       rows.push({
         id: String(raw.id || '').trim() || newStreamId(),
         source: 'manual',
@@ -281,7 +293,11 @@ function normalizeStreamsInput(input = {}) {
         quality: name,
         name,
         url,
-        headers,
+        headers: normalizeStreamHeaders(raw.headers, {
+          userAgent: raw.userAgent,
+          referer: raw.referer,
+          cookie: raw.cookie,
+        }),
         active: raw.active !== false,
         priority: Number.isFinite(Number(raw.priority)) ? Number(raw.priority) : 1000 - rows.length,
         checkedAt: new Date().toISOString(),
@@ -300,10 +316,11 @@ function normalizeStreamsInput(input = {}) {
         quality: name,
         name,
         url,
-        headers: {
-          'User-Agent': input.userAgent || '',
-          Referer: input.referer || '',
-        },
+        headers: normalizeStreamHeaders(input.headers, {
+          userAgent: input.userAgent,
+          referer: input.referer,
+          cookie: input.cookie,
+        }),
         active: true,
         priority: 1000,
         checkedAt: new Date().toISOString(),

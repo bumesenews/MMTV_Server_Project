@@ -48,6 +48,7 @@ function toYangon(input) {
     "yyyy-MM-dd'T'HH:mm:ss.SSSZZ",
     "yyyy-MM-dd'T'HH:mm:ssZZ",
     "yyyy-MM-dd'T'HH:mm:ss",
+    "yyyy-MM-dd'T'HH:mm",
     'yyyy-MM-dd HH:mm:ss',
     'yyyy-MM-dd HH:mm',
     'yyyy-MM-dd',
