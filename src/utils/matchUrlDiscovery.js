@@ -45,37 +45,69 @@ function matchUrlJobKey(matchId, sourceName, attemptOrSlot) {
 }
 
 function isTransientDiscoverError(err) {
-  const msg = String(err?.message || err || '').toLowerCase();
+  const cls = classifySourceError(err);
+  return (
+    cls === 'DNS_ERROR' ||
+    cls === 'TIMEOUT' ||
+    cls === 'HTTP_ERROR' ||
+    cls === 'NETWORK_ERROR'
+  );
+}
+
+/**
+ * Classify discovery/extract failures for isolation + observability.
+ * Does not invent SUCCESS for empty/not-found results — callers pass those explicitly.
+ */
+function classifySourceError(err) {
+  if (err == null || err === '') return 'EXTRACT_ERROR';
   const code = String(err?.code || err?.cause?.code || '').toUpperCase();
+  const msg = String(err?.message || err || '');
+  const lower = msg.toLowerCase();
+
   if (
-    [
-      'ETIMEDOUT',
-      'ESOCKETTIMEDOUT',
-      'ECONNRESET',
-      'ENOTFOUND',
-      'EAI_AGAIN',
-      'ECONNREFUSED',
-      'ENETUNREACH',
-      'EHOSTUNREACH',
-      'UND_ERR_CONNECT_TIMEOUT',
-    ].includes(code)
+    code === 'ENOTFOUND' ||
+    code === 'EAI_AGAIN' ||
+    /enotfound|getaddrinfo|dns/.test(lower)
   ) {
-    return true;
+    return 'DNS_ERROR';
   }
   if (
-    /timeout|timed out|dns|enotfound|econnreset|econnrefused|eai_again|socket hang up|network|ehostunreach/.test(
-      msg
+    code === 'ETIMEDOUT' ||
+    code === 'ESOCKETTIMEDOUT' ||
+    code === 'UND_ERR_CONNECT_TIMEOUT' ||
+    /timeout|timed out|econnaborted/.test(lower)
+  ) {
+    return 'TIMEOUT';
+  }
+  if (
+    code === 'ECONNRESET' ||
+    code === 'ECONNREFUSED' ||
+    code === 'ENETUNREACH' ||
+    code === 'EHOSTUNREACH' ||
+    /econnreset|econnrefused|socket hang up|network|ehostunreach|enetunreach/.test(
+      lower
     )
   ) {
-    return true;
+    return 'NETWORK_ERROR';
   }
-  if (/\b(403|404|429|502|503)\b/.test(msg) || /status code 40[34]/.test(msg)) {
-    return true;
+  if (
+    /\b(401|403|404|429|502|503|520|521|522|523|524)\b/.test(msg) ||
+    /status code 4\d\d|status code 5\d\d|http_40|http_50/.test(lower) ||
+    /antibot|cloudflare|access denied|just a moment/.test(lower)
+  ) {
+    return 'HTTP_ERROR';
   }
-  if (/antibot|cloudflare|access denied|just a moment/.test(msg)) {
-    return true;
+  if (
+    /parse|parser|selector|cheerio|invalid html|empty today|no candidates|json/.test(
+      lower
+    )
+  ) {
+    return 'PARSER_ERROR';
   }
-  return false;
+  if (/not_found|no stream|no_valid_stream|empty_playlist|not_hls/.test(lower)) {
+    return 'NOT_FOUND';
+  }
+  return 'EXTRACT_ERROR';
 }
 
 function slotLeadLabel(slot) {
@@ -101,16 +133,19 @@ function logMatchUrlDiscovery({
   attempt,
   result,
   matchUrl = null,
+  errorClass = null,
 } = {}) {
   const home = fixture?.homeTeam || '?';
   const away = fixture?.awayTeam || '?';
   const time = fixture?.kickoffTime || fixture?.time || '';
+  const matchId = fixture?.matchId || '?';
+  const classPart = errorClass ? ` Class: ${errorClass}` : '';
   logger.info(
-    `[ MATCH URL DISCOVERY ] Match: ${home} vs ${away} Kickoff: ${time} Source: ${sourceName} Attempt: ${attempt}/${MATCH_URL_MAX_ATTEMPTS} Scheduled: ${slotLeadLabel(slot)} Result: ${result}`
+    `[ MATCH URL DISCOVERY ] MatchId: ${matchId} Match: ${home} vs ${away} Kickoff: ${time} Source: ${sourceName} Attempt: ${attempt}/${MATCH_URL_MAX_ATTEMPTS} Scheduled: ${slotLeadLabel(slot)} Result: ${result}${classPart}`
   );
   if (matchUrl && (result === 'FOUND' || result === 'CONFIRMED')) {
     logger.info(
-      `[ MATCH URL FOUND ] Source: ${sourceName} Match: ${home} vs ${away} Match URL: ${matchUrl} Attempt: ${attempt}/${MATCH_URL_MAX_ATTEMPTS} Status: ${
+      `[ MATCH URL FOUND ] Source: ${sourceName} MatchId: ${matchId} Match: ${home} vs ${away} Match URL: ${matchUrl} Attempt: ${attempt}/${MATCH_URL_MAX_ATTEMPTS} Status: ${
         result === 'CONFIRMED'
           ? MATCH_URL_STATUS.CONFIRMED
           : MATCH_URL_STATUS.FOUND
@@ -587,6 +622,7 @@ module.exports = {
   aggregateMatchUrlFields,
   matchUrlJobKey,
   isTransientDiscoverError,
+  classifySourceError,
   isConfirmedMatchUrlStatus,
   isSavedMatchUrlStatus,
   sanitizeSourcePages,

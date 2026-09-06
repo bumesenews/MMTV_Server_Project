@@ -39,10 +39,17 @@ class MainLiveService {
 
     const date = String(input.date || '').trim();
     const time = String(input.time || '').trim() || '00:00';
-    if (!date) throw new Error('Date is required (yyyy-MM-dd)');
-
-    let kickoff = input.kickoff ? toYangon(input.kickoff) : combineDateAndTime(date, time);
-    if (!kickoff || !kickoff.isValid) throw new Error('Invalid date/time');
+    // Admin date+time are always Asia/Yangon wall clock. Prefer them over kickoff ISO
+    // so a client Date/UTC ISO cannot shift the intended Yangon kickoff.
+    let kickoff = null;
+    if (date) {
+      kickoff = combineDateAndTime(date, time);
+    } else if (input.kickoff) {
+      kickoff = toYangon(input.kickoff);
+    }
+    if (!kickoff || !kickoff.isValid) {
+      throw new Error('Invalid date/time (use Asia/Yangon yyyy-MM-dd and HH:mm)');
+    }
 
     const matchId = input.matchId || generateMatchId(homeTeam, awayTeam, kickoff);
     const existing = this.all();
@@ -121,13 +128,18 @@ class MainLiveService {
     if (patch.date || patch.time || patch.kickoff) {
       const date = patch.date || next.date;
       const time = patch.time || next.time || '00:00';
-      const kickoff = patch.kickoff
-        ? toYangon(patch.kickoff)
-        : combineDateAndTime(date, time);
-      if (!kickoff || !kickoff.isValid) throw new Error('Invalid date/time');
+      // Prefer explicit Asia/Yangon date+time from admin over kickoff ISO.
+      const kickoff =
+        patch.date || patch.time
+          ? combineDateAndTime(date, time)
+          : toYangon(patch.kickoff);
+      if (!kickoff || !kickoff.isValid) {
+        throw new Error('Invalid date/time (use Asia/Yangon yyyy-MM-dd and HH:mm)');
+      }
       next.kickoff = kickoff.toISO();
       next.date = formatDate(kickoff);
       next.time = formatTime(kickoff);
+      next.timezone = 'Asia/Yangon';
     }
 
     if (Array.isArray(patch.streams)) {

@@ -39,8 +39,14 @@ class ManualMatchService {
     const time = String(input.time || '').trim() || '00:00';
     if (!date) throw new Error('Date is required (yyyy-MM-dd)');
 
-    let kickoff = input.kickoff ? toYangon(input.kickoff) : combineDateAndTime(date, time);
-    if (!kickoff || !kickoff.isValid) throw new Error('Invalid date/time');
+    // Admin date+time = Asia/Yangon wall clock (prefer over kickoff ISO).
+    let kickoff = combineDateAndTime(date, time);
+    if ((!kickoff || !kickoff.isValid) && input.kickoff) {
+      kickoff = toYangon(input.kickoff);
+    }
+    if (!kickoff || !kickoff.isValid) {
+      throw new Error('Invalid date/time (use Asia/Yangon yyyy-MM-dd and HH:mm)');
+    }
 
     const matchId = input.matchId || generateMatchId(homeTeam, awayTeam, kickoff);
     const existing = this.all();
@@ -130,13 +136,17 @@ class ManualMatchService {
     if (patch.date || patch.time || patch.kickoff) {
       const date = patch.date || next.date;
       const time = patch.time || next.time || '00:00';
-      const kickoff = patch.kickoff
-        ? toYangon(patch.kickoff)
-        : combineDateAndTime(date, time);
-      if (!kickoff || !kickoff.isValid) throw new Error('Invalid date/time');
+      const kickoff =
+        patch.date || patch.time
+          ? combineDateAndTime(date, time)
+          : toYangon(patch.kickoff);
+      if (!kickoff || !kickoff.isValid) {
+        throw new Error('Invalid date/time (use Asia/Yangon yyyy-MM-dd and HH:mm)');
+      }
       next.kickoff = kickoff.toISO();
       next.date = formatDate(kickoff);
       next.time = formatTime(kickoff);
+      next.timezone = 'Asia/Yangon';
     }
 
     if (patch.streamUrl !== undefined || patch.streamName !== undefined) {

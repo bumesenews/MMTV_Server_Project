@@ -93,10 +93,14 @@ function combineDateAndTime(dateStr, timeStr) {
     if (period === 'PM' && hour < 12) hour += 12;
     if (period === 'AM' && hour === 12) hour = 0;
     timePart = `${String(hour).padStart(2, '0')}:${minute}`;
+  } else if (/^\d{1,2}:\d{2}:\d{2}$/.test(timePart)) {
+    const [h, m] = timePart.split(':');
+    timePart = `${h.padStart(2, '0')}:${m}`;
   } else if (/^\d{1,2}:\d{2}$/.test(timePart)) {
     const [h, m] = timePart.split(':');
     timePart = `${h.padStart(2, '0')}:${m}`;
   }
+  // Always Asia/Yangon wall clock — never browser/UTC local interpretation.
   return toYangon(`${datePart} ${timePart}`);
 }
 
@@ -271,6 +275,19 @@ function resolveFixtureStatus(kickoff, nowSec = nowUtcUnixSeconds()) {
   return 'END';
 }
 
+/**
+ * m3u8 extraction window: kickoff−STREAM_EXTRACT_LEAD_MIN .. kickoff+MATCH_LIVE_DURATION_MIN.
+ * forceStreamCheck / Admin Match URL must not extract outside this gate.
+ * (Slot cadence −30/−15/−5/0/+5/+10 and live catch-up still apply inside the window.)
+ */
+function isStreamExtractEligible(kickoff, nowSec = nowUtcUnixSeconds()) {
+  const mins = minutesUntilKickoff(kickoff, nowSec);
+  if (mins == null) return false;
+  if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
+  if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+  return true;
+}
+
 module.exports = {
   ZONE,
   nowYangon,
@@ -289,6 +306,7 @@ module.exports = {
   isKickoffStarted,
   getCheckIntervalMinutes,
   resolveFixtureStatus,
+  isStreamExtractEligible,
   resolveStreamSearchSlot,
   resolveMatchUrlSearchSlot,
   resolveMatchUrlLiveSlot,

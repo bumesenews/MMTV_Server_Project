@@ -23,6 +23,7 @@ const {
   sourceHasSavedMatchUrl,
   matchUrlJobKey,
   isTransientDiscoverError,
+  classifySourceError,
 } = require('../utils/matchUrlDiscovery');
 const { JobQueue, scraperConcurrency } = require('../utils/jobQueue');
 const {
@@ -78,6 +79,10 @@ class StreamEngine {
     this._matchApplyLocks = new Map();
     this.lastDiscoverMeta = {};
     this._activeMatchUrlJobs = new Set();
+    this.lastDiscoveryAt = null;
+    this.lastDiscoverySummary = null;
+    this.lastExtractAt = null;
+    this.lastExtractSummary = null;
   }
 
   shouldCheck(match) {
@@ -201,11 +206,15 @@ class StreamEngine {
 
   /**
    * Whether this match should deep-extract streams in the current kickoff slot.
+   * force=true may re-run a completed slot, but MUST NOT bypass the −30 lead
+   * gate or the +2h lifecycle cutoff (checked before force).
    */
   shouldExtractStreams(fixture, { force = false } = {}) {
     const mins = minutesUntilKickoff(fixture.kickoff);
     if (mins == null) return false;
+    // Hard gate: never extract before −30m, even with forceStreamCheck.
     if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
+    // Hard gate: never extract after kickoff+2h, even with forceStreamCheck.
     if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
 
     const catchup =
@@ -402,7 +411,11 @@ class StreamEngine {
             }),
             mins
           );
-          this.markChecked(idle.matchId);
+          // Premature Admin/force runs (before −30) must not throttle the first
+          // in-window extract via lastCheckByMatch.
+          if (mins != null && mins <= STREAM_EXTRACT_LEAD_MIN) {
+            this.markChecked(idle.matchId);
+          }
           resultsById.set(idle.matchId, idle);
           continue;
         }
@@ -461,6 +474,12 @@ class StreamEngine {
             attempt,
             originalNames: found?.originalNames || null,
           });
+          logger.info('Stream extract queued', {
+            matchId: base.matchId,
+            source: source.name,
+            slot: slot?.id || null,
+            attempt,
+          });
         }
 
         const working = this.stampStreamFields(
@@ -488,7 +507,18 @@ class StreamEngine {
         concurrency: this.extractQueue.concurrency,
         matches: resultsById.size,
       });
-      await this.extractQueue.run(jobs, (job) => this.runExtractJob(job, resultsById));
+      const extractResults = await this.extractQueue.run(jobs, (job) =>
+        this.runExtractJob(job, resultsById)
+      );
+      this.lastExtractAt = new Date().toISOString();
+      this.lastExtractSummary = {
+        queued: jobs.length,
+        completed: (extractResults || []).filter((r) => !r.skipped).length,
+        duplicates: (extractResults || []).filter((r) => r.reason === 'duplicate')
+          .length,
+        stopped: (extractResults || []).filter((r) => r.reason === 'stopped')
+          .length,
+      };
     }
 
     const results = [];
@@ -752,6 +782,15 @@ class StreamEngine {
       }
     });
 
+    logger.info('Stream extract finished', {
+      matchId,
+      source: source.name,
+      slot: slot?.id || null,
+      streams: streams.length,
+      result: streams.length ? 'SUCCESS' : error || 'NOT_FOUND',
+      errorClass: error ? classifySourceError(error) : null,
+    });
+
     return { matchId, source: source.name, streams: streams.length, error };
   }
 
@@ -812,6 +851,7 @@ class StreamEngine {
     const bySource = {};
     const nowSec = nowUtcUnixSeconds();
     this.lastDiscoverMeta = {};
+    const sourceSummaries = [];
 
     for (const source of this.sources) {
       try {
@@ -841,6 +881,12 @@ class StreamEngine {
             known: known.length,
           });
           bySource[source.name] = known;
+          sourceSummaries.push({
+            source: source.name,
+            result: 'SKIPPED',
+            known: known.length,
+            due: 0,
+          });
           continue;
         }
 
@@ -859,33 +905,72 @@ class StreamEngine {
 
         const merged = [...known];
         const seen = new Set(known.map((k) => k.matchId));
+        let newlyFound = 0;
         for (const m of found || []) {
           if (m?.matchId && m.matchUrl && !seen.has(m.matchId)) {
             merged.push(m);
             seen.add(m.matchId);
+            newlyFound += 1;
           }
         }
         bySource[source.name] = merged;
+        const result = newlyFound > 0 ? 'SUCCESS' : 'NOT_FOUND';
         this.lastDiscoverMeta[source.name] = {
           failed: false,
           transient: false,
           matched: merged.length,
+          newlyFound,
+          result,
         };
+        sourceSummaries.push({
+          source: source.name,
+          result,
+          known: known.length,
+          due: due.length,
+          newlyFound,
+        });
         this.scraperMonitor?.recordSourceResult(source.name, {
           ok: true,
           url: source.baseUrl || source.config?.domains?.[0],
         });
       } catch (err) {
-        logEvent(events.SCRAPER_ERROR, 'Discover-all source failed', {
+        const errorClass = classifySourceError(err);
+        const transient = isTransientDiscoverError(err);
+        logEvent(events.SCRAPER_ERROR, 'Discover-all source failed — continuing', {
           source: source.name,
           error: err.message,
+          errorClass,
+          transient,
         });
+        // Keep already-saved Match URLs for this source; do not wipe known.
+        const knownOnError = [];
+        for (const f of fixtures || []) {
+          const st = getSourceMatchUrlState(f, source.name);
+          if (sourceHasSavedMatchUrl(st)) {
+            knownOnError.push({
+              matchId: f.matchId,
+              matchUrl: st.matchUrl,
+              matchUrlStatus: st.status,
+              confidence: st.confidence,
+              source: source.name,
+              originalNames: f.originalNames,
+            });
+          }
+        }
         this.lastDiscoverMeta[source.name] = {
           failed: true,
-          transient: isTransientDiscoverError(err),
+          transient,
           error: err.message,
+          errorClass,
+          result: errorClass,
         };
-        bySource[source.name] = [];
+        bySource[source.name] = knownOnError;
+        sourceSummaries.push({
+          source: source.name,
+          result: errorClass,
+          known: knownOnError.length,
+          error: err.message,
+        });
         if (this.scraperMonitor) {
           await this.scraperMonitor
             .notifySourceFailed(source.name, err, {
@@ -895,6 +980,9 @@ class StreamEngine {
         }
       }
     }
+
+    this.lastDiscoveryAt = new Date().toISOString();
+    this.lastDiscoverySummary = { sources: sourceSummaries };
     return bySource;
   }
 }

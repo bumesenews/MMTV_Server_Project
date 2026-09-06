@@ -5,6 +5,10 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
   const router = express.Router();
 
   router.get('/health', (_req, res) => {
+    const diag =
+      typeof pipeline.getRuntimeDiagnostics === 'function'
+        ? pipeline.getRuntimeDiagnostics()
+        : null;
     res.json({
       ok: true,
       service: 'football-live-streaming-backend',
@@ -17,6 +21,18 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
       highlightRunning: pipeline.highlightRunning,
       channelsRunning: pipeline.channelsRunning,
       tipsRunning: pipeline.tipsRunning,
+      ...(diag
+        ? {
+            locks: diag.locks,
+            pending: diag.pending,
+            lastDiscoveryAt: diag.lastDiscoveryAt,
+            lastDiscoverySummary: diag.lastDiscoverySummary,
+            lastExtractAt: diag.lastExtractAt,
+            lastExtractSummary: diag.lastExtractSummary,
+            memoryMb: diag.memoryMb,
+            uptimeSec: diag.uptimeSec,
+          }
+        : {}),
     });
   });
 

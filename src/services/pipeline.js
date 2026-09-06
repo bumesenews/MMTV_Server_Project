@@ -1,6 +1,10 @@
 const { logger, logEvent, events } = require('../utils/logger');
 const { Normalizer } = require('../utils/normalize');
 const { todayYangon, isTodayOrTomorrow } = require('../utils/time');
+const {
+  isFootballPeakWindow,
+  mayRunLowPriorityHeavyJob,
+} = require('../utils/jobSchedule');
 const { PuppeteerManager } = require('../browser/puppeteerManager');
 const { ConfigLoader } = require('./configLoader');
 const { FixtureService } = require('./fixtureService');
@@ -31,9 +35,11 @@ const {
  * starting at kickoff−30m; LIVE until +120m, then END + drop streams →
  * sync matches.json (expire kickoff+2h, merge streams) → GitHub PUT if changed
  *
- * Separate jobs:
- * - Highlights every 3 hours (runHighlights)
- * - Myanmar TV channels every 8 minutes (runMyanmarTv; stream tokens ~10 min)
+ * Separate jobs (non-peak, once daily by default — see jobSchedule.DEFAULT_CRONS):
+ * - Highlights (runHighlights)
+ * - Myanmar TV channels (runMyanmarTv)
+ * - Tips (runTips)
+ * Peak 17:00–03:00 Yangon: Matches only among heavy scrapers.
  */
 class Pipeline {
   constructor(env = process.env, admin = null) {
@@ -61,7 +67,12 @@ class Pipeline {
     this._pendingMyanmarTv = false;
     this._pendingTips = false;
     this._pendingHighlights = false;
+    this._pendingMatches = false;
     this._drainingQueued = false;
+    this.lastDiscoveryAt = null;
+    this.lastDiscoverySummary = null;
+    this.lastExtractAt = null;
+    this.lastExtractSummary = null;
     /** FotMob fixtures for today+tomorrow. Short TTL so evening runs still pick up tomorrow. */
     this.fixtureCache = { dayKey: null, fixtures: [], fetchedAt: 0 };
   }
@@ -98,20 +109,87 @@ class Pipeline {
       if (!this[flag]) continue;
       const started = Number(this[sinceKey]) || 0;
       if (!started) {
-        logger.warn(`Clearing orphan ${label} lock (no start timestamp)`);
+        logger.warn('Stale lock recovery', {
+          lock: label,
+          previousTimestamp: null,
+          ageSec: null,
+          reason: 'orphan_no_timestamp',
+          maxRuntimeMs: maxMs,
+        });
         this[flag] = false;
         this[sinceKey] = 0;
         continue;
       }
-      if (now - started > maxMs) {
-        logger.warn(`Clearing stuck ${label} lock`, {
-          runningForSec: Math.round((now - started) / 1000),
-          maxMs,
+      const ageMs = now - started;
+      if (ageMs > maxMs) {
+        logger.warn('Stale lock recovery', {
+          lock: label,
+          previousTimestamp: new Date(started).toISOString(),
+          ageSec: Math.round(ageMs / 1000),
+          reason: 'exceeded_max_runtime',
+          maxRuntimeMs: maxMs,
         });
         this[flag] = false;
         this[sinceKey] = 0;
       }
     }
+  }
+
+  /**
+   * Runtime diagnostics for /api/health and admin dashboard (1GB ops).
+   */
+  getRuntimeDiagnostics() {
+    const now = Date.now();
+    const lockAge = (since) => {
+      const started = Number(since) || 0;
+      if (!started) return null;
+      return Math.round((now - started) / 1000);
+    };
+    return {
+      timezone: 'Asia/Yangon',
+      running: Boolean(this.running),
+      tipsRunning: Boolean(this.tipsRunning),
+      highlightRunning: Boolean(this.highlightRunning),
+      channelsRunning: Boolean(this.channelsRunning),
+      locks: {
+        pipeline: {
+          active: Boolean(this.running),
+          since: this._runningSince || null,
+          ageSec: lockAge(this._runningSince),
+        },
+        tips: {
+          active: Boolean(this.tipsRunning),
+          since: this._tipsSince || null,
+          ageSec: lockAge(this._tipsSince),
+        },
+        highlight: {
+          active: Boolean(this.highlightRunning),
+          since: this._highlightSince || null,
+          ageSec: lockAge(this._highlightSince),
+        },
+        channels: {
+          active: Boolean(this.channelsRunning),
+          since: this._channelsSince || null,
+          ageSec: lockAge(this._channelsSince),
+        },
+      },
+      pending: {
+        matches: Boolean(this._pendingMatches),
+        highlights: Boolean(this._pendingHighlights),
+        tips: Boolean(this._pendingTips),
+        myanmartv: Boolean(this._pendingMyanmarTv),
+      },
+      lastRun: this.lastRun || null,
+      lastHighlightRun: this.lastHighlightRun || null,
+      lastChannelsRun: this.lastChannelsRun || null,
+      lastTipsRun: this.lastTipsRun || null,
+      lastDiscoveryAt: this.lastDiscoveryAt || null,
+      lastDiscoverySummary: this.lastDiscoverySummary || null,
+      lastExtractAt: this.lastExtractAt || null,
+      lastExtractSummary: this.lastExtractSummary || null,
+      memoryMb: Math.round(process.memoryUsage().rss / 1024 / 1024),
+      uptimeSec: Math.floor(process.uptime()),
+    };
   }
 
   buildStreamingSources(sourcesDoc) {
@@ -145,10 +223,10 @@ class Pipeline {
     } catch (err) {
       return { ok: false, reason: 'github_error', error: err.message, restored: 0 };
     }
-    const matches = Array.isArray(remote?.content?.matches)
+    const remoteMatches = Array.isArray(remote?.content?.matches)
       ? remote.content.matches
       : [];
-    if (!matches.length) {
+    if (!remoteMatches.length) {
       return { ok: false, reason: 'remote_empty', restored: 0 };
     }
 
@@ -156,12 +234,31 @@ class Pipeline {
       highlights: this.cache.getCurrent()?.highlights || [],
       channels: this.cache.getCurrent()?.channels || [],
     };
+
+    // Local state is authoritative when present. Merge remote into local so a
+    // sparse GitHub delivery cannot wipe Match URL / stream / Admin fields.
+    // When local is empty (true recovery), take remote then stamp overrides.
+    await this._ensureNormalizerLoaded().catch(() => null);
+    const existing = readExistingMatches(this.cache);
+    let mergedMatches;
+    if (existing.length) {
+      mergedMatches = syncMatchesForDelivery(existing, remoteMatches, {
+        normalizer: this.normalizer,
+      }).matches;
+    } else {
+      mergedMatches = remoteMatches.map((m) => enrichMatchState(m));
+    }
+    if (this.admin?.overrides) {
+      mergedMatches = this.admin.overrides.applyToMatches(mergedMatches);
+    }
+
     const payload = generateFlutterJson(
-      matches.map((m) => enrichMatchState(m)),
+      mergedMatches,
       {
         configOrigin: 'github_restore',
         sources: [],
         restoredBy: actor,
+        mergedWithLocal: existing.length > 0,
       },
       extras
     );
@@ -173,13 +270,15 @@ class Pipeline {
     });
     this.cache.saveDeliveryBundle(delivery);
     logger.info('Restored matches.json from GitHub', {
-      restored: matches.length,
+      restored: remoteMatches.length,
+      localBaseline: existing.length,
+      finalCount: cached.matches?.length || mergedMatches.length,
       actor,
     });
     return {
       ok: true,
-      restored: matches.length,
-      matchCount: cached.matches?.length || matches.length,
+      restored: remoteMatches.length,
+      matchCount: cached.matches?.length || mergedMatches.length,
       payload: cached,
     };
   }
@@ -217,8 +316,12 @@ class Pipeline {
       const sync = syncMatchesForDelivery(existing, [], {
         normalizer: this.normalizer,
       });
+      let matchesOut = sync.matches;
+      if (this.admin?.overrides) {
+        matchesOut = this.admin.overrides.applyToMatches(matchesOut);
+      }
       const payload = generateFlutterJson(
-        sync.matches,
+        matchesOut,
         { configOrigin: 'expire', sources: [] },
         extras
       );
@@ -253,12 +356,12 @@ class Pipeline {
 
       logger.info('Refreshing matches.json (expire/status)', {
         removedExpired: sync.removedExpired,
-        matchCount: sync.matches.length,
+        matchCount: matchesOut.length,
       });
 
       if (this.admin?.publish) {
         const published = await this.admin.publish.publish(
-          sync.matches,
+          matchesOut,
           { configOrigin: 'expire', sources: [] },
           { actor, extras }
         );
@@ -317,21 +420,25 @@ class Pipeline {
 
     this._clearStuckJobLocks();
     if (this.running) {
-      logger.warn('Pipeline already running — skip overlapping run');
+      logger.warn('Pipeline skip', { reason: 'already_running' });
       return { ok: false, reason: 'already_running' };
     }
-    // Never share Chromium / heavy work with highlight or MyanmarTV jobs on 1GB hosts
+    // Never share Chromium / heavy work with highlight or MyanmarTV jobs on 1GB hosts.
+    // Queue Matches so drain runs it before any lower-priority job.
     if (this.highlightRunning) {
-      logger.warn('Highlight job active — skip pipeline to avoid OOM');
-      return { ok: false, reason: 'highlight_running' };
+      this._pendingMatches = true;
+      logger.warn('Pipeline skip', { reason: 'highlight_running', queued: true });
+      return { ok: false, reason: 'highlight_running', queued: true };
     }
     if (this.channelsRunning) {
-      logger.warn('MyanmarTV job active — skip pipeline');
-      return { ok: false, reason: 'channels_running' };
+      this._pendingMatches = true;
+      logger.warn('Pipeline skip', { reason: 'channels_running', queued: true });
+      return { ok: false, reason: 'channels_running', queued: true };
     }
     if (this.tipsRunning) {
-      logger.warn('Tips job active — skip pipeline');
-      return { ok: false, reason: 'tips_running' };
+      this._pendingMatches = true;
+      logger.warn('Pipeline skip', { reason: 'tips_running', queued: true });
+      return { ok: false, reason: 'tips_running', queued: true };
     }
 
     this.running = true;
@@ -429,6 +536,12 @@ class Pipeline {
       try {
         matches = await engine.collectForFixtures(fixtures, { force: forceStreamCheck });
         this._recordSourceStats(matches);
+        this.lastDiscoveryAt = engine.lastDiscoveryAt || this.lastDiscoveryAt;
+        this.lastDiscoverySummary =
+          engine.lastDiscoverySummary || this.lastDiscoverySummary;
+        this.lastExtractAt = engine.lastExtractAt || this.lastExtractAt;
+        this.lastExtractSummary =
+          engine.lastExtractSummary || this.lastExtractSummary;
       } catch (err) {
         logEvent(events.SCRAPER_ERROR, 'Stream engine failed — fixtures only payload', {
           error: err.message,
@@ -724,6 +837,7 @@ class Pipeline {
         lastAttemptAt: n.lastAttemptAt || p.lastAttemptAt || null,
         slotsDone: { ...(p.slotsDone || {}), ...(n.slotsDone || {}) },
         status: nextUrl || !prevUrl ? n.status || p.status : p.status || n.status,
+        manual: Boolean(p.manual || n.manual),
       };
     };
     const mergeSearch = (prev, incoming) => {
@@ -795,6 +909,18 @@ class Pipeline {
         matchUrlSearch: mergeSearch(prev.matchUrlSearch, repaired.matchUrlSearch),
         // Keep last good H2H when this scrape could not fetch matchDetails
         h2h: repaired.h2h != null ? repaired.h2h : prev.h2h != null ? prev.h2h : null,
+        streamUrl: repaired.streamUrl || prev.streamUrl || null,
+        streamHeaders: repaired.streamHeaders || prev.streamHeaders || null,
+        streamStatus: repaired.streamStatus || prev.streamStatus || null,
+        validationStatus: repaired.validationStatus || prev.validationStatus || null,
+        validationReason:
+          repaired.validationReason != null
+            ? repaired.validationReason
+            : prev.validationReason != null
+              ? prev.validationReason
+              : null,
+        attempts: Math.max(Number(repaired.attempts) || 0, Number(prev.attempts) || 0),
+        lastAttemptAt: repaired.lastAttemptAt || prev.lastAttemptAt || null,
         statusLocked: Boolean(prev.statusLocked),
         manual: Boolean(prev.manual || repaired.manual),
         pinned: Boolean(prev.pinned || repaired.pinned),
@@ -957,6 +1083,11 @@ class Pipeline {
    */
   async runHighlights({ force = false } = {}) {
     this._clearStuckJobLocks();
+    if (!mayRunLowPriorityHeavyJob(null, { force })) {
+      this._pendingHighlights = false;
+      logger.info('Peak football window — skip Highlights (no backlog)');
+      return { ok: false, reason: 'peak_window' };
+    }
     if (this.highlightRunning) {
       logger.warn('Highlight job already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };
@@ -1222,6 +1353,11 @@ class Pipeline {
    */
   async runMyanmarTv({ force = false } = {}) {
     this._clearStuckJobLocks();
+    if (!mayRunLowPriorityHeavyJob(null, { force })) {
+      this._pendingMyanmarTv = false;
+      logger.info('Peak football window — skip MyanmarTV (no backlog)');
+      return { ok: false, reason: 'peak_window' };
+    }
     if (this.channelsRunning) {
       logger.warn('MyanmarTV job already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };
@@ -1424,6 +1560,13 @@ class Pipeline {
       await this._drainQueuedJobs().catch((err) => {
         logger.error('Queued job drain failed', { error: err.message });
       });
+      if (!this.running && !this.highlightRunning && !this.tipsRunning) {
+        try {
+          await this.browser.close();
+        } catch {
+          // ignore
+        }
+      }
     }
   }
 
@@ -1435,23 +1578,45 @@ class Pipeline {
         if (this.running || this.highlightRunning || this.tipsRunning || this.channelsRunning) {
           return;
         }
-        if (this._pendingTips) {
-          this._pendingTips = false;
-          logger.info('Running queued tips job');
-          await this.runTips({ force: false });
-          continue;
-        }
-        if (this._pendingHighlights) {
+
+        // Peak: never drain lower-priority scrapers (avoid Match resource steal / backlog).
+        if (isFootballPeakWindow()) {
+          if (this._pendingHighlights || this._pendingTips || this._pendingMyanmarTv) {
+            logger.info('Peak window — dropping queued Highlights/Tips/MyanmarTV');
+          }
           this._pendingHighlights = false;
-          logger.info('Running queued highlight job');
-          await this.runHighlights({ force: false });
+          this._pendingTips = false;
+          this._pendingMyanmarTv = false;
+        }
+
+        // P0 Matches first — never permanently starved behind lower jobs.
+        if (this._pendingMatches) {
+          this._pendingMatches = false;
+          logger.info('Running queued Matches pipeline');
+          await this.run({ forceStreamCheck: false });
           continue;
         }
-        if (this._pendingMyanmarTv) {
-          this._pendingMyanmarTv = false;
-          logger.info('Running queued MyanmarTV job');
-          await this.runMyanmarTv({ force: false });
-          continue;
+
+        // P1 → P2 → P3 (only outside peak)
+        if (!isFootballPeakWindow()) {
+          if (this._pendingHighlights) {
+            this._pendingHighlights = false;
+            logger.info('Running queued highlight job');
+            await this.runHighlights({ force: false });
+            continue;
+          }
+          if (this._pendingTips) {
+            this._pendingTips = false;
+            logger.info('Running queued tips job');
+            await this.runTips({ force: false });
+            continue;
+          }
+          if (this._pendingMyanmarTv) {
+            this._pendingMyanmarTv = false;
+            logger.info('Running queued MyanmarTV job');
+            await this.runMyanmarTv({ force: false });
+            continue;
+          }
         }
         return;
       }
@@ -1483,6 +1648,11 @@ class Pipeline {
    */
   async runTips({ force = false } = {}) {
     this._clearStuckJobLocks();
+    if (!mayRunLowPriorityHeavyJob(null, { force })) {
+      this._pendingTips = false;
+      logger.info('Peak football window — skip Tips (no backlog)');
+      return { ok: false, reason: 'peak_window' };
+    }
     if (this.tipsRunning) {
       logger.warn('Tips job already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };

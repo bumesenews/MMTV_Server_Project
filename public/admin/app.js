@@ -241,7 +241,8 @@
 
     pageEl.innerHTML = `
       <div class="panel">
-        <p class="muted">Admin-only feed published to <code>mainlive.json</code> on GitHub. Separate from scraped <code>matches.json</code>. Date/time are <strong>Asia/Yangon</strong>.</p>
+        <p class="muted">Admin-only feed published to <code>mainlive.json</code> on GitHub. Separate from scraped <code>matches.json</code>.</p>
+        <p class="muted"><strong>Kickoff date/time = Asia/Yangon wall clock</strong> (not UTC, not your browser timezone). Example: enter <code>19:30</code> → stored as <code>19:30 +06:30</code>.</p>
         <h3>Add MainLive Match</h3>
         <form id="mainlive-create-form" class="grid-2">
           <label>League
@@ -259,7 +260,7 @@
           <label>Away team logo URL<input name="awayLogo" placeholder="https://.../away.png" /></label>
           <datalist id="mainlive-team-list">${teamOpts}</datalist>
           <label>Date (Asia/Yangon)<input name="date" type="date" required /></label>
-          <label>Time (Asia/Yangon)<input name="time" type="time" required /></label>
+          <label>Time (Asia/Yangon, 24h)<input name="time" type="time" required step="60" title="Yangon local time HH:mm" /></label>
           <label>Status
             <select name="status">
               <option>Scheduled</option>
@@ -294,7 +295,7 @@
                     <div class="muted" style="font-size:0.75rem">${esc(m.matchId)}</div>
                   </td>
                   <td>${esc(m.league || '')}${m.leagueIcon ? `<div><img src="${esc(m.leagueIcon)}" alt="" style="height:18px;margin-top:4px" /></div>` : ''}</td>
-                  <td>${esc(m.date || '')} ${esc(m.time || '')}</td>
+                  <td>${esc(m.date || '')} ${esc(m.time || '')} <span class="muted" style="font-size:0.7rem">Yangon</span></td>
                   <td><span class="badge ${m.status === 'LIVE' ? 'live' : ''}">${esc(m.status || '')}</span></td>
                   <td>${(m.streams || []).length}</td>
                   <td>
@@ -399,7 +400,7 @@
         });
       }
       try {
-        await api('/mainlive', {
+        const created = await api('/mainlive', {
           method: 'POST',
           body: JSON.stringify({
             league: fd.get('league'),
@@ -414,7 +415,8 @@
             streams,
           }),
         });
-        toast(`MainLive match created · ${streams.length} stream(s) · published`);
+        const t = created?.match?.time || fd.get('time');
+        toast(`MainLive created · kickoff ${t} Asia/Yangon · ${streams.length} stream(s)`);
         renderMainLive();
       } catch (err) {
         toast(err.message, 'error');
@@ -642,8 +644,8 @@
             <input name="awayTeam" list="team-list" required placeholder="Away team" />
           </label>
           <datalist id="team-list">${teamOpts}</datalist>
-          <label>Date<input name="date" type="date" required /></label>
-          <label>Time<input name="time" type="time" required /></label>
+          <label>Date (Asia/Yangon)<input name="date" type="date" required /></label>
+          <label>Time (Asia/Yangon, 24h)<input name="time" type="time" required step="60" title="Yangon local time HH:mm" /></label>
           <label>Status
             <select name="status">
               <option>Scheduled</option>
@@ -811,11 +813,17 @@
         if (!source) return toast('Select a source', 'error');
         if (!matchUrl) return toast('Enter a match page URL', 'error');
         try {
-          await api(`/matches/${encodeURIComponent(id)}/match-url`, {
+          const result = await api(`/matches/${encodeURIComponent(id)}/match-url`, {
             method: 'POST',
             body: JSON.stringify({ source, matchUrl }),
           });
-          toast('Match URL saved · stream extraction started');
+          if (result?.extractionQueued) {
+            toast('Match URL saved · stream extraction started');
+          } else if (result?.extractionEligible === false) {
+            toast('Match URL saved · m3u8 extract waits until −30 min');
+          } else {
+            toast('Match URL saved');
+          }
           renderMatches();
         } catch (err) {
           toast(err.message, 'error');

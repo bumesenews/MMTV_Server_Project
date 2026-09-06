@@ -1,6 +1,14 @@
 const express = require('express');
 const { authRequired, requireRole, ROLES } = require('../auth/middleware');
-const { formatDate, formatTime, toYangon, combineDateAndTime } = require('../../utils/time');
+const {
+  formatDate,
+  formatTime,
+  toYangon,
+  combineDateAndTime,
+  isStreamExtractEligible,
+  minutesUntilKickoff,
+  STREAM_EXTRACT_LEAD_MIN,
+} = require('../../utils/time');
 const { clearSourceMatchUrl } = require('../../utils/matchUrlDiscovery');
 const { assertFeedKey, feedSummary } = require('../services/feedAdminService');
 const { collectSourceFailuresFromMatches } = require('../services/dashboardService');
@@ -95,7 +103,7 @@ function createAdminRouter(ctx) {
     try {
       const { matchId } = req.params;
       const patch = req.body || {};
-      if (patch.kickoff) {
+      if (patch.kickoff && !(patch.date || patch.time)) {
         const dt = toYangon(patch.kickoff);
         if (dt) {
           patch.kickoff = dt.toISO();
@@ -103,6 +111,7 @@ function createAdminRouter(ctx) {
           patch.time = formatTime(dt);
         }
       }
+      // When admin sends date/time, MainLiveService treats them as Asia/Yangon wall clock.
       if (patch.status != null) patch.statusLocked = true;
 
       const match = ctx.mainLive.update(matchId, patch);
@@ -549,24 +558,36 @@ function createAdminRouter(ctx) {
         meta: { matchId, source: entry.source, url: entry.url },
       });
 
-      // Kick stream extraction on the confirmed page URL (non-blocking).
-      ctx.pipeline
-        .run({ forceStreamCheck: true })
-        .catch((err) => {
-          ctx.logService.add({
-            category: 'scraper',
-            action: 'manual_match_url_extract',
-            message: `Stream extract after manual match URL failed: ${err.message}`,
-            actor: req.admin.username,
-            meta: { matchId },
+      const match = current.matches[idx];
+      const minsUntilKickoff = minutesUntilKickoff(match?.kickoff);
+      const extractionEligible = isStreamExtractEligible(match?.kickoff);
+      // Save + CONFIRMED always. Only kick extract when inside −30‥+2h.
+      // forceStreamCheck still cannot bypass the −30 gate in StreamEngine.
+      let extractionQueued = false;
+      if (extractionEligible) {
+        extractionQueued = true;
+        ctx.pipeline
+          .run({ forceStreamCheck: true })
+          .catch((err) => {
+            ctx.logService.add({
+              category: 'scraper',
+              action: 'manual_match_url_extract',
+              message: `Stream extract after manual match URL failed: ${err.message}`,
+              actor: req.admin.username,
+              meta: { matchId },
+            });
           });
-        });
+      }
 
       res.json({
         ok: true,
         entry,
-        match: current.matches[idx],
+        match,
         published,
+        extractionEligible,
+        extractionQueued,
+        minutesUntilKickoff: minsUntilKickoff,
+        extractLeadMinutes: STREAM_EXTRACT_LEAD_MIN,
       });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });

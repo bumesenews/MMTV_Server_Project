@@ -113,6 +113,45 @@ function findStoredMatch(byId, incoming) {
  * only has an empty shell ({ sources: {}, slotsDone: {} }).
  * Per-source: never let a stub without matchUrl wipe a saved URL.
  */
+function preferMatchUrlStatus(a, b) {
+  const rank = (s) => {
+    if (s === 'MATCH_URL_CONFIRMED' || s === 'MATCH_CONFIRMED') return 3;
+    if (s === 'MATCH_URL_FOUND') return 2;
+    if (s === 'MATCH_URL_SEARCHING') return 1;
+    return 0;
+  };
+  return rank(a) >= rank(b) ? a || b : b || a;
+}
+
+function preferStreamStatus(a, b) {
+  const rank = (s) => {
+    if (s === 'AVAILABLE') return 4;
+    if (s === 'SEARCHING') return 3;
+    if (s === 'PREPARING_STREAM' || s === 'PREPARING') return 2;
+    if (s === 'FAILED') return 1;
+    return 0;
+  };
+  return rank(a) >= rank(b) ? a || b : b || a;
+}
+
+function firstActiveStreamUrl(streams) {
+  for (const s of streams || []) {
+    if (!s?.url || s.active === false) continue;
+    if (s.validation && s.validation.ok === false) continue;
+    return s.url;
+  }
+  return null;
+}
+
+function firstActiveStreamHeaders(streams) {
+  for (const s of streams || []) {
+    if (!s?.url || s.active === false) continue;
+    if (s.validation && s.validation.ok === false) continue;
+    return s.streamHeaders || s.headers || null;
+  }
+  return null;
+}
+
 function mergeSourceSearchEntry(prev, incoming) {
   const p = prev && typeof prev === 'object' ? prev : null;
   const n = incoming && typeof incoming === 'object' ? incoming : null;
@@ -131,6 +170,8 @@ function mergeSourceSearchEntry(prev, incoming) {
     slotsDone: { ...(p.slotsDone || {}), ...(n.slotsDone || {}) },
     // Keep stronger status when incoming has no URL of its own
     status: nextUrl || !prevUrl ? n.status || p.status : p.status || n.status,
+    // Admin-stamped URLs must survive empty FotMob / discovery shells
+    manual: Boolean(p.manual || n.manual),
   };
 }
 
@@ -167,6 +208,17 @@ function mergeSearchState(prev, incoming) {
 
 function combineMatchRecords(prev, incoming) {
   const mergedStreams = mergeStreamLists(prev.streams || [], incoming.streams || []);
+  const matchUrl = incoming.matchUrl || prev.matchUrl || null;
+  const streamUrl =
+    incoming.streamUrl ||
+    prev.streamUrl ||
+    firstActiveStreamUrl(mergedStreams.streams) ||
+    null;
+  const streamHeaders =
+    incoming.streamHeaders ||
+    prev.streamHeaders ||
+    firstActiveStreamHeaders(mergedStreams.streams) ||
+    null;
   const next = enrichMatchState({
     ...prev,
     ...incoming,
@@ -181,19 +233,12 @@ function combineMatchRecords(prev, incoming) {
       ...(incoming.streamAttempts || {}),
     },
     streamSearch: mergeSearchState(prev.streamSearch, incoming.streamSearch),
-    matchUrl: incoming.matchUrl || prev.matchUrl || null,
+    matchUrl,
     matchUrlStatus: (() => {
-      const url = incoming.matchUrl || prev.matchUrl || null;
-      const a = incoming.matchUrlStatus || null;
-      const b = prev.matchUrlStatus || null;
-      if (!url) return a || b || null;
-      const rank = (s) => {
-        if (s === 'MATCH_URL_CONFIRMED' || s === 'MATCH_CONFIRMED') return 3;
-        if (s === 'MATCH_URL_FOUND') return 2;
-        if (s === 'MATCH_URL_SEARCHING') return 1;
-        return 0;
-      };
-      return rank(a) >= rank(b) ? a || b : b || a;
+      if (!matchUrl) {
+        return preferMatchUrlStatus(incoming.matchUrlStatus, prev.matchUrlStatus);
+      }
+      return preferMatchUrlStatus(incoming.matchUrlStatus, prev.matchUrlStatus);
     })(),
     matchUrlAttempts: Math.max(
       Number(incoming.matchUrlAttempts) || 0,
@@ -211,6 +256,20 @@ function combineMatchRecords(prev, incoming) {
       ...(prev.originalNames || {}),
       ...(incoming.originalNames || {}),
     },
+    // Partial FotMob / progress shells must not null out playback fields
+    streamUrl,
+    streamHeaders,
+    streamStatus: preferStreamStatus(incoming.streamStatus, prev.streamStatus),
+    validationStatus: incoming.validationStatus || prev.validationStatus || null,
+    validationReason:
+      incoming.validationReason != null
+        ? incoming.validationReason
+        : prev.validationReason != null
+          ? prev.validationReason
+          : null,
+    attempts: Math.max(Number(incoming.attempts) || 0, Number(prev.attempts) || 0),
+    lastAttemptAt: incoming.lastAttemptAt || prev.lastAttemptAt || null,
+    h2h: incoming.h2h != null ? incoming.h2h : prev.h2h != null ? prev.h2h : null,
   });
   return { next, streamsAdded: mergedStreams.added };
 }
@@ -460,6 +519,7 @@ module.exports = {
   fotmobIdentity,
   collapseDuplicateFotmobMatches,
   mergeIncomingMatches,
+  combineMatchRecords,
   sanitizeLeagueLabels,
   matchAllowedOnCurrentList,
   syncMatchesForDelivery,

@@ -75,6 +75,15 @@ class DashboardService {
       leaguesTotal: this.leagues.list().length,
       lastScraperRun: this.pipeline.lastRun || null,
       scraperRunning: Boolean(this.pipeline.running),
+      runtime:
+        typeof this.pipeline.getRuntimeDiagnostics === 'function'
+          ? this.pipeline.getRuntimeDiagnostics()
+          : {
+              running: Boolean(this.pipeline.running),
+              tipsRunning: Boolean(this.pipeline.tipsRunning),
+              highlightRunning: Boolean(this.pipeline.highlightRunning),
+              channelsRunning: Boolean(this.pipeline.channelsRunning),
+            },
       lastGithubUpload: this.publish.lastGithub || payload?.meta?.lastGithub || current?.meta?.lastGithub || null,
       generatedAt: payload?.generatedAt || current?.generatedAt || null,
       awsServerStatus: {
