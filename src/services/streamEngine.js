@@ -138,6 +138,24 @@ class StreamEngine {
   }
 
   /**
+   * True extract never ran: no per-source attempts and no validated streams.
+   * Ignores a stale started=true stamp from the old idle path.
+   */
+  extractNeverReallyStarted(fixture) {
+    const search =
+      fixture?.streamSearch && typeof fixture.streamSearch === 'object'
+        ? fixture.streamSearch
+        : {};
+    if (search.stopped) return false;
+    if (Object.keys(search.sources || {}).length > 0) return false;
+    const hasStream =
+      Boolean(fixture?.streamUrl) ||
+      (Array.isArray(fixture?.streams) &&
+        fixture.streams.some((s) => isValidatedStream(s)));
+    return !hasStream;
+  }
+
+  /**
    * Pipeline hung through −30..+15 with no extract started.
    * Allow one catch-up search until kickoff+2h.
    */
@@ -145,7 +163,8 @@ class StreamEngine {
     const search = fixture?.streamSearch && typeof fixture.streamSearch === 'object'
       ? fixture.streamSearch
       : {};
-    if (search.started || search.stopped) return false;
+    if (search.stopped) return false;
+    if (!this.extractNeverReallyStarted(fixture)) return false;
     const mins = minutesUntilKickoff(fixture?.kickoff);
     if (mins == null) return false;
     if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
@@ -154,11 +173,14 @@ class StreamEngine {
   }
 
   /**
-   * Match URL arrived after the +15 extract stop — still pull m3u8 while LIVE.
+   * Match URL present (Admin/manual or discovery) but no validated m3u8 yet.
+   * Runs from −30 through kickoff+2h — not only after kickoff — so Admin URLs
+   * added mid-window are not stuck behind shouldCheck / missed slots.
    */
   lateUrlExtractCatchup(fixture) {
     const mins = minutesUntilKickoff(fixture?.kickoff);
-    if (mins == null || mins > 0) return false;
+    if (mins == null) return false;
+    if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
     if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
     return this.sources.some((s) => {
       if (!sourceHasSavedMatchUrl(getSourceMatchUrlState(fixture, s.name))) return false;
@@ -373,7 +395,14 @@ class StreamEngine {
           continue;
         }
 
-        if (!force && !this.shouldCheck(base)) {
+        const needsUrgentExtract =
+          this.missedExtractCatchup({ ...base, streamSearch }) ||
+          this.lateUrlExtractCatchup({ ...base, streamSearch }) ||
+          this.incompletePlayerCatchup({ ...base, streamSearch });
+
+        // Catch-up must not be blocked by lastCheck throttle — Admin Match URLs
+        // added while LIVE often land right after a recent idle cycle.
+        if (!force && !needsUrgentExtract && !this.shouldCheck(base)) {
           const idle = this.stampStreamFields(
             enrichMatchState({
               ...base,
@@ -392,21 +421,15 @@ class StreamEngine {
         );
         const slot =
           resolveStreamSearchSlot(base.kickoff) ||
-          ((this.missedExtractCatchup({ ...base, streamSearch }) ||
-            this.lateUrlExtractCatchup({ ...base, streamSearch }) ||
-            this.incompletePlayerCatchup({ ...base, streamSearch }))
-            ? this.catchupSlot()
-            : null);
+          (needsUrgentExtract ? this.catchupSlot() : null);
 
         if (!extract) {
+          // Do NOT stamp started=true here — that falsely blocks missedExtractCatchup
+          // when we never queued an extract job (e.g. no Match URL yet / no slot).
           const idle = this.stampStreamFields(
             enrichMatchState({
               ...base,
-              streamSearch: {
-                ...streamSearch,
-                started:
-                  streamSearch.started || (mins != null && mins <= STREAM_EXTRACT_LEAD_MIN),
-              },
+              streamSearch,
               streamAttempts: this.syncLegacyAttempts(streamSearch, mins),
             }),
             mins

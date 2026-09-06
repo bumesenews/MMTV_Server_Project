@@ -326,5 +326,74 @@ console.log('\n=== Phase 2: premature force does not markChecked throttle ===');
   );
 }
 
+console.log('\n=== Admin Match URL → m3u8 catchup (GitHub LIVE bug) ===');
+{
+  const engine = engineStub();
+
+  // Reproduce GitHub shape: CONFIRMED Match URL, streamSearch.started false, empty sources, LIVE past +15 stop
+  let live = fixtureAt(-20);
+  live = applyAdminMatchUrl(live, 'cakhia', 'https://cakhiazaa.tv/truc-tiep/example/');
+  live.streamSearch = { started: false, stopped: false, sources: {}, slotsDone: {} };
+  assert('lateUrl after kickoff with Admin URL', engine.lateUrlExtractCatchup(live) === true);
+  assert(
+    'shouldExtract without force (LIVE Admin URL)',
+    engine.shouldExtractStreams(live, { force: false }) === true
+  );
+
+  // Admin URL before kickoff but inside −30 (was blocked by lateUrl mins>0)
+  let pre = fixtureAt(20);
+  pre = applyAdminMatchUrl(pre, 'cakhia', 'https://cakhiazaa.tv/truc-tiep/pre/');
+  pre.streamSearch = { started: false, stopped: false, sources: {}, slotsDone: {} };
+  assert('lateUrl before kickoff with Admin URL', engine.lateUrlExtractCatchup(pre) === true);
+  assert(
+    'shouldExtract without force (pre-kickoff Admin URL)',
+    engine.shouldExtractStreams(pre, { force: false }) === true
+  );
+
+  // False started=true with empty sources must still catch up after +15 stop
+  let falseStarted = fixtureAt(-20);
+  falseStarted = applyAdminMatchUrl(
+    falseStarted,
+    'cakhia',
+    'https://cakhiazaa.tv/truc-tiep/false-started/'
+  );
+  falseStarted.streamSearch = {
+    started: true,
+    stopped: false,
+    sources: {},
+    slotsDone: {},
+  };
+  assert(
+    'extractNeverReallyStarted when started flag but empty sources',
+    engine.extractNeverReallyStarted(falseStarted) === true
+  );
+  assert(
+    'missedExtractCatchup despite false started',
+    engine.missedExtractCatchup(falseStarted) === true
+  );
+
+  // shouldCheck throttle must not block urgent Admin URL extract
+  let throttled = fixtureAt(-18);
+  throttled = applyAdminMatchUrl(
+    throttled,
+    'cakhia',
+    'https://cakhiazaa.tv/truc-tiep/throttled/'
+  );
+  throttled.streamSearch = { started: false, stopped: false, sources: {}, slotsDone: {} };
+  engine.markChecked(throttled.matchId);
+  assert(
+    'shouldCheck would skip (just checked)',
+    engine.shouldCheck(throttled) === false
+  );
+  assert(
+    'urgent catchup still true under throttle',
+    engine.lateUrlExtractCatchup(throttled) === true
+  );
+  assert(
+    'shouldExtract still true under throttle',
+    engine.shouldExtractStreams(throttled, { force: false }) === true
+  );
+}
+
 console.log(`\nPhase 2 results: ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

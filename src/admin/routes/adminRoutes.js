@@ -563,20 +563,32 @@ function createAdminRouter(ctx) {
       const extractionEligible = isStreamExtractEligible(match?.kickoff);
       // Save + CONFIRMED always. Only kick extract when inside −30‥+2h.
       // forceStreamCheck still cannot bypass the −30 gate in StreamEngine.
+      // If pipeline is busy, run() queues _pendingMatches + force for drain.
       let extractionQueued = false;
+      let extractionResult = null;
       if (extractionEligible) {
-        extractionQueued = true;
-        ctx.pipeline
-          .run({ forceStreamCheck: true })
-          .catch((err) => {
-            ctx.logService.add({
-              category: 'scraper',
-              action: 'manual_match_url_extract',
-              message: `Stream extract after manual match URL failed: ${err.message}`,
-              actor: req.admin.username,
-              meta: { matchId },
-            });
+        try {
+          extractionResult = await ctx.pipeline.run({ forceStreamCheck: true });
+          extractionQueued =
+            extractionResult?.ok === true || extractionResult?.queued === true;
+          if (!extractionQueued) {
+            // Defensive: ensure next drain still retries Admin extract.
+            ctx.pipeline._pendingMatches = true;
+            ctx.pipeline._pendingForceStreamCheck = true;
+            extractionQueued = true;
+          }
+        } catch (err) {
+          ctx.pipeline._pendingMatches = true;
+          ctx.pipeline._pendingForceStreamCheck = true;
+          extractionQueued = true;
+          ctx.logService.add({
+            category: 'scraper',
+            action: 'manual_match_url_extract',
+            message: `Stream extract after manual match URL failed (queued retry): ${err.message}`,
+            actor: req.admin.username,
+            meta: { matchId },
           });
+        }
       }
 
       res.json({
@@ -586,6 +598,7 @@ function createAdminRouter(ctx) {
         published,
         extractionEligible,
         extractionQueued,
+        extractionReason: extractionResult?.reason || null,
         minutesUntilKickoff: minsUntilKickoff,
         extractLeadMinutes: STREAM_EXTRACT_LEAD_MIN,
       });

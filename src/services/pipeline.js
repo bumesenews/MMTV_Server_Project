@@ -68,6 +68,8 @@ class Pipeline {
     this._pendingTips = false;
     this._pendingHighlights = false;
     this._pendingMatches = false;
+    /** Next queued Matches run should force stream extract (Admin Match URL). */
+    this._pendingForceStreamCheck = false;
     this._drainingQueued = false;
     this.lastDiscoveryAt = null;
     this.lastDiscoverySummary = null;
@@ -175,6 +177,7 @@ class Pipeline {
       },
       pending: {
         matches: Boolean(this._pendingMatches),
+        forceStreamCheck: Boolean(this._pendingForceStreamCheck),
         highlights: Boolean(this._pendingHighlights),
         tips: Boolean(this._pendingTips),
         myanmartv: Boolean(this._pendingMyanmarTv),
@@ -420,23 +423,29 @@ class Pipeline {
 
     this._clearStuckJobLocks();
     if (this.running) {
-      logger.warn('Pipeline skip', { reason: 'already_running' });
-      return { ok: false, reason: 'already_running' };
+      // Admin Match URL / force extract must not be dropped while a cycle is mid-flight.
+      this._pendingMatches = true;
+      if (forceStreamCheck) this._pendingForceStreamCheck = true;
+      logger.warn('Pipeline skip', { reason: 'already_running', queued: true });
+      return { ok: false, reason: 'already_running', queued: true };
     }
     // Never share Chromium / heavy work with highlight or MyanmarTV jobs on 1GB hosts.
     // Queue Matches so drain runs it before any lower-priority job.
     if (this.highlightRunning) {
       this._pendingMatches = true;
+      if (forceStreamCheck) this._pendingForceStreamCheck = true;
       logger.warn('Pipeline skip', { reason: 'highlight_running', queued: true });
       return { ok: false, reason: 'highlight_running', queued: true };
     }
     if (this.channelsRunning) {
       this._pendingMatches = true;
+      if (forceStreamCheck) this._pendingForceStreamCheck = true;
       logger.warn('Pipeline skip', { reason: 'channels_running', queued: true });
       return { ok: false, reason: 'channels_running', queued: true };
     }
     if (this.tipsRunning) {
       this._pendingMatches = true;
+      if (forceStreamCheck) this._pendingForceStreamCheck = true;
       logger.warn('Pipeline skip', { reason: 'tips_running', queued: true });
       return { ok: false, reason: 'tips_running', queued: true };
     }
@@ -1591,9 +1600,15 @@ class Pipeline {
 
         // P0 Matches first — never permanently starved behind lower jobs.
         if (this._pendingMatches) {
+          const forceStreamCheck = this._pendingForceStreamCheck;
           this._pendingMatches = false;
-          logger.info('Running queued Matches pipeline');
-          await this.run({ forceStreamCheck: false });
+          this._pendingForceStreamCheck = false;
+          logger.info('Running queued Matches pipeline', { forceStreamCheck });
+          const queuedResult = await this.run({ forceStreamCheck });
+          // If this drain attempt was re-queued (lock contention), keep force flag.
+          if (forceStreamCheck && queuedResult?.queued) {
+            this._pendingForceStreamCheck = true;
+          }
           continue;
         }
 
