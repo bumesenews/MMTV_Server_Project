@@ -265,10 +265,17 @@ class PublishService {
       extrasMerged
     );
 
-    // Refuse empty overwrite of a populated local matches feed.
-    // (GitHub already refuses empty; local must match — otherwise admin/Flutter
-    // go blank while GitHub still has data.)
-    if (this.cache.isEmptyPayload(payload) && previous?.matches?.length) {
+    // Refuse accidental empty scrape overwrite. Allow clearing when every
+    // remaining row expired (kickoff+2h) so yesterday's END matches do not stick.
+    const intentionalEmptyCleanup =
+      sync.removedExpired > 0 &&
+      sync.matches.length === 0 &&
+      !(Array.isArray(withOverrides) && withOverrides.length > 0);
+    if (
+      this.cache.isEmptyPayload(payload) &&
+      previous?.matches?.length &&
+      !intentionalEmptyCleanup
+    ) {
       return {
         ok: false,
         reason: 'refuse_empty',

@@ -1,25 +1,1254 @@
 {
   "version": 1,
-  "generatedAt": "2026-08-17T09:07:25.945+06:30",
+  "generatedAt": "2026-09-06T07:48:51.021+06:30",
   "timezone": "Asia/Yangon",
-  "matchCount": 4,
+  "matchCount": 34,
   "matches": [
     {
-      "matchId": "deportivo_a_coruna_elche_20260818",
-      "league": "La Liga",
-      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/87.png",
-      "homeTeam": "Deportivo A Coruña",
-      "awayTeam": "Elche",
-      "homeTeamId": 9783,
-      "awayTeamId": 10268,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9783.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10268.png",
-      "date": "2026-08-18",
-      "time": "1:30 AM",
-      "kickoff": "2026-08-18T01:30:00.000+06:30",
+      "matchId": "fluminense_vasco_da_gama_20260906",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
+      "homeTeam": "Fluminense",
+      "awayTeam": "Vasco da Gama",
+      "homeTeamId": 9863,
+      "awayTeamId": 10276,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9863.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10276.png",
+      "date": "2026-09-06",
+      "time": "6:30 AM",
+      "kickoff": "2026-09-06T06:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "LIVE",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 2,
+          "awayWins": 2
+        },
+        "matches": [
+          {
+            "date": "2026-08-06",
+            "homeTeam": "Fluminense",
+            "awayTeam": "Vasco da Gama",
+            "homeTeamId": 9863,
+            "awayTeamId": 10276,
+            "homeScore": 1,
+            "awayScore": 3,
+            "competition": "Copa do Brasil"
+          },
+          {
+            "date": "2026-08-01",
+            "homeTeam": "Vasco da Gama",
+            "awayTeam": "Fluminense",
+            "homeTeamId": 10276,
+            "awayTeamId": 9863,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Copa do Brasil"
+          },
+          {
+            "date": "2026-03-19",
+            "homeTeam": "Vasco da Gama",
+            "awayTeam": "Fluminense",
+            "homeTeamId": 10276,
+            "awayTeamId": 9863,
+            "homeScore": 3,
+            "awayScore": 2,
+            "competition": "Série A"
+          },
+          {
+            "date": "2026-03-01",
+            "homeTeam": "Fluminense",
+            "awayTeam": "Vasco da Gama",
+            "homeTeamId": 9863,
+            "awayTeamId": 10276,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Carioca Taca Rio Group B"
+          },
+          {
+            "date": "2026-02-22",
+            "homeTeam": "Vasco da Gama",
+            "awayTeam": "Fluminense",
+            "homeTeamId": 10276,
+            "awayTeamId": 9863,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Carioca Taca Rio Group B"
+          }
+        ]
+      },
+      "fotmobMatchId": 5103614,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Série A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Fluminense",
+          "awayTeam": "Vasco da Gama"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "SEARCHING",
+      "attempts": 0,
+      "validationStatus": "VALIDATING",
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:50.990Z"
+    },
+    {
+      "matchId": "fc_anyang_gangwon_fc_20260906",
+      "league": "K League 1 (KOR D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/919356.png",
+      "homeTeam": "FC Anyang",
+      "awayTeam": "Gangwon FC",
+      "homeTeamId": 429440,
+      "awayTeamId": 164734,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/429440.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/164734.png",
+      "date": "2026-09-06",
+      "time": "4:30 PM",
+      "kickoff": "2026-09-06T16:30:00.000+06:30",
       "timezone": "Asia/Yangon",
       "status": "Scheduled",
-      "fotmobMatchId": 5868014,
+      "h2h": {
+        "summary": {
+          "homeWins": 3,
+          "draws": 2,
+          "awayWins": 0
+        },
+        "matches": [
+          {
+            "date": "2026-07-26",
+            "homeTeam": "FC Anyang",
+            "awayTeam": "Gangwon FC",
+            "homeTeamId": 429440,
+            "awayTeamId": 164734,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "K-League 1"
+          },
+          {
+            "date": "2026-03-15",
+            "homeTeam": "Gangwon FC",
+            "awayTeam": "FC Anyang",
+            "homeTeamId": 164734,
+            "awayTeamId": 429440,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "K-League 1"
+          },
+          {
+            "date": "2025-10-05",
+            "homeTeam": "Gangwon FC",
+            "awayTeam": "FC Anyang",
+            "homeTeamId": 164734,
+            "awayTeamId": 429440,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "K-League 1"
+          },
+          {
+            "date": "2025-05-28",
+            "homeTeam": "Gangwon FC",
+            "awayTeam": "FC Anyang",
+            "homeTeamId": 164734,
+            "awayTeamId": 429440,
+            "homeScore": 1,
+            "awayScore": 3,
+            "competition": "K-League 1"
+          },
+          {
+            "date": "2025-04-06",
+            "homeTeam": "FC Anyang",
+            "awayTeam": "Gangwon FC",
+            "homeTeamId": 429440,
+            "awayTeamId": 164734,
+            "homeScore": 2,
+            "awayScore": 0,
+            "competition": "K-League 1"
+          }
+        ]
+      },
+      "fotmobMatchId": 5140022,
+      "leagueId": 919356,
+      "leagueName": "K League 1 (KOR D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "KOR K-League 1",
+          "country": "KOR",
+          "leagueId": 919356,
+          "homeTeam": "FC Anyang",
+          "awayTeam": "Gangwon FC"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:50.993Z"
+    },
+    {
+      "matchId": "gimcheon_sangmu_gwangju_fc_20260906",
+      "league": "K League 1 (KOR D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/919356.png",
+      "homeTeam": "Gimcheon Sangmu",
+      "awayTeam": "Gwangju FC",
+      "homeTeamId": 133901,
+      "awayTeamId": 245905,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/133901.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/245905.png",
+      "date": "2026-09-06",
+      "time": "4:30 PM",
+      "kickoff": "2026-09-06T16:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 0,
+          "draws": 4,
+          "awayWins": 1
+        },
+        "matches": [
+          {
+            "date": "2026-07-22",
+            "homeTeam": "Gwangju FC",
+            "awayTeam": "Gimcheon Sangmu",
+            "homeTeamId": 245905,
+            "awayTeamId": 133901,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "K-League 1"
+          },
+          {
+            "date": "2026-03-17",
+            "homeTeam": "Gimcheon Sangmu",
+            "awayTeam": "Gwangju FC",
+            "homeTeamId": 133901,
+            "awayTeamId": 245905,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "K-League 1"
+          },
+          {
+            "date": "2025-07-22",
+            "homeTeam": "Gwangju FC",
+            "awayTeam": "Gimcheon Sangmu",
+            "homeTeamId": 245905,
+            "awayTeamId": 133901,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "K-League 1"
+          },
+          {
+            "date": "2025-05-05",
+            "homeTeam": "Gwangju FC",
+            "awayTeam": "Gimcheon Sangmu",
+            "homeTeamId": 245905,
+            "awayTeamId": 133901,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "K-League 1"
+          },
+          {
+            "date": "2025-03-16",
+            "homeTeam": "Gimcheon Sangmu",
+            "awayTeam": "Gwangju FC",
+            "homeTeamId": 133901,
+            "awayTeamId": 245905,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "K-League 1"
+          }
+        ]
+      },
+      "fotmobMatchId": 5140023,
+      "leagueId": 919356,
+      "leagueName": "K League 1 (KOR D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "KOR K-League 1",
+          "country": "KOR",
+          "leagueId": 919356,
+          "homeTeam": "Gimcheon Sangmu",
+          "awayTeam": "Gwangju FC"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:50.994Z"
+    },
+    {
+      "matchId": "vizela_felgueiras_1932_20260906",
+      "league": "Liga Portugal (PRO D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/185.png",
+      "homeTeam": "Vizela",
+      "awayTeam": "Felgueiras 1932",
+      "homeTeamId": 4531,
+      "awayTeamId": 474326,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/4531.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/474326.png",
+      "date": "2026-09-06",
+      "time": "4:30 PM",
+      "kickoff": "2026-09-06T16:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 2,
+          "awayWins": 1
+        },
+        "matches": [
+          {
+            "date": "2026-03-08",
+            "homeTeam": "Felgueiras 1932",
+            "awayTeam": "Vizela",
+            "homeTeamId": 474326,
+            "awayTeamId": 4531,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Liga Portugal 2"
+          },
+          {
+            "date": "2025-10-24",
+            "homeTeam": "Vizela",
+            "awayTeam": "Felgueiras 1932",
+            "homeTeamId": 4531,
+            "awayTeamId": 474326,
+            "homeScore": 2,
+            "awayScore": 2,
+            "competition": "Liga Portugal 2"
+          },
+          {
+            "date": "2025-04-26",
+            "homeTeam": "Vizela",
+            "awayTeam": "Felgueiras 1932",
+            "homeTeamId": 4531,
+            "awayTeamId": 474326,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Liga Portugal 2"
+          },
+          {
+            "date": "2024-12-15",
+            "homeTeam": "Felgueiras 1932",
+            "awayTeam": "Vizela",
+            "homeTeamId": 474326,
+            "awayTeamId": 4531,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "Liga Portugal 2"
+          }
+        ]
+      },
+      "fotmobMatchId": 5888061,
+      "leagueId": 185,
+      "leagueName": "Liga Portugal (PRO D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "Liga Portugal 2",
+          "country": "POR",
+          "leagueId": 185,
+          "homeTeam": "Vizela",
+          "awayTeam": "Felgueiras 1932"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:50.995Z"
+    },
+    {
+      "matchId": "birmingham_wolverhampton_wanderers_20260906",
+      "league": "English Championship (ENG LCH)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/938218.png",
+      "homeTeam": "Birmingham",
+      "awayTeam": "Wolverhampton Wanderers",
+      "homeTeamId": 8658,
+      "awayTeamId": 8602,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8658.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8602.png",
+      "date": "2026-09-06",
+      "time": "5:30 PM",
+      "kickoff": "2026-09-06T17:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 1,
+          "awayWins": 3
+        },
+        "matches": [
+          {
+            "date": "2018-04-15",
+            "homeTeam": "Wolverhampton Wanderers",
+            "awayTeam": "Birmingham City",
+            "homeTeamId": 8602,
+            "awayTeamId": 8658,
+            "homeScore": 2,
+            "awayScore": 0,
+            "competition": "Championship"
+          },
+          {
+            "date": "2017-12-04",
+            "homeTeam": "Birmingham City",
+            "awayTeam": "Wolverhampton Wanderers",
+            "homeTeamId": 8658,
+            "awayTeamId": 8602,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Championship"
+          },
+          {
+            "date": "2017-02-24",
+            "homeTeam": "Wolverhampton Wanderers",
+            "awayTeam": "Birmingham City",
+            "homeTeamId": 8602,
+            "awayTeamId": 8658,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "Championship"
+          },
+          {
+            "date": "2016-08-20",
+            "homeTeam": "Birmingham City",
+            "awayTeam": "Wolverhampton Wanderers",
+            "homeTeamId": 8658,
+            "awayTeamId": 8602,
+            "homeScore": 1,
+            "awayScore": 3,
+            "competition": "Championship"
+          },
+          {
+            "date": "2016-03-13",
+            "homeTeam": "Wolverhampton Wanderers",
+            "awayTeam": "Birmingham City",
+            "homeTeamId": 8602,
+            "awayTeamId": 8658,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Championship"
+          }
+        ]
+      },
+      "fotmobMatchId": 5836802,
+      "leagueId": 938218,
+      "leagueName": "English Championship (ENG LCH)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ENG Championship",
+          "country": "ENG",
+          "leagueId": 938218,
+          "homeTeam": "Birmingham",
+          "awayTeam": "Wolves"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:50.996Z"
+    },
+    {
+      "matchId": "everton_manchester_united_20260906",
+      "league": "English Premier League (EPL)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/47.png",
+      "homeTeam": "Everton",
+      "awayTeam": "Manchester United",
+      "homeTeamId": 8668,
+      "awayTeamId": 10260,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8668.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10260.png",
+      "date": "2026-09-06",
+      "time": "7:30 PM",
+      "kickoff": "2026-09-06T19:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 2,
+          "awayWins": 2
+        },
+        "matches": [
+          {
+            "date": "2026-02-23",
+            "homeTeam": "Everton",
+            "awayTeam": "Manchester United",
+            "homeTeamId": 8668,
+            "awayTeamId": 10260,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Premier League"
+          },
+          {
+            "date": "2025-11-24",
+            "homeTeam": "Manchester United",
+            "awayTeam": "Everton",
+            "homeTeamId": 10260,
+            "awayTeamId": 8668,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Premier League"
+          },
+          {
+            "date": "2025-08-03",
+            "homeTeam": "Manchester United",
+            "awayTeam": "Everton",
+            "homeTeamId": 10260,
+            "awayTeamId": 8668,
+            "homeScore": 2,
+            "awayScore": 2,
+            "competition": "Premier League Summer Series"
+          },
+          {
+            "date": "2025-02-22",
+            "homeTeam": "Everton",
+            "awayTeam": "Manchester United",
+            "homeTeamId": 8668,
+            "awayTeamId": 10260,
+            "homeScore": 2,
+            "awayScore": 2,
+            "competition": "Premier League"
+          },
+          {
+            "date": "2024-12-01",
+            "homeTeam": "Manchester United",
+            "awayTeam": "Everton",
+            "homeTeamId": 10260,
+            "awayTeamId": 8668,
+            "homeScore": 4,
+            "awayScore": 0,
+            "competition": "Premier League"
+          }
+        ]
+      },
+      "fotmobMatchId": 5795438,
+      "leagueId": 47,
+      "leagueName": "English Premier League (EPL)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ENG Premier League",
+          "country": "ENG",
+          "leagueId": 47,
+          "homeTeam": "Everton",
+          "awayTeam": "Man United"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:50.997Z"
+    },
+    {
+      "matchId": "troyes_strasbourg_20260906",
+      "league": "Ligue 1",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/53.png",
+      "homeTeam": "Troyes",
+      "awayTeam": "Strasbourg",
+      "homeTeamId": 10242,
+      "awayTeamId": 9848,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10242.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9848.png",
+      "date": "2026-09-06",
+      "time": "7:30 PM",
+      "kickoff": "2026-09-06T19:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 3,
+          "awayWins": 1
+        },
+        "matches": [
+          {
+            "date": "2023-05-21",
+            "homeTeam": "Troyes",
+            "awayTeam": "Strasbourg",
+            "homeTeamId": 10242,
+            "awayTeamId": 9848,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Ligue 1"
+          },
+          {
+            "date": "2023-01-02",
+            "homeTeam": "Strasbourg",
+            "awayTeam": "Troyes",
+            "homeTeamId": 9848,
+            "awayTeamId": 10242,
+            "homeScore": 2,
+            "awayScore": 3,
+            "competition": "Ligue 1"
+          },
+          {
+            "date": "2022-04-17",
+            "homeTeam": "Troyes",
+            "awayTeam": "Strasbourg",
+            "homeTeamId": 10242,
+            "awayTeamId": 9848,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Ligue 1"
+          },
+          {
+            "date": "2021-08-22",
+            "homeTeam": "Strasbourg",
+            "awayTeam": "Troyes",
+            "homeTeamId": 9848,
+            "awayTeamId": 10242,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Ligue 1"
+          },
+          {
+            "date": "2018-02-11",
+            "homeTeam": "Strasbourg",
+            "awayTeam": "Troyes",
+            "homeTeamId": 9848,
+            "awayTeamId": 10242,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "Ligue 1"
+          }
+        ]
+      },
+      "fotmobMatchId": 5802927,
+      "leagueId": 53,
+      "leagueName": "Ligue 1",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "FRA Ligue 1",
+          "country": "FRA",
+          "leagueId": 53,
+          "homeTeam": "Troyes",
+          "awayTeam": "Strasbourg"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:50.998Z"
+    },
+    {
+      "matchId": "frosinone_venezia_20260906",
+      "league": "Serie A",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/55.png",
+      "homeTeam": "Frosinone",
+      "awayTeam": "Venezia",
+      "homeTeamId": 9891,
+      "awayTeamId": 7881,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9891.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/7881.png",
+      "date": "2026-09-06",
+      "time": "7:30 PM",
+      "kickoff": "2026-09-06T19:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 2,
+          "draws": 1,
+          "awayWins": 2
+        },
+        "matches": [
+          {
+            "date": "2026-02-07",
+            "homeTeam": "Frosinone",
+            "awayTeam": "Venezia",
+            "homeTeamId": 9891,
+            "awayTeamId": 7881,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "Serie B"
+          },
+          {
+            "date": "2025-10-04",
+            "homeTeam": "Venezia",
+            "awayTeam": "Frosinone",
+            "homeTeamId": 7881,
+            "awayTeamId": 9891,
+            "homeScore": 3,
+            "awayScore": 0,
+            "competition": "Serie B"
+          },
+          {
+            "date": "2023-03-05",
+            "homeTeam": "Frosinone",
+            "awayTeam": "Venezia",
+            "homeTeamId": 9891,
+            "awayTeamId": 7881,
+            "homeScore": 3,
+            "awayScore": 0,
+            "competition": "Serie B"
+          },
+          {
+            "date": "2022-10-14",
+            "homeTeam": "Venezia",
+            "awayTeam": "Frosinone",
+            "homeTeamId": 7881,
+            "awayTeamId": 9891,
+            "homeScore": 1,
+            "awayScore": 3,
+            "competition": "Serie B"
+          },
+          {
+            "date": "2021-08-15",
+            "homeTeam": "Venezia",
+            "awayTeam": "Frosinone",
+            "homeTeamId": 7881,
+            "awayTeamId": 9891,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Coppa Italia"
+          }
+        ]
+      },
+      "fotmobMatchId": 5749664,
+      "leagueId": 55,
+      "leagueName": "Serie A",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ITA Serie A",
+          "country": "ITA",
+          "leagueId": 55,
+          "homeTeam": "Frosinone",
+          "awayTeam": "Venezia"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:50.999Z"
+    },
+    {
+      "matchId": "parma_monza_20260906",
+      "league": "Serie A",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/55.png",
+      "homeTeam": "Parma",
+      "awayTeam": "Monza",
+      "homeTeamId": 10167,
+      "awayTeamId": 6504,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10167.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/6504.png",
+      "date": "2026-09-06",
+      "time": "7:30 PM",
+      "kickoff": "2026-09-06T19:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 3,
+          "awayWins": 0
+        },
+        "matches": [
+          {
+            "date": "2025-03-15",
+            "homeTeam": "Monza",
+            "awayTeam": "Parma",
+            "homeTeamId": 6504,
+            "awayTeamId": 10167,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2024-12-28",
+            "homeTeam": "Parma",
+            "awayTeam": "Monza",
+            "homeTeamId": 10167,
+            "awayTeamId": 6504,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2022-03-02",
+            "homeTeam": "Monza",
+            "awayTeam": "Parma",
+            "homeTeamId": 6504,
+            "awayTeamId": 10167,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Serie B"
+          },
+          {
+            "date": "2021-10-17",
+            "homeTeam": "Parma",
+            "awayTeam": "Monza",
+            "homeTeamId": 10167,
+            "awayTeamId": 6504,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Serie B"
+          }
+        ]
+      },
+      "fotmobMatchId": 5749668,
+      "leagueId": 55,
+      "leagueName": "Serie A",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ITA Serie A",
+          "country": "ITA",
+          "leagueId": 55,
+          "homeTeam": "Parma",
+          "awayTeam": "Monza"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.004Z"
+    },
+    {
+      "matchId": "hamburger_sv_mainz_05_20260906",
+      "league": "Bundesliga",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/54.png",
+      "homeTeam": "Hamburger SV",
+      "awayTeam": "Mainz 05",
+      "homeTeamId": 9790,
+      "awayTeamId": 9905,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9790.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9905.png",
+      "date": "2026-09-06",
+      "time": "8:00 PM",
+      "kickoff": "2026-09-06T20:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 3,
+          "awayWins": 1
+        },
+        "matches": [
+          {
+            "date": "2026-02-20",
+            "homeTeam": "Mainz 05",
+            "awayTeam": "Hamburger SV",
+            "homeTeamId": 9905,
+            "awayTeamId": 9790,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Bundesliga"
+          },
+          {
+            "date": "2025-10-05",
+            "homeTeam": "Hamburger SV",
+            "awayTeam": "Mainz 05",
+            "homeTeamId": 9790,
+            "awayTeamId": 9905,
+            "homeScore": 4,
+            "awayScore": 0,
+            "competition": "Bundesliga"
+          },
+          {
+            "date": "2018-03-03",
+            "homeTeam": "Hamburger SV",
+            "awayTeam": "Mainz 05",
+            "homeTeamId": 9790,
+            "awayTeamId": 9905,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "1. Bundesliga"
+          },
+          {
+            "date": "2017-10-14",
+            "homeTeam": "Mainz 05",
+            "awayTeam": "Hamburger SV",
+            "homeTeamId": 9905,
+            "awayTeamId": 9790,
+            "homeScore": 3,
+            "awayScore": 2,
+            "competition": "1. Bundesliga"
+          },
+          {
+            "date": "2017-05-07",
+            "homeTeam": "Hamburger SV",
+            "awayTeam": "Mainz 05",
+            "homeTeamId": 9790,
+            "awayTeamId": 9905,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Bundesliga"
+          }
+        ]
+      },
+      "fotmobMatchId": 5881155,
+      "leagueId": 54,
+      "leagueName": "Bundesliga",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "GER Bundesliga",
+          "country": "GER",
+          "leagueId": 54,
+          "homeTeam": "Hamburger SV",
+          "awayTeam": "Mainz"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.006Z"
+    },
+    {
+      "matchId": "coritiba_mirassol_20260906",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
+      "homeTeam": "Coritiba",
+      "awayTeam": "Mirassol",
+      "homeTeamId": 9767,
+      "awayTeamId": 163782,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9767.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/163782.png",
+      "date": "2026-09-06",
+      "time": "8:30 PM",
+      "kickoff": "2026-09-06T20:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 0,
+          "awayWins": 2
+        },
+        "matches": [
+          {
+            "date": "2026-03-18",
+            "homeTeam": "Mirassol",
+            "awayTeam": "Coritiba",
+            "homeTeamId": 163782,
+            "awayTeamId": 9767,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Série A"
+          },
+          {
+            "date": "2024-11-06",
+            "homeTeam": "Mirassol",
+            "awayTeam": "Coritiba",
+            "homeTeamId": 163782,
+            "awayTeamId": 9767,
+            "homeScore": 4,
+            "awayScore": 1,
+            "competition": "Serie B"
+          },
+          {
+            "date": "2024-07-20",
+            "homeTeam": "Coritiba",
+            "awayTeam": "Mirassol",
+            "homeTeamId": 9767,
+            "awayTeamId": 163782,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Serie B"
+          }
+        ]
+      },
+      "fotmobMatchId": 5103621,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Série A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Coritiba",
+          "awayTeam": "Mirassol"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.007Z"
+    },
+    {
+      "matchId": "valencia_barcelona_20260906",
+      "league": "La Liga",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/87.png",
+      "homeTeam": "Valencia",
+      "awayTeam": "Barcelona",
+      "homeTeamId": 10267,
+      "awayTeamId": 8634,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10267.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8634.png",
+      "date": "2026-09-06",
+      "time": "8:45 PM",
+      "kickoff": "2026-09-06T20:45:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 0,
+          "awayWins": 4
+        },
+        "matches": [
+          {
+            "date": "2026-05-23",
+            "homeTeam": "Valencia",
+            "awayTeam": "Barcelona",
+            "homeTeamId": 10267,
+            "awayTeamId": 8634,
+            "homeScore": 3,
+            "awayScore": 1,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2025-09-14",
+            "homeTeam": "Barcelona",
+            "awayTeam": "Valencia",
+            "homeTeamId": 8634,
+            "awayTeamId": 10267,
+            "homeScore": 6,
+            "awayScore": 0,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2025-02-06",
+            "homeTeam": "Valencia",
+            "awayTeam": "Barcelona",
+            "homeTeamId": 10267,
+            "awayTeamId": 8634,
+            "homeScore": 0,
+            "awayScore": 5,
+            "competition": "Copa del Rey"
+          },
+          {
+            "date": "2025-01-26",
+            "homeTeam": "Barcelona",
+            "awayTeam": "Valencia",
+            "homeTeamId": 8634,
+            "awayTeamId": 10267,
+            "homeScore": 7,
+            "awayScore": 1,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2024-08-17",
+            "homeTeam": "Valencia",
+            "awayTeam": "Barcelona",
+            "homeTeamId": 10267,
+            "awayTeamId": 8634,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "LaLiga"
+          }
+        ]
+      },
+      "fotmobMatchId": 5868049,
       "leagueId": 87,
       "leagueName": "La Liga",
       "source": "fotmob",
@@ -34,8 +1263,8 @@
           "league": "ESP LaLiga",
           "country": "ESP",
           "leagueId": 87,
-          "homeTeam": "Deportivo A Coruña",
-          "awayTeam": "Elche"
+          "homeTeam": "Valencia",
+          "awayTeam": "Barcelona"
         }
       },
       "sourcePages": {},
@@ -53,35 +1282,1443 @@
       "validationStatus": null,
       "validationReason": null,
       "lastAttemptAt": null,
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "matchUrlSearch": {
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-17T02:37:25.941Z"
+      "updatedAt": "2026-09-06T01:18:51.008Z"
     },
     {
-      "matchId": "internacional_remo_20260818",
-      "league": "Brazil Serie A (BRA D1)",
-      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
-      "homeTeam": "Internacional",
-      "awayTeam": "Remo",
-      "homeTeamId": 8702,
-      "awayTeamId": 1626,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8702.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1626.png",
-      "date": "2026-08-18",
-      "time": "5:30 AM",
-      "kickoff": "2026-08-18T05:30:00.000+06:30",
+      "matchId": "santa_clara_rio_ave_20260906",
+      "league": "Liga Portugal (PRO D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/61.png",
+      "homeTeam": "Santa Clara",
+      "awayTeam": "Rio Ave",
+      "homeTeamId": 1567,
+      "awayTeamId": 7841,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1567.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/7841.png",
+      "date": "2026-09-06",
+      "time": "9:00 PM",
+      "kickoff": "2026-09-06T21:00:00.000+06:30",
       "timezone": "Asia/Yangon",
       "status": "Scheduled",
-      "fotmobMatchId": 5103590,
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 2,
+          "awayWins": 2
+        },
+        "matches": [
+          {
+            "date": "2026-04-11",
+            "homeTeam": "Santa Clara",
+            "awayTeam": "Rio Ave",
+            "homeTeamId": 1567,
+            "awayTeamId": 7841,
+            "homeScore": 0,
+            "awayScore": 2,
+            "competition": "Liga Portugal"
+          },
+          {
+            "date": "2025-11-30",
+            "homeTeam": "Rio Ave",
+            "awayTeam": "Santa Clara",
+            "homeTeamId": 7841,
+            "awayTeamId": 1567,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Liga Portugal"
+          },
+          {
+            "date": "2025-04-18",
+            "homeTeam": "Rio Ave",
+            "awayTeam": "Santa Clara",
+            "homeTeamId": 7841,
+            "awayTeamId": 1567,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Liga Portugal"
+          },
+          {
+            "date": "2024-12-07",
+            "homeTeam": "Santa Clara",
+            "awayTeam": "Rio Ave",
+            "homeTeamId": 1567,
+            "awayTeamId": 7841,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Liga Portugal"
+          },
+          {
+            "date": "2023-03-17",
+            "homeTeam": "Santa Clara",
+            "awayTeam": "Rio Ave",
+            "homeTeamId": 1567,
+            "awayTeamId": 7841,
+            "homeScore": 0,
+            "awayScore": 2,
+            "competition": "Liga Portugal"
+          }
+        ]
+      },
+      "fotmobMatchId": 5887624,
+      "leagueId": 61,
+      "leagueName": "Liga Portugal (PRO D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "Liga Portugal",
+          "country": "POR",
+          "leagueId": 61,
+          "homeTeam": "Santa Clara",
+          "awayTeam": "Rio Ave"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.008Z"
+    },
+    {
+      "matchId": "leixoes_amarante_fc_20260906",
+      "league": "Liga Portugal (PRO D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/185.png",
+      "homeTeam": "Leixões",
+      "awayTeam": "Amarante FC",
+      "homeTeamId": 6421,
+      "awayTeamId": 280216,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/6421.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/280216.png",
+      "date": "2026-09-06",
+      "time": "9:00 PM",
+      "kickoff": "2026-09-06T21:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 0,
+          "awayWins": 0
+        },
+        "matches": [
+          {
+            "date": "2025-10-19",
+            "homeTeam": "Amarante FC",
+            "awayTeam": "Leixões",
+            "homeTeamId": 280216,
+            "awayTeamId": 6421,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "Taca de Portugal"
+          }
+        ]
+      },
+      "fotmobMatchId": 5888058,
+      "leagueId": 185,
+      "leagueName": "Liga Portugal (PRO D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "Liga Portugal 2",
+          "country": "POR",
+          "leagueId": 185,
+          "homeTeam": "Leixões",
+          "awayTeam": "Amarante FC"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.009Z"
+    },
+    {
+      "matchId": "angers_rennes_20260906",
+      "league": "Ligue 1",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/53.png",
+      "homeTeam": "Angers",
+      "awayTeam": "Rennes",
+      "homeTeamId": 8121,
+      "awayTeamId": 9851,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8121.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9851.png",
+      "date": "2026-09-06",
+      "time": "9:45 PM",
+      "kickoff": "2026-09-06T21:45:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 0,
+          "draws": 1,
+          "awayWins": 4
+        },
+        "matches": [
+          {
+            "date": "2026-04-11",
+            "homeTeam": "Rennes",
+            "awayTeam": "Angers",
+            "homeTeamId": 9851,
+            "awayTeamId": 8121,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "Ligue 1"
+          },
+          {
+            "date": "2025-08-31",
+            "homeTeam": "Angers",
+            "awayTeam": "Rennes",
+            "homeTeamId": 8121,
+            "awayTeamId": 9851,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Ligue 1"
+          },
+          {
+            "date": "2025-03-30",
+            "homeTeam": "Angers",
+            "awayTeam": "Rennes",
+            "homeTeamId": 8121,
+            "awayTeamId": 9851,
+            "homeScore": 0,
+            "awayScore": 3,
+            "competition": "Ligue 1"
+          },
+          {
+            "date": "2024-12-15",
+            "homeTeam": "Rennes",
+            "awayTeam": "Angers",
+            "homeTeamId": 9851,
+            "awayTeamId": 8121,
+            "homeScore": 2,
+            "awayScore": 0,
+            "competition": "Ligue 1"
+          },
+          {
+            "date": "2024-07-27",
+            "homeTeam": "Rennes",
+            "awayTeam": "Angers",
+            "homeTeamId": 9851,
+            "awayTeamId": 8121,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "Club Friendlies"
+          }
+        ]
+      },
+      "fotmobMatchId": 5802919,
+      "leagueId": 53,
+      "leagueName": "Ligue 1",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "FRA Ligue 1",
+          "country": "FRA",
+          "leagueId": 53,
+          "homeTeam": "Angers",
+          "awayTeam": "Rennes"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.009Z"
+    },
+    {
+      "matchId": "arsenal_chelsea_20260906",
+      "league": "English Premier League (EPL)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/47.png",
+      "homeTeam": "Arsenal",
+      "awayTeam": "Chelsea",
+      "homeTeamId": 9825,
+      "awayTeamId": 8455,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9825.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8455.png",
+      "date": "2026-09-06",
+      "time": "10:00 PM",
+      "kickoff": "2026-09-06T22:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 4,
+          "draws": 1,
+          "awayWins": 0
+        },
+        "matches": [
+          {
+            "date": "2026-03-01",
+            "homeTeam": "Arsenal",
+            "awayTeam": "Chelsea",
+            "homeTeamId": 9825,
+            "awayTeamId": 8455,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "Premier League"
+          },
+          {
+            "date": "2026-02-03",
+            "homeTeam": "Arsenal",
+            "awayTeam": "Chelsea",
+            "homeTeamId": 9825,
+            "awayTeamId": 8455,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "EFL Cup"
+          },
+          {
+            "date": "2026-01-14",
+            "homeTeam": "Chelsea",
+            "awayTeam": "Arsenal",
+            "homeTeamId": 8455,
+            "awayTeamId": 9825,
+            "homeScore": 2,
+            "awayScore": 3,
+            "competition": "EFL Cup"
+          },
+          {
+            "date": "2025-11-30",
+            "homeTeam": "Chelsea",
+            "awayTeam": "Arsenal",
+            "homeTeamId": 8455,
+            "awayTeamId": 9825,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Premier League"
+          },
+          {
+            "date": "2025-03-16",
+            "homeTeam": "Arsenal",
+            "awayTeam": "Chelsea",
+            "homeTeamId": 9825,
+            "awayTeamId": 8455,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Premier League"
+          }
+        ]
+      },
+      "fotmobMatchId": 5795435,
+      "leagueId": 47,
+      "leagueName": "English Premier League (EPL)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ENG Premier League",
+          "country": "ENG",
+          "leagueId": 47,
+          "homeTeam": "Arsenal",
+          "awayTeam": "Chelsea"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.010Z"
+    },
+    {
+      "matchId": "eintracht_frankfurt_fc_augsburg_20260906",
+      "league": "Bundesliga",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/54.png",
+      "homeTeam": "Eintracht Frankfurt",
+      "awayTeam": "FC Augsburg",
+      "homeTeamId": 9810,
+      "awayTeamId": 8406,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9810.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8406.png",
+      "date": "2026-09-06",
+      "time": "10:00 PM",
+      "kickoff": "2026-09-06T22:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 2,
+          "draws": 3,
+          "awayWins": 0
+        },
+        "matches": [
+          {
+            "date": "2026-04-25",
+            "homeTeam": "Augsburg",
+            "awayTeam": "Eintracht Frankfurt",
+            "homeTeamId": 8406,
+            "awayTeamId": 9810,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Bundesliga"
+          },
+          {
+            "date": "2025-12-13",
+            "homeTeam": "Eintracht Frankfurt",
+            "awayTeam": "Augsburg",
+            "homeTeamId": 9810,
+            "awayTeamId": 8406,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Bundesliga"
+          },
+          {
+            "date": "2025-04-20",
+            "homeTeam": "Augsburg",
+            "awayTeam": "Eintracht Frankfurt",
+            "homeTeamId": 8406,
+            "awayTeamId": 9810,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Bundesliga"
+          },
+          {
+            "date": "2024-12-07",
+            "homeTeam": "Eintracht Frankfurt",
+            "awayTeam": "Augsburg",
+            "homeTeamId": 9810,
+            "awayTeamId": 8406,
+            "homeScore": 2,
+            "awayScore": 2,
+            "competition": "Bundesliga"
+          },
+          {
+            "date": "2024-04-19",
+            "homeTeam": "Eintracht Frankfurt",
+            "awayTeam": "Augsburg",
+            "homeTeamId": 9810,
+            "awayTeamId": 8406,
+            "homeScore": 3,
+            "awayScore": 1,
+            "competition": "Bundesliga"
+          }
+        ]
+      },
+      "fotmobMatchId": 5881154,
+      "leagueId": 54,
+      "leagueName": "Bundesliga",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "GER Bundesliga",
+          "country": "GER",
+          "leagueId": 54,
+          "homeTeam": "Frankfurt",
+          "awayTeam": "Augsburg"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.010Z"
+    },
+    {
+      "matchId": "bologna_sassuolo_20260906",
+      "league": "Serie A",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/55.png",
+      "homeTeam": "Bologna",
+      "awayTeam": "Sassuolo",
+      "homeTeamId": 9857,
+      "awayTeamId": 7943,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9857.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/7943.png",
+      "date": "2026-09-06",
+      "time": "10:30 PM",
+      "kickoff": "2026-09-06T22:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 2,
+          "draws": 3,
+          "awayWins": 0
+        },
+        "matches": [
+          {
+            "date": "2026-03-15",
+            "homeTeam": "Sassuolo",
+            "awayTeam": "Bologna",
+            "homeTeamId": 7943,
+            "awayTeamId": 9857,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2025-12-28",
+            "homeTeam": "Bologna",
+            "awayTeam": "Sassuolo",
+            "homeTeamId": 9857,
+            "awayTeamId": 7943,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2024-02-03",
+            "homeTeam": "Bologna",
+            "awayTeam": "Sassuolo",
+            "homeTeamId": 9857,
+            "awayTeamId": 7943,
+            "homeScore": 4,
+            "awayScore": 2,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2023-10-28",
+            "homeTeam": "Sassuolo",
+            "awayTeam": "Bologna",
+            "homeTeamId": 7943,
+            "awayTeamId": 9857,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2023-05-08",
+            "homeTeam": "Sassuolo",
+            "awayTeam": "Bologna",
+            "homeTeamId": 7943,
+            "awayTeamId": 9857,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Serie A"
+          }
+        ]
+      },
+      "fotmobMatchId": 5749661,
+      "leagueId": 55,
+      "leagueName": "Serie A",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ITA Serie A",
+          "country": "ITA",
+          "leagueId": 55,
+          "homeTeam": "Bologna",
+          "awayTeam": "Sassuolo"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.010Z"
+    },
+    {
+      "matchId": "alaves_osasuna_20260906",
+      "league": "La Liga",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/87.png",
+      "homeTeam": "Alaves",
+      "awayTeam": "Osasuna",
+      "homeTeamId": 9866,
+      "awayTeamId": 8371,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9866.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8371.png",
+      "date": "2026-09-06",
+      "time": "11:00 PM",
+      "kickoff": "2026-09-06T23:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 3,
+          "awayWins": 1
+        },
+        "matches": [
+          {
+            "date": "2026-04-05",
+            "homeTeam": "Deportivo Alavés",
+            "awayTeam": "Osasuna",
+            "homeTeamId": 9866,
+            "awayTeamId": 8371,
+            "homeScore": 2,
+            "awayScore": 2,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2025-12-20",
+            "homeTeam": "Osasuna",
+            "awayTeam": "Deportivo Alavés",
+            "homeTeamId": 8371,
+            "awayTeamId": 9866,
+            "homeScore": 3,
+            "awayScore": 0,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2025-05-24",
+            "homeTeam": "Deportivo Alavés",
+            "awayTeam": "Osasuna",
+            "homeTeamId": 9866,
+            "awayTeamId": 8371,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2024-12-08",
+            "homeTeam": "Osasuna",
+            "awayTeam": "Deportivo Alavés",
+            "homeTeamId": 8371,
+            "awayTeamId": 9866,
+            "homeScore": 2,
+            "awayScore": 2,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2024-08-10",
+            "homeTeam": "Osasuna",
+            "awayTeam": "Deportivo Alavés",
+            "homeTeamId": 8371,
+            "awayTeamId": 9866,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "Club Friendlies"
+          }
+        ]
+      },
+      "fotmobMatchId": 5868041,
+      "leagueId": 87,
+      "leagueName": "La Liga",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ESP LaLiga",
+          "country": "ESP",
+          "leagueId": 87,
+          "homeTeam": "Deportivo Alavés",
+          "awayTeam": "Osasuna"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.011Z"
+    },
+    {
+      "matchId": "malaga_levante_20260906",
+      "league": "La Liga",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/87.png",
+      "homeTeam": "Malaga",
+      "awayTeam": "Levante",
+      "homeTeamId": 9864,
+      "awayTeamId": 8581,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9864.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8581.png",
+      "date": "2026-09-06",
+      "time": "11:00 PM",
+      "kickoff": "2026-09-06T23:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 0,
+          "draws": 2,
+          "awayWins": 3
+        },
+        "matches": [
+          {
+            "date": "2025-02-08",
+            "homeTeam": "Málaga",
+            "awayTeam": "Levante",
+            "homeTeamId": 9864,
+            "awayTeamId": 8581,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "LaLiga2"
+          },
+          {
+            "date": "2024-11-27",
+            "homeTeam": "Levante",
+            "awayTeam": "Málaga",
+            "homeTeamId": 8581,
+            "awayTeamId": 9864,
+            "homeScore": 4,
+            "awayScore": 2,
+            "competition": "LaLiga2"
+          },
+          {
+            "date": "2023-03-17",
+            "homeTeam": "Málaga",
+            "awayTeam": "Levante",
+            "homeTeamId": 9864,
+            "awayTeamId": 8581,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "LaLiga2"
+          },
+          {
+            "date": "2022-12-04",
+            "homeTeam": "Levante",
+            "awayTeam": "Málaga",
+            "homeTeamId": 8581,
+            "awayTeamId": 9864,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "LaLiga2"
+          },
+          {
+            "date": "2018-04-19",
+            "homeTeam": "Levante",
+            "awayTeam": "Málaga",
+            "homeTeamId": 8581,
+            "awayTeamId": 9864,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "LaLiga"
+          }
+        ]
+      },
+      "fotmobMatchId": 5868047,
+      "leagueId": 87,
+      "leagueName": "La Liga",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ESP LaLiga",
+          "country": "ESP",
+          "leagueId": 87,
+          "homeTeam": "Málaga",
+          "awayTeam": "Levante"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.011Z"
+    },
+    {
+      "matchId": "vitoria_de_guimaraes_casa_pia_ac_20260906",
+      "league": "Liga Portugal (PRO D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/61.png",
+      "homeTeam": "Vitória de Guimarães",
+      "awayTeam": "Casa Pia AC",
+      "homeTeamId": 7844,
+      "awayTeamId": 212821,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/7844.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/212821.png",
+      "date": "2026-09-06",
+      "time": "11:30 PM",
+      "kickoff": "2026-09-06T23:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 2,
+          "awayWins": 2
+        },
+        "matches": [
+          {
+            "date": "2026-05-11",
+            "homeTeam": "Vitória de Guimarães",
+            "awayTeam": "Casa Pia AC",
+            "homeTeamId": 7844,
+            "awayTeamId": 212821,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Liga Portugal"
+          },
+          {
+            "date": "2025-12-28",
+            "homeTeam": "Casa Pia AC",
+            "awayTeam": "Vitória de Guimarães",
+            "homeTeamId": 212821,
+            "awayTeamId": 7844,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Liga Portugal"
+          },
+          {
+            "date": "2025-03-01",
+            "homeTeam": "Vitória de Guimarães",
+            "awayTeam": "Casa Pia AC",
+            "homeTeamId": 7844,
+            "awayTeamId": 212821,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Liga Portugal"
+          },
+          {
+            "date": "2024-09-28",
+            "homeTeam": "Casa Pia AC",
+            "awayTeam": "Vitória de Guimarães",
+            "homeTeamId": 212821,
+            "awayTeamId": 7844,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Liga Portugal"
+          },
+          {
+            "date": "2024-02-24",
+            "homeTeam": "Vitória de Guimarães",
+            "awayTeam": "Casa Pia AC",
+            "homeTeamId": 7844,
+            "awayTeamId": 212821,
+            "homeScore": 0,
+            "awayScore": 2,
+            "competition": "Liga Portugal"
+          }
+        ]
+      },
+      "fotmobMatchId": 5887626,
+      "leagueId": 61,
+      "leagueName": "Liga Portugal (PRO D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "Liga Portugal",
+          "country": "POR",
+          "leagueId": 61,
+          "homeTeam": "Vitória de Guimarães",
+          "awayTeam": "Casa Pia AC"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.011Z"
+    },
+    {
+      "matchId": "uniao_de_leiria_portimonense_20260906",
+      "league": "Liga Portugal (PRO D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/185.png",
+      "homeTeam": "União de Leiria",
+      "awayTeam": "Portimonense",
+      "homeTeamId": 9771,
+      "awayTeamId": 9765,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9771.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9765.png",
+      "date": "2026-09-06",
+      "time": "11:30 PM",
+      "kickoff": "2026-09-06T23:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 4,
+          "draws": 1,
+          "awayWins": 0
+        },
+        "matches": [
+          {
+            "date": "2026-02-28",
+            "homeTeam": "União de Leiria",
+            "awayTeam": "Portimonense",
+            "homeTeamId": 9771,
+            "awayTeamId": 9765,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Liga Portugal 2"
+          },
+          {
+            "date": "2025-10-04",
+            "homeTeam": "Portimonense",
+            "awayTeam": "União de Leiria",
+            "homeTeamId": 9765,
+            "awayTeamId": 9771,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Liga Portugal 2"
+          },
+          {
+            "date": "2025-01-26",
+            "homeTeam": "União de Leiria",
+            "awayTeam": "Portimonense",
+            "homeTeamId": 9771,
+            "awayTeamId": 9765,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Liga Portugal 2"
+          },
+          {
+            "date": "2024-08-17",
+            "homeTeam": "Portimonense",
+            "awayTeam": "União de Leiria",
+            "homeTeamId": 9765,
+            "awayTeamId": 9771,
+            "homeScore": 0,
+            "awayScore": 3,
+            "competition": "Liga Portugal 2"
+          },
+          {
+            "date": "2020-11-20",
+            "homeTeam": "União de Leiria",
+            "awayTeam": "Portimonense",
+            "homeTeamId": 9771,
+            "awayTeamId": 9765,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Cup"
+          }
+        ]
+      },
+      "fotmobMatchId": 5888056,
+      "leagueId": 185,
+      "leagueName": "Liga Portugal (PRO D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "Liga Portugal 2",
+          "country": "POR",
+          "leagueId": 185,
+          "homeTeam": "União de Leiria",
+          "awayTeam": "Portimonense"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.012Z"
+    },
+    {
+      "matchId": "olympique_marseille_paris_fc_20260907",
+      "league": "Ligue 1",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/53.png",
+      "homeTeam": "Olympique Marseille",
+      "awayTeam": "Paris FC",
+      "homeTeamId": 8592,
+      "awayTeamId": 6379,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8592.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/6379.png",
+      "date": "2026-09-07",
+      "time": "1:15 AM",
+      "kickoff": "2026-09-07T01:15:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 1,
+          "awayWins": 0
+        },
+        "matches": [
+          {
+            "date": "2026-01-31",
+            "homeTeam": "Paris FC",
+            "awayTeam": "Marseille",
+            "homeTeamId": 6379,
+            "awayTeamId": 8592,
+            "homeScore": 2,
+            "awayScore": 2,
+            "competition": "Ligue 1"
+          },
+          {
+            "date": "2025-08-23",
+            "homeTeam": "Marseille",
+            "awayTeam": "Paris FC",
+            "homeTeamId": 8592,
+            "awayTeamId": 6379,
+            "homeScore": 5,
+            "awayScore": 2,
+            "competition": "Ligue 1"
+          }
+        ]
+      },
+      "fotmobMatchId": 5802923,
+      "leagueId": 53,
+      "leagueName": "Ligue 1",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "FRA Ligue 1",
+          "country": "FRA",
+          "leagueId": 53,
+          "homeTeam": "Marseille",
+          "awayTeam": "Paris FC"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.012Z"
+    },
+    {
+      "matchId": "juventus_ac_milan_20260907",
+      "league": "Serie A",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/55.png",
+      "homeTeam": "Juventus",
+      "awayTeam": "AC Milan",
+      "homeTeamId": 9885,
+      "awayTeamId": 8564,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9885.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8564.png",
+      "date": "2026-09-07",
+      "time": "1:15 AM",
+      "kickoff": "2026-09-07T01:15:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 3,
+          "awayWins": 1
+        },
+        "matches": [
+          {
+            "date": "2026-04-26",
+            "homeTeam": "Milan",
+            "awayTeam": "Juventus",
+            "homeTeamId": 8564,
+            "awayTeamId": 9885,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2025-10-05",
+            "homeTeam": "Juventus",
+            "awayTeam": "Milan",
+            "homeTeamId": 9885,
+            "awayTeamId": 8564,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2025-01-18",
+            "homeTeam": "Juventus",
+            "awayTeam": "Milan",
+            "homeTeamId": 9885,
+            "awayTeamId": 8564,
+            "homeScore": 2,
+            "awayScore": 0,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2025-01-03",
+            "homeTeam": "Juventus",
+            "awayTeam": "Milan",
+            "homeTeamId": 9885,
+            "awayTeamId": 8564,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "Super Cup"
+          },
+          {
+            "date": "2024-11-23",
+            "homeTeam": "Milan",
+            "awayTeam": "Juventus",
+            "homeTeamId": 8564,
+            "awayTeamId": 9885,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Serie A"
+          }
+        ]
+      },
+      "fotmobMatchId": 5749667,
+      "leagueId": 55,
+      "leagueName": "Serie A",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ITA Serie A",
+          "country": "ITA",
+          "leagueId": 55,
+          "homeTeam": "Juventus",
+          "awayTeam": "Milan"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.013Z"
+    },
+    {
+      "matchId": "espanyol_sevilla_20260907",
+      "league": "La Liga",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/87.png",
+      "homeTeam": "Espanyol",
+      "awayTeam": "Sevilla",
+      "homeTeamId": 8558,
+      "awayTeamId": 8302,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8558.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8302.png",
+      "date": "2026-09-07",
+      "time": "1:30 AM",
+      "kickoff": "2026-09-07T01:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 1,
+          "awayWins": 3
+        },
+        "matches": [
+          {
+            "date": "2026-05-09",
+            "homeTeam": "Sevilla",
+            "awayTeam": "Espanyol",
+            "homeTeamId": 8302,
+            "awayTeamId": 8558,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2025-11-24",
+            "homeTeam": "Espanyol",
+            "awayTeam": "Sevilla",
+            "homeTeamId": 8558,
+            "awayTeamId": 8302,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2025-01-25",
+            "homeTeam": "Sevilla",
+            "awayTeam": "Espanyol",
+            "homeTeamId": 8302,
+            "awayTeamId": 8558,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2024-10-25",
+            "homeTeam": "Espanyol",
+            "awayTeam": "Sevilla",
+            "homeTeamId": 8558,
+            "awayTeamId": 8302,
+            "homeScore": 0,
+            "awayScore": 2,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2023-05-04",
+            "homeTeam": "Sevilla",
+            "awayTeam": "Espanyol",
+            "homeTeamId": 8302,
+            "awayTeamId": 8558,
+            "homeScore": 3,
+            "awayScore": 2,
+            "competition": "LaLiga"
+          }
+        ]
+      },
+      "fotmobMatchId": 5868045,
+      "leagueId": 87,
+      "leagueName": "La Liga",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ESP LaLiga",
+          "country": "ESP",
+          "leagueId": 87,
+          "homeTeam": "Espanyol",
+          "awayTeam": "Sevilla"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.014Z"
+    },
+    {
+      "matchId": "cruzeiro_athletico_paranaense_20260907",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
+      "homeTeam": "Cruzeiro",
+      "awayTeam": "Athletico Paranaense",
+      "homeTeamId": 9781,
+      "awayTeamId": 10273,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9781.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10273.png",
+      "date": "2026-09-07",
+      "time": "1:30 AM",
+      "kickoff": "2026-09-07T01:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 2,
+          "awayWins": 2
+        },
+        "matches": [
+          {
+            "date": "2026-03-18",
+            "homeTeam": "Athletico Paranaense",
+            "awayTeam": "Cruzeiro",
+            "homeTeamId": 10273,
+            "awayTeamId": 9781,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "Série A"
+          },
+          {
+            "date": "2024-10-26",
+            "homeTeam": "Athletico Paranaense",
+            "awayTeam": "Cruzeiro",
+            "homeTeamId": 10273,
+            "awayTeamId": 9781,
+            "homeScore": 3,
+            "awayScore": 0,
+            "competition": "Série A"
+          },
+          {
+            "date": "2024-06-26",
+            "homeTeam": "Cruzeiro",
+            "awayTeam": "Athletico Paranaense",
+            "homeTeamId": 9781,
+            "awayTeamId": 10273,
+            "homeScore": 2,
+            "awayScore": 0,
+            "competition": "Série A"
+          },
+          {
+            "date": "2023-11-30",
+            "homeTeam": "Cruzeiro",
+            "awayTeam": "Athletico Paranaense",
+            "homeTeamId": 9781,
+            "awayTeamId": 10273,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Série A"
+          },
+          {
+            "date": "2023-07-29",
+            "homeTeam": "Athletico Paranaense",
+            "awayTeam": "Cruzeiro",
+            "homeTeamId": 10273,
+            "awayTeamId": 9781,
+            "homeScore": 3,
+            "awayScore": 3,
+            "competition": "Série A"
+          }
+        ]
+      },
+      "fotmobMatchId": 5103619,
       "leagueId": 268,
       "leagueName": "Brazil Serie A (BRA D1)",
       "source": "fotmob",
@@ -93,11 +2730,121 @@
       "streamCount": 0,
       "originalNames": {
         "fotmob": {
-          "league": "BRA Serie A",
+          "league": "BRA Série A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Cruzeiro",
+          "awayTeam": "Athletico Paranaense"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.014Z"
+    },
+    {
+      "matchId": "internacional_santos_20260907",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
+      "homeTeam": "Internacional",
+      "awayTeam": "Santos",
+      "homeTeamId": 8702,
+      "awayTeamId": 8514,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8702.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8514.png",
+      "date": "2026-09-07",
+      "time": "1:30 AM",
+      "kickoff": "2026-09-07T01:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 3,
+          "draws": 2,
+          "awayWins": 0
+        },
+        "matches": [
+          {
+            "date": "2026-03-19",
+            "homeTeam": "Santos",
+            "awayTeam": "Internacional",
+            "homeTeamId": 8514,
+            "awayTeamId": 8702,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "Série A"
+          },
+          {
+            "date": "2025-11-25",
+            "homeTeam": "Internacional",
+            "awayTeam": "Santos",
+            "homeTeamId": 8702,
+            "awayTeamId": 8514,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Série A"
+          },
+          {
+            "date": "2025-07-24",
+            "homeTeam": "Santos",
+            "awayTeam": "Internacional",
+            "homeTeamId": 8514,
+            "awayTeamId": 8702,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "Série A"
+          },
+          {
+            "date": "2023-10-22",
+            "homeTeam": "Internacional",
+            "awayTeam": "Santos",
+            "homeTeamId": 8702,
+            "awayTeamId": 8514,
+            "homeScore": 7,
+            "awayScore": 1,
+            "competition": "Série A"
+          },
+          {
+            "date": "2023-06-04",
+            "homeTeam": "Santos",
+            "awayTeam": "Internacional",
+            "homeTeamId": 8514,
+            "awayTeamId": 8702,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Série A"
+          }
+        ]
+      },
+      "fotmobMatchId": 5103620,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Série A",
           "country": "BRA",
           "leagueId": 268,
           "homeTeam": "Internacional",
-          "awayTeam": "Remo"
+          "awayTeam": "Santos"
         }
       },
       "sourcePages": {},
@@ -115,37 +2862,45 @@
       "validationStatus": null,
       "validationReason": null,
       "lastAttemptAt": null,
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "matchUrlSearch": {
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-17T02:37:25.942Z"
+      "updatedAt": "2026-09-06T01:18:51.015Z"
     },
     {
-      "matchId": "thailand_singapore_20260818",
-      "league": "ASEAN Championship",
-      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/9265.png",
-      "homeTeam": "Thailand",
-      "awayTeam": "Singapore",
-      "homeTeamId": 5788,
-      "awayTeamId": 5825,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/5788.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/5825.png",
-      "date": "2026-08-18",
-      "time": "7:30 PM",
-      "kickoff": "2026-08-18T19:30:00.000+06:30",
+      "matchId": "remo_flamengo_20260907",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
+      "homeTeam": "Remo",
+      "awayTeam": "Flamengo",
+      "homeTeamId": 1626,
+      "awayTeamId": 9770,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1626.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9770.png",
+      "date": "2026-09-07",
+      "time": "1:30 AM",
+      "kickoff": "2026-09-07T01:30:00.000+06:30",
       "timezone": "Asia/Yangon",
       "status": "Scheduled",
-      "fotmobMatchId": 5844765,
-      "leagueId": 938330,
-      "leagueName": "ASEAN Championship",
+      "h2h": {
+        "summary": {
+          "homeWins": 0,
+          "draws": 0,
+          "awayWins": 1
+        },
+        "matches": [
+          {
+            "date": "2026-03-19",
+            "homeTeam": "Flamengo",
+            "awayTeam": "Remo",
+            "homeTeamId": 9770,
+            "awayTeamId": 1626,
+            "homeScore": 3,
+            "awayScore": 0,
+            "competition": "Série A"
+          }
+        ]
+      },
+      "fotmobMatchId": 5103623,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
       "source": "fotmob",
       "manual": false,
       "statusLocked": false,
@@ -155,11 +2910,11 @@
       "streamCount": 0,
       "originalNames": {
         "fotmob": {
-          "league": "INT ASEAN Championship",
-          "country": "INT",
-          "leagueId": 938330,
-          "homeTeam": "Thailand",
-          "awayTeam": "Singapore"
+          "league": "BRA Série A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Remo",
+          "awayTeam": "Flamengo"
         }
       },
       "sourcePages": {},
@@ -177,37 +2932,85 @@
       "validationStatus": null,
       "validationReason": null,
       "lastAttemptAt": null,
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
-      },
-      "matchUrlSearch": {
-        "slotsDone": {},
-        "sources": {}
-      },
-      "updatedAt": "2026-08-17T02:37:25.943Z"
+      "updatedAt": "2026-09-06T01:18:51.016Z"
     },
     {
-      "matchId": "fc_heidenheim_bayern_munich_20260818",
-      "league": "Club Friendlies",
-      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/489.png",
-      "homeTeam": "FC Heidenheim",
-      "awayTeam": "Bayern Munich",
-      "homeTeamId": 94937,
-      "awayTeamId": 9823,
-      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/94937.png",
-      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9823.png",
-      "date": "2026-08-18",
-      "time": "10:30 PM",
-      "kickoff": "2026-08-18T22:30:00.000+06:30",
+      "matchId": "gil_vicente_academico_viseu_20260907",
+      "league": "Liga Portugal (PRO D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/61.png",
+      "homeTeam": "Gil Vicente",
+      "awayTeam": "Académico Viseu",
+      "homeTeamId": 9764,
+      "awayTeamId": 1786,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9764.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1786.png",
+      "date": "2026-09-07",
+      "time": "2:00 AM",
+      "kickoff": "2026-09-07T02:00:00.000+06:30",
       "timezone": "Asia/Yangon",
       "status": "Scheduled",
-      "fotmobMatchId": 6000509,
-      "leagueId": 915708,
-      "leagueName": "Club Friendlies",
+      "h2h": {
+        "summary": {
+          "homeWins": 2,
+          "draws": 1,
+          "awayWins": 2
+        },
+        "matches": [
+          {
+            "date": "2025-10-18",
+            "homeTeam": "Académico Viseu",
+            "awayTeam": "Gil Vicente",
+            "homeTeamId": 1786,
+            "awayTeamId": 9764,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "Taca de Portugal"
+          },
+          {
+            "date": "2021-01-14",
+            "homeTeam": "Gil Vicente",
+            "awayTeam": "Académico Viseu",
+            "homeTeamId": 9764,
+            "awayTeamId": 1786,
+            "homeScore": 3,
+            "awayScore": 2,
+            "competition": "Cup"
+          },
+          {
+            "date": "2018-04-29",
+            "homeTeam": "Académico Viseu",
+            "awayTeam": "Gil Vicente",
+            "homeTeamId": 1786,
+            "awayTeamId": 9764,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Segunda Liga"
+          },
+          {
+            "date": "2017-12-16",
+            "homeTeam": "Gil Vicente",
+            "awayTeam": "Académico Viseu",
+            "homeTeamId": 9764,
+            "awayTeamId": 1786,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Segunda Liga"
+          },
+          {
+            "date": "2017-02-05",
+            "homeTeam": "Académico Viseu",
+            "awayTeam": "Gil Vicente",
+            "homeTeamId": 1786,
+            "awayTeamId": 9764,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "Segunda Liga"
+          }
+        ]
+      },
+      "fotmobMatchId": 5887621,
+      "leagueId": 61,
+      "leagueName": "Liga Portugal (PRO D1)",
       "source": "fotmob",
       "manual": false,
       "statusLocked": false,
@@ -217,11 +3020,11 @@
       "streamCount": 0,
       "originalNames": {
         "fotmob": {
-          "league": "INT Club Friendlies",
-          "country": "INT",
-          "leagueId": 915708,
-          "homeTeam": "FC Heidenheim",
-          "awayTeam": "Bayern München"
+          "league": "Liga Portugal",
+          "country": "POR",
+          "leagueId": 61,
+          "homeTeam": "Gil Vicente",
+          "awayTeam": "Académico Viseu"
         }
       },
       "sourcePages": {},
@@ -239,38 +3042,523 @@
       "validationStatus": null,
       "validationReason": null,
       "lastAttemptAt": null,
-      "streamSearch": {
-        "started": false,
-        "stopped": false,
-        "stopTime": null,
-        "slotsDone": {},
-        "sources": {}
+      "updatedAt": "2026-09-06T01:18:51.016Z"
+    },
+    {
+      "matchId": "botafogo_palmeiras_20260907",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
+      "homeTeam": "Botafogo",
+      "awayTeam": "Palmeiras",
+      "homeTeamId": 8517,
+      "awayTeamId": 10283,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8517.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/10283.png",
+      "date": "2026-09-07",
+      "time": "4:00 AM",
+      "kickoff": "2026-09-07T04:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 1,
+          "draws": 1,
+          "awayWins": 3
+        },
+        "matches": [
+          {
+            "date": "2026-03-18",
+            "homeTeam": "Palmeiras",
+            "awayTeam": "Botafogo",
+            "homeTeamId": 10283,
+            "awayTeamId": 8517,
+            "homeScore": 2,
+            "awayScore": 1,
+            "competition": "Série A"
+          },
+          {
+            "date": "2025-08-17",
+            "homeTeam": "Botafogo",
+            "awayTeam": "Palmeiras",
+            "homeTeamId": 8517,
+            "awayTeamId": 10283,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Série A"
+          },
+          {
+            "date": "2025-06-28",
+            "homeTeam": "Palmeiras",
+            "awayTeam": "Botafogo",
+            "homeTeamId": 10283,
+            "awayTeamId": 8517,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "FIFA Club World Cup"
+          },
+          {
+            "date": "2025-03-30",
+            "homeTeam": "Palmeiras",
+            "awayTeam": "Botafogo",
+            "homeTeamId": 10283,
+            "awayTeamId": 8517,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Série A"
+          },
+          {
+            "date": "2024-11-27",
+            "homeTeam": "Palmeiras",
+            "awayTeam": "Botafogo",
+            "homeTeamId": 10283,
+            "awayTeamId": 8517,
+            "homeScore": 1,
+            "awayScore": 3,
+            "competition": "Série A"
+          }
+        ]
       },
-      "matchUrlSearch": {
-        "slotsDone": {},
-        "sources": {}
+      "fotmobMatchId": 5103615,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Série A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Botafogo",
+          "awayTeam": "Palmeiras"
+        }
       },
-      "updatedAt": "2026-08-17T02:37:25.944Z"
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.017Z"
+    },
+    {
+      "matchId": "corinthians_chapecoense_20260907",
+      "league": "Brazil Serie A (BRA D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/268.png",
+      "homeTeam": "Corinthians",
+      "awayTeam": "Chapecoense",
+      "homeTeamId": 9808,
+      "awayTeamId": 197693,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9808.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/197693.png",
+      "date": "2026-09-07",
+      "time": "5:00 AM",
+      "kickoff": "2026-09-07T05:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 4,
+          "draws": 1,
+          "awayWins": 0
+        },
+        "matches": [
+          {
+            "date": "2026-03-20",
+            "homeTeam": "Chapecoense",
+            "awayTeam": "Corinthians",
+            "homeTeamId": 197693,
+            "awayTeamId": 9808,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "Série A"
+          },
+          {
+            "date": "2021-11-02",
+            "homeTeam": "Corinthians",
+            "awayTeam": "Chapecoense",
+            "homeTeamId": 9808,
+            "awayTeamId": 197693,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Série A"
+          },
+          {
+            "date": "2021-07-09",
+            "homeTeam": "Chapecoense",
+            "awayTeam": "Corinthians",
+            "homeTeamId": 197693,
+            "awayTeamId": 9808,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Série A"
+          },
+          {
+            "date": "2019-10-02",
+            "homeTeam": "Chapecoense",
+            "awayTeam": "Corinthians",
+            "homeTeamId": 197693,
+            "awayTeamId": 9808,
+            "homeScore": 0,
+            "awayScore": 1,
+            "competition": "Série A"
+          },
+          {
+            "date": "2019-05-01",
+            "homeTeam": "Corinthians",
+            "awayTeam": "Chapecoense",
+            "homeTeamId": 9808,
+            "awayTeamId": 197693,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Série A"
+          }
+        ]
+      },
+      "fotmobMatchId": 5103617,
+      "leagueId": 268,
+      "leagueName": "Brazil Serie A (BRA D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "BRA Série A",
+          "country": "BRA",
+          "leagueId": 268,
+          "homeTeam": "Corinthians",
+          "awayTeam": "Chapecoense"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.017Z"
+    },
+    {
+      "matchId": "cagliari_lecce_20260907",
+      "league": "Serie A",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/55.png",
+      "homeTeam": "Cagliari",
+      "awayTeam": "Lecce",
+      "homeTeamId": 8529,
+      "awayTeamId": 9888,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8529.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9888.png",
+      "date": "2026-09-07",
+      "time": "11:00 PM",
+      "kickoff": "2026-09-07T23:00:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 2,
+          "draws": 1,
+          "awayWins": 2
+        },
+        "matches": [
+          {
+            "date": "2026-02-16",
+            "homeTeam": "Cagliari",
+            "awayTeam": "Lecce",
+            "homeTeamId": 8529,
+            "awayTeamId": 9888,
+            "homeScore": 0,
+            "awayScore": 2,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2025-09-19",
+            "homeTeam": "Lecce",
+            "awayTeam": "Cagliari",
+            "homeTeamId": 9888,
+            "awayTeamId": 8529,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2025-01-19",
+            "homeTeam": "Cagliari",
+            "awayTeam": "Lecce",
+            "homeTeamId": 8529,
+            "awayTeamId": 9888,
+            "homeScore": 4,
+            "awayScore": 1,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2024-08-31",
+            "homeTeam": "Lecce",
+            "awayTeam": "Cagliari",
+            "homeTeamId": 9888,
+            "awayTeamId": 8529,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "Serie A"
+          },
+          {
+            "date": "2024-05-05",
+            "homeTeam": "Cagliari",
+            "awayTeam": "Lecce",
+            "homeTeamId": 8529,
+            "awayTeamId": 9888,
+            "homeScore": 1,
+            "awayScore": 1,
+            "competition": "Serie A"
+          }
+        ]
+      },
+      "fotmobMatchId": 5749662,
+      "leagueId": 55,
+      "leagueName": "Serie A",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ITA Serie A",
+          "country": "ITA",
+          "leagueId": 55,
+          "homeTeam": "Cagliari",
+          "awayTeam": "Lecce"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.018Z"
+    },
+    {
+      "matchId": "getafe_celta_vigo_20260907",
+      "league": "La Liga",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/87.png",
+      "homeTeam": "Getafe",
+      "awayTeam": "Celta Vigo",
+      "homeTeamId": 8305,
+      "awayTeamId": 9910,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/8305.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/9910.png",
+      "date": "2026-09-07",
+      "time": "11:30 PM",
+      "kickoff": "2026-09-07T23:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 2,
+          "draws": 1,
+          "awayWins": 2
+        },
+        "matches": [
+          {
+            "date": "2026-02-01",
+            "homeTeam": "Getafe",
+            "awayTeam": "Celta Vigo",
+            "homeTeamId": 8305,
+            "awayTeamId": 9910,
+            "homeScore": 0,
+            "awayScore": 0,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2025-08-17",
+            "homeTeam": "Celta Vigo",
+            "awayTeam": "Getafe",
+            "homeTeamId": 9910,
+            "awayTeamId": 8305,
+            "homeScore": 0,
+            "awayScore": 2,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2025-05-24",
+            "homeTeam": "Getafe",
+            "awayTeam": "Celta Vigo",
+            "homeTeamId": 8305,
+            "awayTeamId": 9910,
+            "homeScore": 1,
+            "awayScore": 2,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2024-11-04",
+            "homeTeam": "Celta Vigo",
+            "awayTeam": "Getafe",
+            "homeTeamId": 9910,
+            "awayTeamId": 8305,
+            "homeScore": 1,
+            "awayScore": 0,
+            "competition": "LaLiga"
+          },
+          {
+            "date": "2024-02-11",
+            "homeTeam": "Getafe",
+            "awayTeam": "Celta Vigo",
+            "homeTeamId": 8305,
+            "awayTeamId": 9910,
+            "homeScore": 3,
+            "awayScore": 2,
+            "competition": "LaLiga"
+          }
+        ]
+      },
+      "fotmobMatchId": 5868046,
+      "leagueId": 87,
+      "leagueName": "La Liga",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "ESP LaLiga",
+          "country": "ESP",
+          "leagueId": 87,
+          "homeTeam": "Getafe",
+          "awayTeam": "Celta Vigo"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.018Z"
+    },
+    {
+      "matchId": "lusitania_lourosa_avs_futebol_sad_20260907",
+      "league": "Liga Portugal (PRO D1)",
+      "leagueIcon": "https://images.fotmob.com/image_resources/logo/leaguelogo/185.png",
+      "homeTeam": "Lusitânia Lourosa",
+      "awayTeam": "AVS Futebol SAD",
+      "homeTeamId": 188154,
+      "awayTeamId": 1889,
+      "homeLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/188154.png",
+      "awayLogo": "https://images.fotmob.com/image_resources/logo/teamlogo/1889.png",
+      "date": "2026-09-07",
+      "time": "11:30 PM",
+      "kickoff": "2026-09-07T23:30:00.000+06:30",
+      "timezone": "Asia/Yangon",
+      "status": "Scheduled",
+      "h2h": {
+        "summary": {
+          "homeWins": 0,
+          "draws": 0,
+          "awayWins": 0
+        },
+        "matches": []
+      },
+      "fotmobMatchId": 5888057,
+      "leagueId": 185,
+      "leagueName": "Liga Portugal (PRO D1)",
+      "source": "fotmob",
+      "manual": false,
+      "statusLocked": false,
+      "pinned": false,
+      "featured": false,
+      "hasStreams": false,
+      "streamCount": 0,
+      "originalNames": {
+        "fotmob": {
+          "league": "Liga Portugal 2",
+          "country": "POR",
+          "leagueId": 185,
+          "homeTeam": "Lusitânia Lourosa",
+          "awayTeam": "AVS Futebol SAD"
+        }
+      },
+      "sourcePages": {},
+      "streams": [],
+      "streamAttempts": {},
+      "matchUrl": null,
+      "matchUrlStatus": "MATCH_URL_PENDING",
+      "matchUrlAttempts": 0,
+      "lastMatchUrlAttemptAt": null,
+      "matchUrlSource": null,
+      "streamUrl": null,
+      "streamHeaders": null,
+      "streamStatus": "PREPARING_STREAM",
+      "attempts": 0,
+      "validationStatus": null,
+      "validationReason": null,
+      "lastAttemptAt": null,
+      "updatedAt": "2026-09-06T01:18:51.019Z"
     }
   ],
   "meta": {
-    "configOrigin": "local",
-    "sources": [
-      "cakhia",
-      "xoilac",
-      "colatv",
-      "socolive",
-      "highlight",
-      "myanmartv"
-    ],
-    "liveCount": 0,
-    "scheduledCount": 4,
+    "configOrigin": "manual_refresh",
+    "sources": [],
+    "sync": {
+      "removedExpired": 13,
+      "streamsAdded": 0,
+      "matchesAdded": 37
+    },
+    "liveCount": 1,
+    "scheduledCount": 33,
     "endedCount": 0,
     "manualStreamCount": 0,
-    "highlightCount": 0,
+    "highlightCount": 8,
     "channelCount": 18,
-    "checksum": "c8e553fe6aaa48f11e6eaae00326c2905ab8abb444bc97858572b33c78b66d57",
-    "cachedAt": "2026-08-17T02:37:25.969Z",
+    "checksum": "df8139b1ac984302a1e630e84c34c92350537d302903e6ce2c5251e7bf595272",
     "feed": "matches"
   }
 }

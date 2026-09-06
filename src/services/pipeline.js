@@ -54,6 +54,7 @@ class Pipeline {
     this.channelsRunning = false;
     this.tipsRunning = false;
     this._expiring = false;
+    this._runningSince = 0;
     this._pendingMyanmarTv = false;
     this._pendingTips = false;
     this._drainingQueued = false;
@@ -187,11 +188,12 @@ class Pipeline {
         return { ok: true, changed: false, removed: sync.removedExpired || 0 };
       }
 
-      // Never wipe local matches to [] — keep previous until scrape replaces.
-      // (GitHub already refuses empty; local must not diverge to blank admin.)
+      // Allow clearing when every row expired; refuse empty only when nothing expired
+      // (that usually means a bad scrape would wipe a good feed).
       if (
         this.cache.isEmptyPayload(payload) &&
-        (previous?.matches?.length || existing.length)
+        (previous?.matches?.length || existing.length) &&
+        !(sync.removedExpired > 0)
       ) {
         logger.warn('Expire would empty matches.json — keeping previous feed', {
           removedExpired: sync.removedExpired,
@@ -270,8 +272,22 @@ class Pipeline {
     }
 
     if (this.running) {
-      logger.warn('Pipeline already running — skip overlapping run');
-      return { ok: false, reason: 'already_running' };
+      const started = Number(this._runningSince) || 0;
+      const maxMs = Math.max(
+        5 * 60 * 1000,
+        Number(this.env.PIPELINE_MAX_RUN_MS || 20 * 60 * 1000)
+      );
+      if (started > 0 && Date.now() - started > maxMs) {
+        logger.warn('Clearing stuck pipeline lock', {
+          runningForSec: Math.round((Date.now() - started) / 1000),
+          maxMs,
+        });
+        this.running = false;
+        this._runningSince = 0;
+      } else {
+        logger.warn('Pipeline already running — skip overlapping run');
+        return { ok: false, reason: 'already_running' };
+      }
     }
     // Never share Chromium / heavy work with highlight or MyanmarTV jobs on 1GB hosts
     if (this.highlightRunning) {
@@ -288,6 +304,7 @@ class Pipeline {
     }
 
     this.running = true;
+    this._runningSince = Date.now();
     const startedAt = Date.now();
     logEvent(events.SCRAPER_START, 'Pipeline start');
 
@@ -538,6 +555,7 @@ class Pipeline {
       return { ok: false, reason: err.message, kept };
     } finally {
       this.running = false;
+      this._runningSince = 0;
       await this._drainQueuedJobs().catch((err) => {
         logger.error('Queued job drain failed', { error: err.message });
       });

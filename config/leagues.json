@@ -64,7 +64,7 @@
     },
     {
       "standardName": "English Championship (ENG LCH)",
-      "fotmobIds": [48],
+      "fotmobIds": [48, 938218],
       "aliases": [
         "English Championship (ENG LCH)",
         "English Championship",
@@ -84,11 +84,10 @@
         "EFL Cup",
         "English League Cup",
         "English League Cup ENG LC",
-        "League Cup",
         "Carabao Cup",
         "ENG LC"
       ],
-      "notes": "English domestic cup — not Portugal League Cup"
+      "notes": "English domestic cup — not Thailand League Cup / bare 'League Cup'"
     },
     {
       "standardName": "Liga Portugal (PRO D1)",
