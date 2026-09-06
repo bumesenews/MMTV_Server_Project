@@ -91,6 +91,7 @@ async function extractStreamsFromPage({
           },
           sourceConfig: config,
           matchPageUrl,
+          streamUrl: url,
         })
       ),
       matchPageUrl,
@@ -227,6 +228,7 @@ function buildHeaders(item, referer, config = {}) {
     },
     sourceConfig: config,
     matchPageUrl: referer,
+    streamUrl: item.url,
   });
 }
 

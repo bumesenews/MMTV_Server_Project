@@ -7,6 +7,8 @@ const {
   playbackHeadersForClient,
   headerPresence,
   headersEqual,
+  inferPlayerReferer,
+  originReferer,
   PLAYBACK_UA_MOBILE,
 } = require('../utils/streamHeaders');
 
@@ -182,7 +184,7 @@ class StreamValidator {
    * Some CDNs (livefeedtextbox) accept Socolive Referer but reject Xoilac's.
    * After 401/403, try other configured playback Referers, then a known CDN map.
    */
-  authFallbackHeaders({ sourceConfig, matchPageUrl, retryHeaders, streamUrl } = {}) {
+  authFallbackHeaders({ sourceConfig, matchPageUrl, retryHeaders, streamUrl, stream } = {}) {
     const out = [];
     const push = (headers) => {
       if (!headers?.Referer) return;
@@ -190,14 +192,19 @@ class StreamValidator {
       out.push(headers);
     };
     push(retryHeaders);
+    const withReferer = (referer) => ({
+      Accept: '*/*',
+      'User-Agent': retryHeaders?.['User-Agent'] || PLAYBACK_UA_MOBILE,
+      Referer: referer,
+    });
+    const inferred = inferPlayerReferer(streamUrl);
+    if (inferred) push(withReferer(inferred));
+    const embedRef = originReferer(stream?.embedUrl);
+    if (embedRef) push(withReferer(embedRef));
     try {
       const host = new URL(streamUrl).hostname;
       if (/livefeedtextbox\.com$/i.test(host)) {
-        push({
-          Accept: '*/*',
-          'User-Agent': PLAYBACK_UA_MOBILE,
-          Referer: 'https://soco.textliveupdaterz.com/',
-        });
+        push(withReferer('https://soco.textliveupdaterz.com/'));
       }
     } catch {
       // ignore bad stream URL
@@ -358,6 +365,7 @@ class StreamValidator {
       streamHeaders: stream.streamHeaders || stream.headers,
       sourceConfig,
       matchPageUrl,
+      streamUrl: stream.url,
     });
     const retryHeaders = sourceOnlyPlaybackHeaders(sourceConfig, matchPageUrl);
 
@@ -373,6 +381,7 @@ class StreamValidator {
         current: headers,
         retryHeaders,
         streamUrl: stream.url,
+        stream,
       });
       for (const next of fallbacks) {
         if (tried.some((h) => headersEqual(h, next))) continue;

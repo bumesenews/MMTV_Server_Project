@@ -8,6 +8,7 @@ const {
   sourceOnlyPlaybackHeaders,
   redactHeadersForLog,
   headerPresence,
+  inferPlayerReferer,
   PLAYBACK_UA_MOBILE,
 } = require('../src/utils/streamHeaders');
 const {
@@ -152,6 +153,30 @@ async function run() {
     assert(
       'reuses source.headers when playbackHeaders is absent',
       fromHeadersField.Referer === 'https://legacy.example/'
+    );
+
+    const cakhiaCfg = {
+      name: 'cakhia',
+      domains: ['https://cakhiazaa.tv'],
+      playbackHeaders: {
+        'User-Agent': PLAYBACK_UA_MOBILE,
+        Referer: 'https://cakhiazaa.tv/',
+      },
+    };
+    const cakhiaCdn = mergePlaybackHeaders({
+      streamHeaders: { Referer: 'https://cakhiazaa.tv/' },
+      sourceConfig: cakhiaCfg,
+      matchPageUrl: 'https://cakhiazaa.tv/truc-tiep/angers-vs-rennes/',
+      streamUrl: 'https://live2.domainkqt.cc/live/channel24.m3u8',
+    });
+    assert(
+      'domainkqt uses embed player Referer, not site homepage',
+      cakhiaCdn.Referer === 'https://ck.hexvaridstreamnode.com/'
+    );
+    assert(
+      'inferPlayerReferer maps domaincdn/domainkqt',
+      inferPlayerReferer('https://live2.domaincdn.cc/livecdn/channel-24.m3u8') ===
+        'https://ck.hexvaridstreamnode.com/'
     );
 
     const redacted = redactHeadersForLog({
@@ -506,15 +531,64 @@ async function run() {
         url: 'https://live2.livefeedtextbox.com/live/channel1.m3u8',
         source: 'xoilac',
         matchPageUrl: 'https://xoilacxtr.tv/truc-tiep/malaysia-vs-viet-nam/',
+        headers: { Referer: 'https://xoilacxtr.tv/' },
       },
       { sourceConfig: xoilacCfg }
     );
-    assert('Xoilac 403 then Socolive Referer becomes AVAILABLE', result.validation.ok === true);
+    assert('Xoilac livefeedtextbox uses Socolive player Referer', result.validation.ok === true);
     assert(
       'Flutter gets the working Referer',
       result.headers.Referer === 'https://soco.textliveupdaterz.com/'
     );
-    assert('tried more than one Referer', referers.length >= 2);
+    assert(
+      'inferred player Referer is tried first',
+      referers[0] === 'https://soco.textliveupdaterz.com/'
+    );
+  }
+
+  console.log('\n=== Cakhia CDN Referer is embed player, not site ===');
+  {
+    const cakhiaCfg = {
+      name: 'cakhia',
+      type: 'streaming',
+      domains: ['https://cakhiazaa.tv'],
+      playbackHeaders: {
+        'User-Agent': PLAYBACK_UA_MOBILE,
+        Referer: 'https://cakhiazaa.tv/',
+      },
+    };
+    const referers = [];
+    const validator = new StreamValidator({
+      sourceConfigs: { cakhia: cakhiaCfg },
+      http: {
+        get: async (url, opts) => {
+          referers.push(opts.headers.Referer);
+          if (opts.headers.Referer === 'https://ck.hexvaridstreamnode.com/') {
+            return {
+              status: 200,
+              headers: { 'content-type': 'application/vnd.apple.mpegurl' },
+              data: mediaPlaylist(),
+            };
+          }
+          return { status: 403, headers: {}, data: 'denied' };
+        },
+      },
+    });
+    const result = await validator.validate(
+      {
+        url: 'https://live2.domainkqt.cc/live/channel24.m3u8',
+        source: 'cakhia',
+        matchPageUrl: 'https://cakhiazaa.tv/truc-tiep/angers-vs-rennes/',
+        headers: { Referer: 'https://cakhiazaa.tv/' },
+      },
+      { sourceConfig: cakhiaCfg }
+    );
+    assert('Cakhia domainkqt validates with hexvarid Referer', result.validation.ok === true);
+    assert(
+      'Flutter gets embed Referer',
+      result.headers.Referer === 'https://ck.hexvaridstreamnode.com/'
+    );
+    assert('site homepage Referer is not used first', referers[0] !== 'https://cakhiazaa.tv/');
   }
 
   console.log('\n=== Keep one stream per source even when CDN URL matches ===');

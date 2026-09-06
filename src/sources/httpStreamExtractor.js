@@ -4,7 +4,12 @@ const axios = require('axios');
 const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
 const { DEFAULT_UA, runExclusivePuppeteerTask, gotoMatchPage } = require('../browser/puppeteerManager');
-const { mergePlaybackHeaders, playbackHeadersForClient } = require('../utils/streamHeaders');
+const {
+  mergePlaybackHeaders,
+  playbackHeadersForClient,
+  originReferer,
+  inferPlayerReferer,
+} = require('../utils/streamHeaders');
 const { extractStreamsFromPage, dedupeStreams, IFRAME_SRC_ATTRS } = require('./streamExtractor');
 const { sleep, DEFAULT_M3U8_PATTERNS, resolvePlayerWait } = require('./baseStreamingSource');
 const { cleanText } = require('../utils/normalize');
@@ -349,9 +354,10 @@ async function extractStreamsViaAxios({
   const sourcePriority = Number(config.priority || 0);
   const htmlByUrl = new Map([[matchPageUrl, firstHtml]]);
 
-  const push = (url, quality = 'HD', via = 'axios', pageUrl = matchPageUrl) => {
+  const push = (url, quality = 'HD', via = 'axios', pageUrl = matchPageUrl, embedUrl = '') => {
     const normalized = normalizeStreamUrl(url);
     if (!normalized) return;
+    const playerReferer = originReferer(embedUrl) || inferPlayerReferer(normalized) || pageUrl;
     streams.push({
       source: sourceName,
       type: 'm3u8',
@@ -359,12 +365,14 @@ async function extractStreamsViaAxios({
       url: normalized,
       headers: playbackHeadersForClient(
         mergePlaybackHeaders({
-          streamHeaders: { Referer: pageUrl },
+          streamHeaders: { Referer: playerReferer },
           sourceConfig: config,
           matchPageUrl: pageUrl,
+          streamUrl: normalized,
         })
       ),
       matchPageUrl: pageUrl,
+      embedUrl: embedUrl || undefined,
       active: true,
       priority: sourcePriority,
       checkedAt: new Date().toISOString(),
@@ -381,7 +389,7 @@ async function extractStreamsViaAxios({
       if (!embedUrl || !/^https?:\/\//i.test(embedUrl)) return;
       try {
         const url = await extractUrlFromEmbed(embedUrl, pageUrl);
-        if (url) push(url, name || tabName || 'HD', via, pageUrl);
+        if (url) push(url, name || tabName || 'HD', via, pageUrl, embedUrl);
       } catch (err) {
         logger.debug('axios embed failed', {
           source: sourceName,
@@ -718,6 +726,7 @@ function streamsFromCapture(page, sourceName, config, matchPageUrl) {
           },
           sourceConfig: config,
           matchPageUrl,
+          streamUrl: item.url,
         })
       ),
       matchPageUrl,

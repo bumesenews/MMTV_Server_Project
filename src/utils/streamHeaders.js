@@ -50,6 +50,58 @@ function originFromUrl(url) {
   }
 }
 
+function originReferer(url) {
+  const origin = originFromUrl(url);
+  return origin ? `${origin}/` : '';
+}
+
+/**
+ * Cakhia/Xoilac list_stream players sit on hexvaridstreamnode; the HLS CDN
+ * (domaincdn / domainkqt) 403s when Referer is the public site homepage.
+ */
+const CDN_PLAYER_REFERERS = [
+  { host: /(?:^|\.)(?:domaincdn|domainkqt)\.cc$/i, referer: 'https://ck.hexvaridstreamnode.com/' },
+  { host: /livefeedtextbox\.com$/i, referer: 'https://soco.textliveupdaterz.com/' },
+];
+
+function inferPlayerReferer(streamUrl) {
+  try {
+    const host = new URL(String(streamUrl || '')).hostname;
+    const hit = CDN_PLAYER_REFERERS.find((row) => row.host.test(host));
+    return hit ? hit.referer : '';
+  } catch {
+    return '';
+  }
+}
+
+function sourceSiteHosts(sourceConfig = {}) {
+  const hosts = new Set();
+  const add = (value) => {
+    try {
+      const host = new URL(value).hostname;
+      if (host) hosts.add(host.toLowerCase());
+    } catch {
+      // ignore
+    }
+  };
+  add(sourcePlaybackHeaders(sourceConfig).Referer);
+  for (const domain of [].concat(sourceConfig.domains || [], sourceConfig.mirrorDomains || [])) {
+    add(domain);
+  }
+  return hosts;
+}
+
+function isSiteReferer(value, sourceConfig = {}, matchPageUrl = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return false;
+  if (matchPageUrl && raw === String(matchPageUrl)) return true;
+  try {
+    return sourceSiteHosts(sourceConfig).has(new URL(raw).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 function sourceDomainReferer(sourceConfig = {}) {
   const domain = Array.isArray(sourceConfig.domains) ? sourceConfig.domains[0] : '';
   if (!domain) return '';
@@ -97,6 +149,7 @@ function mergePlaybackHeaders({
   streamHeaders,
   sourceConfig = {},
   matchPageUrl = '',
+  streamUrl = '',
 } = {}) {
   const merged = { ...globalDefaultHeaders() };
   if (matchPageUrl) merged.Referer = String(matchPageUrl);
@@ -104,18 +157,16 @@ function mergePlaybackHeaders({
   const source = sourcePlaybackHeaders(sourceConfig);
   Object.assign(merged, source);
 
+  const inferred = inferPlayerReferer(streamUrl);
+  if (inferred) merged.Referer = inferred;
+
   const stream = pickPlaybackHeaders(streamHeaders);
   for (const [name, value] of Object.entries(stream)) {
     if (isBlank(value)) continue;
     if (name === 'User-Agent' && source['User-Agent'] && isDefaultUserAgent(value)) {
       continue;
     }
-    if (
-      name === 'Referer' &&
-      source.Referer &&
-      matchPageUrl &&
-      String(value) === String(matchPageUrl)
-    ) {
+    if (name === 'Referer' && isSiteReferer(value, sourceConfig, matchPageUrl)) {
       continue;
     }
     merged[name] = value;
@@ -186,6 +237,9 @@ module.exports = {
   redactHeadersForLog,
   headersEqual,
   originFromUrl,
+  originReferer,
+  inferPlayerReferer,
+  isSiteReferer,
   containsSensitive,
   canonicalizeHeaderName,
 };

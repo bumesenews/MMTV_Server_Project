@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-09-05T15:22:05.531Z",
+  "updatedAt": "2026-09-06T14:41:00.000Z",
   "sources": [
     {
       "name": "fotmob",
@@ -291,20 +291,19 @@
       }
     },
     {
-      "name": "mitomtm",
+      "name": "phut",
       "enabled": true,
       "type": "streaming",
       "priority": 350,
       "extractionMethod": "axios-first",
       "domains": [
-        "https://mitomzd.cc"
+        "https://90phutzba.tv"
       ],
       "mirrorDomains": [],
       "paths": {
         "home": "/",
-        "schedule": "/",
+        "schedule": "/sport/football/filter/today",
         "lists": [
-          "/",
           "/sport/football/filter/today",
           "/sport/football/filter/tomorrow"
         ]
@@ -422,10 +421,10 @@
           ".play-button"
         ]
       },
-      "notes": "https://mitomzd.cc/",
+      "notes": "https://90phutzba.tv/ (replaces dead mitomzd.cc)",
       "playbackHeaders": {
         "User-Agent": "Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36",
-        "Referer": "https://mitomzd.cc/"
+        "Referer": "https://90phutzba.tv/"
       }
     },
     {
