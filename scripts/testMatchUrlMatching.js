@@ -22,7 +22,10 @@ const {
   applySourceDiscoveryResult,
   finalizeMatchUrlStatus,
 } = require('../src/utils/matchUrlDiscovery');
-const { MultiMatchScraper } = require('../src/services/multiMatchScraper');
+const {
+  MultiMatchScraper,
+  canonicalMatchDiscoveryUrl,
+} = require('../src/services/multiMatchScraper');
 
 const normalizer = new Normalizer({ teams: teamsDoc.teams || [] });
 const scraper = new MultiMatchScraper({
@@ -925,6 +928,58 @@ console.log('\n=== Empty Today page / domain-agnostic matching ===');
     '18b. Matcher does not hard-code source domains',
     parsed.ok && r.accepted,
     JSON.stringify({ ok: parsed.ok, reason: r.reason, host: parsed })
+  );
+}
+
+console.log('\n=== Canonicalize escaped / double-slash Match URLs ===');
+{
+  const cleaned = canonicalMatchDiscoveryUrl(
+    'https://cakhiazaa.tv/truc-tiep/everton-vs-manchester-united-luc-2000-ngay-06-09-2026//link//2/'
+  );
+  assert(
+    '19. //link//2 collapses to canonical fixture URL',
+    cleaned ===
+      'https://cakhiazaa.tv/truc-tiep/everton-vs-manchester-united-luc-2000-ngay-06-09-2026/',
+    cleaned
+  );
+
+  const fromHtml = scraper.extractMatchEntries(
+    '<a href="/truc-tiep/arsenal-vs-chelsea-luc-2230-ngay-06-09-2026//link//4/">x</a>',
+    'https://cakhiazaa.tv'
+  );
+  assert(
+    '19b. Cheerio extract canonicalizes quality tabs',
+    fromHtml.length === 1 &&
+      fromHtml[0].url ===
+        'https://cakhiazaa.tv/truc-tiep/arsenal-vs-chelsea-luc-2230-ngay-06-09-2026/',
+    JSON.stringify(fromHtml.map((e) => e.url))
+  );
+
+  const kick = yangonKickoff('2026-09-06T19:30:00');
+  const entries = [
+    'https://cakhiazaa.tv/truc-tiep/everton-vs-manchester-united-luc-2000-ngay-06-09-2026/',
+    'https://cakhiazaa.tv/truc-tiep/everton-vs-manchester-united-luc-2000-ngay-06-09-2026//link//2/',
+    'https://cakhiazaa.tv/truc-tiep/everton-vs-manchester-united-luc-2000-ngay-06-09-2026//link//4/',
+  ].map((url) => ({ ...parseStreamUrl(url), url }));
+  const fotmob = {
+    matchId: 'everton_manchester_united_20260906',
+    homeTeam: 'Everton',
+    awayTeam: 'Manchester United',
+    kickoff: kick.toISO(),
+    date: kick.toFormat('yyyy-MM-dd'),
+    time: kick.toFormat('HH:mm'),
+    league: 'English Premier League (EPL)',
+    originalNames: {
+      fotmob: { homeTeam: 'Everton', awayTeam: 'Man United', league: 'ENG Premier League' },
+    },
+  };
+  const matched = scraper.matchFixturesToEntries([fotmob], entries);
+  assert(
+    '19c. Double-slash /link/N tabs are not ambiguous',
+    matched.length === 1 &&
+      matched[0].matchUrl.includes('everton-vs-manchester-united') &&
+      !/link/i.test(matched[0].matchUrl),
+    JSON.stringify(matched.map((m) => m.matchUrl))
   );
 }
 

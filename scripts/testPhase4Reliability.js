@@ -180,6 +180,48 @@ console.log('\n=== Phase 4: discoverAll source isolation ===');
     engine.lastDiscoverMeta.mitomtm?.transient === true
   );
 
+  const persisted = [];
+  const incremental = new StreamEngine({
+    sources: [
+      {
+        name: 'cakhia',
+        config: { enabled: true, priority: 10 },
+        async discoverMatchesForFixtures() {
+          return [
+            {
+              matchId: 'iso-2',
+              matchUrl: 'https://cakhia.example/found',
+              matchUrlStatus: MATCH_URL_STATUS.CONFIRMED,
+              confidence: 100,
+            },
+          ];
+        },
+      },
+      {
+        name: 'mitomtm',
+        config: { enabled: true, priority: 1 },
+        async discoverMatchesForFixtures() {
+          const err = new Error('getaddrinfo ENOTFOUND mitomzd.cc');
+          err.code = 'ENOTFOUND';
+          throw err;
+        },
+      },
+    ],
+    onMatchUpdated: async (match) => {
+      persisted.push(match.matchUrl || null);
+    },
+  });
+  const collected = await incremental.collectForFixtures([fixtureDue]);
+  assert(
+    'Working source Match URL is saved when another source DNS-fails',
+    collected[0]?.matchUrl === 'https://cakhia.example/found',
+    JSON.stringify({ url: collected[0]?.matchUrl, status: collected[0]?.matchUrlStatus })
+  );
+  assert(
+    'Match URL persisted immediately (not waiting for dead sources)',
+    persisted.includes('https://cakhia.example/found')
+  );
+
   console.log('\n=== Phase 4: extraction queue isolation + duplicates ===');
   const q = new JobQueue({ concurrency: 2 });
   const seen = [];

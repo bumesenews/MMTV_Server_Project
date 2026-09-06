@@ -38,6 +38,17 @@ function isTransientHttpError(err) {
   );
 }
 
+function isDnsLookupError(err) {
+  const code = String(err?.code || err?.cause?.code || err?.cause?.cause?.code || '').toUpperCase();
+  const msg = String(err?.message || err?.cause?.message || err || '');
+  return code === 'ENOTFOUND' || /enotfound|getaddrinfo/i.test(`${code} ${msg}`);
+}
+
+/** Retry socket blips — not NXDOMAIN (dead mirror). */
+function isRetryableHttpError(err) {
+  return isTransientHttpError(err) && !isDnsLookupError(err);
+}
+
 /**
  * Shared axios HTML client for stream discovery.
  */
@@ -84,7 +95,7 @@ async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries 
       return typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
     } catch (err) {
       lastErr = err;
-      if (!isTransientHttpError(err) || attempt >= maxTries) throw err;
+      if (!isRetryableHttpError(err) || attempt >= maxTries) throw err;
       logger.warn('HTML fetch retry after transient error', {
         url,
         attempt,
@@ -719,6 +730,7 @@ module.exports = {
   axiosGetHtml,
   isJsShellHtml,
   isTransientHttpError,
+  isRetryableHttpError,
   scraperHttpAgent,
   scraperHttpsAgent,
   createScraperAgents,

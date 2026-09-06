@@ -145,6 +145,9 @@ class BaseStreamingSource {
       } catch (err) {
         lastError = err;
         const msg = String(err.message || '');
+        if (/ENOTFOUND|getaddrinfo/i.test(`${err.code || ''} ${msg}`)) {
+          break;
+        }
         const hardCrash =
           /Target closed|Session closed|Browser disconnected|Protocol error|detached Frame|BROWSER_ERROR|net::ERR/i.test(
             msg

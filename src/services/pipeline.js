@@ -319,6 +319,16 @@ class Pipeline {
       const sync = syncMatchesForDelivery(existing, [], {
         normalizer: this.normalizer,
       });
+      // Status-only ticks must not GitHub-publish a fixtures shell before
+      // StreamEngine has written Match URLs. Pipeline.run publishes status.
+      if (!(sync.removedExpired > 0)) {
+        return {
+          ok: true,
+          changed: false,
+          removed: 0,
+          reason: 'no_expiry',
+        };
+      }
       let matchesOut = sync.matches;
       if (this.admin?.overrides) {
         matchesOut = this.admin.overrides.applyToMatches(matchesOut);

@@ -16,23 +16,38 @@ const {
   resolveAnyMatchUrlSlot,
 } = require('../utils/time');
 const { cleanText } = require('../utils/normalize');
-const { needsMatchUrlDiscovery } = require('../utils/matchUrlDiscovery');
+const { classifySourceError } = require('../utils/matchUrlDiscovery');
 
 /** Default match-detail path pattern (Vietnamese live sites). */
 const DEFAULT_LINK_PATTERN = /truc-tiep\/[^\s"'<>#?]+/gi;
 
 /** Stream quality/server tabs on the same match page — not separate fixtures. */
-const QUALITY_LINK_SUFFIX = /\/link\/\d+\/?$/i;
+const QUALITY_LINK_SUFFIX = /\/+link\/+\d+\/?$/i;
+
+/**
+ * Sites often emit escaped JSON (`\/`), protocol-relative `//truc-tiep/`,
+ * or `//link//2` quality tabs. Collapse those to a real path.
+ */
+function sanitizeDiscoveredHref(raw) {
+  let s = String(raw || '').trim();
+  if (!s) return '';
+  s = s.replace(/\\+\//g, '/').replace(/\\/g, '');
+  s = s.replace(/^["']+|["']+$/g, '');
+  s = s.replace(/\/n\/?$/i, '/');
+  if (/^\/\/truc-tiep\//i.test(s)) s = s.replace(/^\/\//, '/');
+  s = s.replace(/\/{2,}/g, '/');
+  return s;
+}
 
 /**
  * Normalize a list-page match URL to the canonical fixture page (strip /link/N tabs).
  */
 function canonicalMatchDiscoveryUrl(url) {
-  const raw = String(url || '').trim();
+  const raw = sanitizeDiscoveredHref(url);
   if (!raw || !/truc-tiep\//i.test(raw)) return raw;
   try {
     const u = new URL(raw);
-    let path = u.pathname.replace(QUALITY_LINK_SUFFIX, '');
+    let path = sanitizeDiscoveredHref(u.pathname).replace(QUALITY_LINK_SUFFIX, '');
     path = `${path.replace(/\/+$/, '')}/`;
     u.pathname = path;
     u.search = '';
@@ -112,17 +127,18 @@ class MultiMatchScraper {
         throw new Error('empty_match_links');
       }
     } catch (err) {
+      if (shouldSkipPuppeteerListFallback(err) || !this.browser) {
+        logEvent(events.SCRAPER_ERROR, `${this.sourceName} list scrape failed`, {
+          source: this.sourceName,
+          error: err.message,
+          skipPuppeteer: shouldSkipPuppeteerListFallback(err),
+        });
+        throw err;
+      }
       logger.warn(`${this.sourceName} list Axios failed — Puppeteer fallback`, {
         source: this.sourceName,
         error: err.message,
       });
-      if (!this.browser) {
-        logEvent(events.SCRAPER_ERROR, `${this.sourceName} list scrape failed`, {
-          source: this.sourceName,
-          error: err.message,
-        });
-        throw err;
-      }
       method = 'puppeteer';
       entries = await this.fetchListEntriesPuppeteer(urls, config);
       if (!entries.length) {
@@ -149,11 +165,9 @@ class MultiMatchScraper {
     if (!fixture?.kickoff) return false;
     const kickoff = toYangon(fixture.kickoff);
     if (!kickoff || !isTodayOrTomorrow(kickoff)) return false;
-    if (!resolveAnyMatchUrlSlot(fixture.kickoff)) return false;
-    const sources = fixture?.matchUrlSearch?.sources || {};
-    const names = Object.keys(sources);
-    if (!names.length) return true;
-    return names.some((name) => needsMatchUrlDiscovery(fixture, name));
+    // StreamEngine already chose this fixture for this source. Do not drop
+    // the whole list fetch because another source is on cooldown.
+    return Boolean(resolveAnyMatchUrlSlot(fixture.kickoff));
   }
 
   async fetchListEntriesAxios(listUrls, config) {
@@ -399,7 +413,7 @@ class MultiMatchScraper {
     for (const match of String(html || '').matchAll(pattern)) {
       const raw = match[0];
       if (!raw) continue;
-      let path = raw.replace(/^https?:\/\/[^/]+/i, '');
+      let path = sanitizeDiscoveredHref(raw.replace(/^https?:\/\/[^/]+/i, ''));
       if (!path.startsWith('/')) path = `/${path}`;
       // strip trailing junk
       path = path.replace(/["'<>].*$/, '').replace(/\/+$/, '/');
@@ -591,8 +605,15 @@ function colaMatchesToHtml(json, siteOrigin) {
     .join('\n');
 }
 
+function shouldSkipPuppeteerListFallback(err) {
+  const cls = classifySourceError(err);
+  if (cls === 'DNS_ERROR') return true;
+  const msg = String(err?.message || err || '');
+  return cls === 'TIMEOUT' && /connect ETIMEDOUT|ENETUNREACH|EHOSTUNREACH/i.test(msg);
+}
+
 function absoluteUrl(href, baseUrl) {
-  const raw = String(href || '').trim();
+  const raw = sanitizeDiscoveredHref(href);
   if (!raw || raw.startsWith('#') || raw.startsWith('javascript:')) return '';
   try {
     return new URL(raw, baseUrl).toString();

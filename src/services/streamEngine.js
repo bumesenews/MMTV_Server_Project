@@ -319,18 +319,44 @@ class StreamEngine {
     const list = fixtures || [];
     if (!list.length) return [];
 
-    // One list-page fetch per source — −60/−45/−30 for fixtures
-    // that do not already have a saved Match URL. No stream extract here.
-    const discovery = await this.discoverAll(list);
+    // Discover per source and persist Match URLs as soon as a site succeeds.
+    // Dead mirrors (DNS) must not block Cakhia/Xoilac hits from being saved.
+    const workingById = new Map(list.map((f) => [f.matchId, f]));
     const urlBySourceMatch = {};
-    for (const [sourceName, matches] of Object.entries(discovery)) {
+    const mergeSourceHits = (sourceName, matches) => {
       urlBySourceMatch[sourceName] = new Map();
       for (const m of matches || []) {
         if (m.matchId && m.matchUrl) {
           urlBySourceMatch[sourceName].set(m.matchId, m);
         }
       }
-    }
+    };
+    const applyKnownDiscovery = async () => {
+      for (const fixture of list) {
+        const current = workingById.get(fixture.matchId) || fixture;
+        const next = this.applyDiscoveryToFixture(
+          enrichMatchState(current),
+          urlBySourceMatch
+        );
+        workingById.set(next.matchId, next);
+        const beforePages = current.sourcePages || {};
+        const afterPages = next.sourcePages || {};
+        const matchUrlSaved = Object.keys(afterPages).some(
+          (name) => afterPages[name] && afterPages[name] !== beforePages[name]
+        );
+        if (matchUrlSaved) {
+          await this.persistProgress(next);
+        }
+      }
+    };
+
+    await this.discoverAll(list, {
+      onSourceComplete: async (sourceName, matches) => {
+        mergeSourceHits(sourceName, matches);
+        await applyKnownDiscovery();
+      },
+    });
+    await applyKnownDiscovery();
 
     const resultsById = new Map();
     const jobs = [];
@@ -338,16 +364,7 @@ class StreamEngine {
 
     for (const fixture of list) {
       try {
-        let base = enrichMatchState(fixture);
-        base = this.applyDiscoveryToFixture(base, urlBySourceMatch);
-        const beforePages = fixture.sourcePages || {};
-        const afterPages = base.sourcePages || {};
-        const matchUrlSaved = Object.keys(afterPages).some(
-          (name) => afterPages[name] && afterPages[name] !== beforePages[name]
-        );
-        if (matchUrlSaved) {
-          await this.persistProgress(base);
-        }
+        let base = enrichMatchState(workingById.get(fixture.matchId) || fixture);
         let streamSearch = this.ensureStreamSearch(base);
         const mins = minutesUntilKickoff(base.kickoff);
         order.push(base.matchId);
@@ -826,7 +843,13 @@ class StreamEngine {
     const slot = resolveAnyMatchUrlSlot(fixture.kickoff, nowSec);
     let next = fixture;
 
+    const completed = new Set([
+      ...Object.keys(urlBySourceMatch || {}),
+      ...Object.keys(this.lastDiscoverMeta || {}),
+    ]);
+
     for (const source of this.sources) {
+      if (!completed.has(source.name)) continue;
       const found = urlBySourceMatch[source.name]?.get(fixture.matchId);
         if (needsMatchUrlDiscovery(next, source.name, nowSec)) {
           if (!found && this.lastDiscoverMeta[source.name]?.transient) {
@@ -870,11 +893,22 @@ class StreamEngine {
    * Skips Today-page scrape when no fixture is in a Match URL slot
    * (−60 / −45 / −30) or when that source already has a saved Match URL.
    */
-  async discoverAll(fixtures = []) {
+  async discoverAll(fixtures = [], { onSourceComplete } = {}) {
     const bySource = {};
     const nowSec = nowUtcUnixSeconds();
     this.lastDiscoverMeta = {};
     const sourceSummaries = [];
+    const emit = async (sourceName, matches) => {
+      if (typeof onSourceComplete !== 'function') return;
+      try {
+        await onSourceComplete(sourceName, matches);
+      } catch (err) {
+        logger.warn('onSourceComplete failed', {
+          source: sourceName,
+          error: err.message,
+        });
+      }
+    };
 
     for (const source of this.sources) {
       try {
@@ -904,12 +938,19 @@ class StreamEngine {
             known: known.length,
           });
           bySource[source.name] = known;
+          this.lastDiscoverMeta[source.name] = {
+            failed: false,
+            transient: false,
+            result: 'SKIPPED',
+            known: known.length,
+          };
           sourceSummaries.push({
             source: source.name,
             result: 'SKIPPED',
             known: known.length,
             due: 0,
           });
+          await emit(source.name, known);
           continue;
         }
 
@@ -956,6 +997,7 @@ class StreamEngine {
           ok: true,
           url: source.baseUrl || source.config?.domains?.[0],
         });
+        await emit(source.name, merged);
       } catch (err) {
         const errorClass = classifySourceError(err);
         const transient = isTransientDiscoverError(err);
@@ -1001,6 +1043,7 @@ class StreamEngine {
             })
             .catch(() => {});
         }
+        await emit(source.name, knownOnError);
       }
     }
 
