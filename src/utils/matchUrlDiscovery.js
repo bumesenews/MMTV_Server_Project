@@ -290,6 +290,8 @@ function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
     attempts = prev.attempts;
   } else if (slot?.live) {
     liveAttempts = Math.min(MATCH_URL_MAX_ATTEMPTS, (Number(prev.liveAttempts) || 0) + 1);
+    // Surface live hunts on matchUrlAttempts (was stuck at 0 → looked like "never searched")
+    attempts = Math.max(Number(prev.attempts) || 0, liveAttempts);
   } else {
     attempts = Math.min(MATCH_URL_MAX_ATTEMPTS, prev.attempts + 1);
   }
@@ -434,12 +436,16 @@ function aggregateMatchUrlFields(fixture) {
   let maxAttempts = 0;
   let lastAt = fixture.lastMatchUrlAttemptAt || null;
   let allFailed = true;
+  let anySearching = false;
   let sourceCount = 0;
 
   for (const [name, raw] of Object.entries(search.sources || {})) {
     sourceCount += 1;
     const url = discoveredMatchUrl(raw) || sourcePages[name] || null;
-    const attempts = Number(raw.attempts) || 0;
+    const attempts = Math.max(
+      Number(raw.attempts) || 0,
+      Number(raw.liveAttempts) || 0
+    );
     if (attempts > maxAttempts) maxAttempts = attempts;
     if (raw.lastAttemptAt && (!lastAt || raw.lastAttemptAt > lastAt)) {
       lastAt = raw.lastAttemptAt;
@@ -454,6 +460,7 @@ function aggregateMatchUrlFields(fixture) {
           ? MATCH_URL_STATUS.FAILED
           : MATCH_URL_STATUS.PENDING;
     }
+    if (status === MATCH_URL_STATUS.SEARCHING) anySearching = true;
     if (status !== MATCH_URL_STATUS.FAILED) allFailed = false;
     const rank = isConfirmedMatchUrlStatus(status)
       ? 200 + conf
@@ -488,6 +495,19 @@ function aggregateMatchUrlFields(fixture) {
   let matchUrlStatus = bestUrl ? bestStatus : MATCH_URL_STATUS.PENDING;
   if (!bestUrl && allFailed && sourceCount) {
     matchUrlStatus = MATCH_URL_STATUS.FAILED;
+  } else if (!bestUrl && anySearching) {
+    // Live-slot misses use SEARCHING — do not collapse back to PENDING
+    matchUrlStatus = MATCH_URL_STATUS.SEARCHING;
+  } else if (!bestUrl && sourceCount) {
+    const anyLiveHunt = Object.values(search.sources || {}).some(
+      (s) => (Number(s?.liveAttempts) || 0) > 0
+    );
+    if (anyLiveHunt) {
+      matchUrlStatus =
+        maxAttempts >= MATCH_URL_MAX_ATTEMPTS
+          ? MATCH_URL_STATUS.FAILED
+          : MATCH_URL_STATUS.SEARCHING;
+    }
   }
 
   return {

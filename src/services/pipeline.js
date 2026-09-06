@@ -55,8 +55,12 @@ class Pipeline {
     this.tipsRunning = false;
     this._expiring = false;
     this._runningSince = 0;
+    this._highlightSince = 0;
+    this._channelsSince = 0;
+    this._tipsSince = 0;
     this._pendingMyanmarTv = false;
     this._pendingTips = false;
+    this._pendingHighlights = false;
     this._drainingQueued = false;
     /** FotMob fixtures for today+tomorrow. Short TTL so evening runs still pick up tomorrow. */
     this.fixtureCache = { dayKey: null, fixtures: [], fetchedAt: 0 };
@@ -68,6 +72,46 @@ class Pipeline {
 
   attachMonitoring(monitoring) {
     this.monitoring = monitoring || null;
+  }
+
+  _jobMaxRunMs() {
+    return Math.max(
+      5 * 60 * 1000,
+      Number(this.env.PIPELINE_MAX_RUN_MS || 20 * 60 * 1000)
+    );
+  }
+
+  /**
+   * Clear job locks left true after OOM/crash/hang so highlight/tips/TV
+   * are not starved forever behind a dead tipsRunning/highlightRunning flag.
+   */
+  _clearStuckJobLocks() {
+    const maxMs = this._jobMaxRunMs();
+    const now = Date.now();
+    const locks = [
+      ['running', '_runningSince', 'pipeline'],
+      ['highlightRunning', '_highlightSince', 'highlight'],
+      ['channelsRunning', '_channelsSince', 'MyanmarTV'],
+      ['tipsRunning', '_tipsSince', 'tips'],
+    ];
+    for (const [flag, sinceKey, label] of locks) {
+      if (!this[flag]) continue;
+      const started = Number(this[sinceKey]) || 0;
+      if (!started) {
+        logger.warn(`Clearing orphan ${label} lock (no start timestamp)`);
+        this[flag] = false;
+        this[sinceKey] = 0;
+        continue;
+      }
+      if (now - started > maxMs) {
+        logger.warn(`Clearing stuck ${label} lock`, {
+          runningForSec: Math.round((now - started) / 1000),
+          maxMs,
+        });
+        this[flag] = false;
+        this[sinceKey] = 0;
+      }
+    }
   }
 
   buildStreamingSources(sourcesDoc) {
@@ -271,23 +315,10 @@ class Pipeline {
       logger.warn('Expire-before-scrape failed', { error: err.message });
     }
 
+    this._clearStuckJobLocks();
     if (this.running) {
-      const started = Number(this._runningSince) || 0;
-      const maxMs = Math.max(
-        5 * 60 * 1000,
-        Number(this.env.PIPELINE_MAX_RUN_MS || 20 * 60 * 1000)
-      );
-      if (started > 0 && Date.now() - started > maxMs) {
-        logger.warn('Clearing stuck pipeline lock', {
-          runningForSec: Math.round((Date.now() - started) / 1000),
-          maxMs,
-        });
-        this.running = false;
-        this._runningSince = 0;
-      } else {
-        logger.warn('Pipeline already running — skip overlapping run');
-        return { ok: false, reason: 'already_running' };
-      }
+      logger.warn('Pipeline already running — skip overlapping run');
+      return { ok: false, reason: 'already_running' };
     }
     // Never share Chromium / heavy work with highlight or MyanmarTV jobs on 1GB hosts
     if (this.highlightRunning) {
@@ -925,24 +956,29 @@ class Pipeline {
    * If highlight1 hangs or fails, highlight2 still runs.
    */
   async runHighlights({ force = false } = {}) {
+    this._clearStuckJobLocks();
     if (this.highlightRunning) {
       logger.warn('Highlight job already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };
     }
     if (this.running) {
-      logger.warn('Pipeline active — skip highlight job to avoid OOM');
-      return { ok: false, reason: 'pipeline_running' };
+      this._pendingHighlights = true;
+      logger.warn('Pipeline active — queue highlight job');
+      return { ok: false, reason: 'pipeline_running', queued: true };
     }
     if (this.channelsRunning) {
-      logger.warn('MyanmarTV job active — skip highlight job');
-      return { ok: false, reason: 'channels_running' };
+      this._pendingHighlights = true;
+      logger.warn('MyanmarTV job active — queue highlight job');
+      return { ok: false, reason: 'channels_running', queued: true };
     }
     if (this.tipsRunning) {
-      logger.warn('Tips job active — skip highlight job');
-      return { ok: false, reason: 'tips_running' };
+      this._pendingHighlights = true;
+      logger.warn('Tips job active — queue highlight job');
+      return { ok: false, reason: 'tips_running', queued: true };
     }
 
     this.highlightRunning = true;
+    this._highlightSince = Date.now();
     const startedAt = Date.now();
 
     logEvent(events.SCRAPER_START, 'Highlight scraper started', {
@@ -1165,6 +1201,7 @@ class Pipeline {
       return { ok: false, reason: err.message };
     } finally {
       this.highlightRunning = false;
+      this._highlightSince = 0;
       await this._drainQueuedJobs().catch((err) => {
         logger.error('Queued job drain failed', { error: err.message });
       });
@@ -1184,6 +1221,7 @@ class Pipeline {
    * If football/highlight/tips is running, queue and run when that job finishes.
    */
   async runMyanmarTv({ force = false } = {}) {
+    this._clearStuckJobLocks();
     if (this.channelsRunning) {
       logger.warn('MyanmarTV job already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };
@@ -1205,6 +1243,7 @@ class Pipeline {
     }
 
     this.channelsRunning = true;
+    this._channelsSince = Date.now();
     const startedAt = Date.now();
     logEvent(events.SCRAPER_START, 'MyanmarTV scraper started', {
       force,
@@ -1231,7 +1270,16 @@ class Pipeline {
       let scraped = [];
       try {
         const tv = new MyanmarTvSource({ config: cfg, browserManager: this.browser });
-        scraped = await tv.collect();
+        const collectMs = Number(process.env.MYANMARTV_TIMEOUT_MS || 120000);
+        scraped = await Promise.race([
+          tv.collect(),
+          new Promise((_, reject) => {
+            setTimeout(
+              () => reject(new Error(`MyanmarTV collect timeout after ${collectMs}ms`)),
+              collectMs
+            );
+          }),
+        ]);
         logEvent(events.SCRAPER_SUCCESS, 'MyanmarTV scrape completed', {
           count: scraped.length,
           withStream: scraped.filter((c) => c.streamUrl).length,
@@ -1372,6 +1420,7 @@ class Pipeline {
       return { ok: false, reason: err.message };
     } finally {
       this.channelsRunning = false;
+      this._channelsSince = 0;
       await this._drainQueuedJobs().catch((err) => {
         logger.error('Queued job drain failed', { error: err.message });
       });
@@ -1390,6 +1439,12 @@ class Pipeline {
           this._pendingTips = false;
           logger.info('Running queued tips job');
           await this.runTips({ force: false });
+          continue;
+        }
+        if (this._pendingHighlights) {
+          this._pendingHighlights = false;
+          logger.info('Running queued highlight job');
+          await this.runHighlights({ force: false });
           continue;
         }
         if (this._pendingMyanmarTv) {
@@ -1427,6 +1482,7 @@ class Pipeline {
    * Axios first, Puppeteer if blocked. Never overwrite with empty on failure.
    */
   async runTips({ force = false } = {}) {
+    this._clearStuckJobLocks();
     if (this.tipsRunning) {
       logger.warn('Tips job already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };
@@ -1448,6 +1504,7 @@ class Pipeline {
     }
 
     this.tipsRunning = true;
+    this._tipsSince = Date.now();
     const startedAt = Date.now();
     logEvent(events.SCRAPER_START, 'PredictZ tips scraper started', {
       force,
@@ -1471,7 +1528,16 @@ class Pipeline {
       let scraped = null;
       try {
         const source = new TipsSource({ config: cfg, browserManager: this.browser });
-        scraped = await source.collect();
+        const collectMs = Number(process.env.TIPS_TIMEOUT_MS || 180000);
+        scraped = await Promise.race([
+          source.collect(),
+          new Promise((_, reject) => {
+            setTimeout(
+              () => reject(new Error(`Tips collect timeout after ${collectMs}ms`)),
+              collectMs
+            );
+          }),
+        ]);
       } catch (err) {
         logEvent(events.SCRAPER_ERROR, 'Tips scrape failed — keep previous data', {
           error: err.message,
@@ -1560,6 +1626,7 @@ class Pipeline {
       return { ok: false, reason: err.message };
     } finally {
       this.tipsRunning = false;
+      this._tipsSince = 0;
       await this._drainQueuedJobs().catch((err) => {
         logger.error('Queued job drain failed', { error: err.message });
       });

@@ -547,6 +547,27 @@ console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
     m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && Boolean(m.matchUrl)
   );
 
+  let liveMiss = applySourceDiscoveryResult(
+    { ...fixtureBase },
+    'cakhia',
+    null,
+    { id: 'tLive', live: true, postKickoff: true },
+    '2026-08-15T20:01:00.000Z'
+  );
+  liveMiss = finalizeMatchUrlStatus(liveMiss, kickSec + 60);
+  assert(
+    '4g2. Live miss increments matchUrlAttempts (not stuck at 0)',
+    liveMiss.matchUrlAttempts === 1 &&
+      liveMiss.matchUrlStatus === MATCH_URL_STATUS.SEARCHING &&
+      !liveMiss.matchUrl &&
+      Boolean(liveMiss.lastMatchUrlAttemptAt),
+    JSON.stringify({
+      attempts: liveMiss.matchUrlAttempts,
+      status: liveMiss.matchUrlStatus,
+      last: liveMiss.lastMatchUrlAttemptAt,
+    })
+  );
+
   m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't60', attempt: 1 }, 't1');
   m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't45', attempt: 2 }, 't2');
   m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't30', attempt: 3 }, 't3');
