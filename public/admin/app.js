@@ -45,6 +45,62 @@
     return { date: m[1], time: m[2] };
   }
 
+  function parseClockTo12(timeStr) {
+    const raw = String(timeStr || '').trim();
+    const withPeriod = raw.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*([AaPp][Mm])$/);
+    if (withPeriod) {
+      let hour = Number(withPeriod[1]);
+      const period = withPeriod[3].toUpperCase();
+      if (hour === 0) hour = 12;
+      if (hour > 12) hour -= 12;
+      return { hour, minute: withPeriod[2].padStart(2, '0'), period };
+    }
+    const hhmm = raw.match(/^(\d{1,2}):(\d{2})/);
+    if (!hhmm) return { hour: 7, minute: '00', period: 'PM' };
+    const hour24 = Number(hhmm[1]);
+    const minute = hhmm[2].padStart(2, '0');
+    const period = hour24 >= 12 ? 'PM' : 'AM';
+    const hour = hour24 % 12 === 0 ? 12 : hour24 % 12;
+    return { hour, minute, period };
+  }
+
+  function formatClock12(timeStr) {
+    const p = parseClockTo12(timeStr);
+    return `${p.hour}:${p.minute} ${p.period}`;
+  }
+
+  function clock12SelectsHtml(prefix, timeStr, extra = '') {
+    const p = parseClockTo12(timeStr);
+    const hours = Array.from({ length: 12 }, (_, i) => i + 1);
+    const minutes = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'));
+    return `
+      <label>Hour
+        <select name="${prefix}Hour" ${extra} required>
+          ${hours.map((h) => `<option value="${h}" ${h === p.hour ? 'selected' : ''}>${h}</option>`).join('')}
+        </select>
+      </label>
+      <label>Minute
+        <select name="${prefix}Minute" ${extra} required>
+          ${minutes.map((m) => `<option value="${m}" ${m === p.minute ? 'selected' : ''}>${m}</option>`).join('')}
+        </select>
+      </label>
+      <label>AM / PM
+        <select name="${prefix}Period" ${extra} required>
+          <option value="AM" ${p.period === 'AM' ? 'selected' : ''}>AM</option>
+          <option value="PM" ${p.period === 'PM' ? 'selected' : ''}>PM</option>
+        </select>
+      </label>
+    `;
+  }
+
+  function time12FromFields(hour, minute, period) {
+    const h = String(hour || '').trim();
+    const m = String(minute || '00').padStart(2, '0');
+    const p = String(period || '').trim().toUpperCase();
+    if (!h || (p !== 'AM' && p !== 'PM')) return '';
+    return `${h}:${m} ${p}`;
+  }
+
   function logout(clear = true) {
     if (clear) localStorage.removeItem('adminToken');
     state.token = '';
@@ -242,7 +298,7 @@
     pageEl.innerHTML = `
       <div class="panel">
         <p class="muted">Admin-only feed published to <code>mainlive.json</code> on GitHub. Separate from scraped <code>matches.json</code>.</p>
-        <p class="muted"><strong>Kickoff date/time = Asia/Yangon wall clock</strong> (not UTC, not your browser timezone). Example: enter <code>19:30</code> → stored as <code>19:30 +06:30</code>.</p>
+        <p class="muted"><strong>Kickoff date/time = Asia/Yangon wall clock</strong> (not UTC, not your browser timezone). Pick hour + <strong>AM or PM</strong>. Example: <code>7:30 PM</code> → <code>19:30 +06:30</code>.</p>
         <h3>Add MainLive Match</h3>
         <form id="mainlive-create-form" class="grid-2">
           <label>League
@@ -260,7 +316,7 @@
           <label>Away team logo URL<input name="awayLogo" placeholder="https://.../away.png" /></label>
           <datalist id="mainlive-team-list">${teamOpts}</datalist>
           <label>Date (Asia/Yangon)<input name="date" type="date" required /></label>
-          <label>Time (Asia/Yangon, 24h)<input name="time" type="time" required step="60" title="Yangon local time HH:mm" /></label>
+          ${clock12SelectsHtml('time', '7:00 PM')}
           <label>Status
             <select name="status">
               <option>Scheduled</option>
@@ -295,7 +351,7 @@
                     <div class="muted" style="font-size:0.75rem">${esc(m.matchId)}</div>
                   </td>
                   <td>${esc(m.league || '')}${m.leagueIcon ? `<div><img src="${esc(m.leagueIcon)}" alt="" style="height:18px;margin-top:4px" /></div>` : ''}</td>
-                  <td>${esc(m.date || '')} ${esc(m.time || '')} <span class="muted" style="font-size:0.7rem">Yangon</span></td>
+                  <td>${esc(m.date || '')} ${esc(formatClock12(m.time || m.kickoff))} <span class="muted" style="font-size:0.7rem">Yangon</span></td>
                   <td><span class="badge ${m.status === 'LIVE' ? 'live' : ''}">${esc(m.status || '')}</span></td>
                   <td>${(m.streams || []).length}</td>
                   <td>
@@ -310,7 +366,25 @@
                       <select data-act="status">
                         ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
                       </select>
-                      <input data-act="kickoff" type="datetime-local" style="width:auto" title="Asia/Yangon wall clock" />
+                      <input data-act="kickoff-date" type="date" value="${esc(m.date || '')}" title="Asia/Yangon date" />
+                      <select data-act="kickoff-hour" title="Hour">
+                        ${Array.from({ length: 12 }, (_, i) => i + 1).map((h) => {
+                          const cur = parseClockTo12(m.time || m.kickoff);
+                          return `<option value="${h}" ${h === cur.hour ? 'selected' : ''}>${h}</option>`;
+                        }).join('')}
+                      </select>
+                      <select data-act="kickoff-minute" title="Minute">
+                        ${Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map((min) => {
+                          const cur = parseClockTo12(m.time || m.kickoff);
+                          return `<option value="${min}" ${min === cur.minute ? 'selected' : ''}>${min}</option>`;
+                        }).join('')}
+                      </select>
+                      <select data-act="kickoff-period" title="AM or PM">
+                        ${['AM', 'PM'].map((p) => {
+                          const cur = parseClockTo12(m.time || m.kickoff);
+                          return `<option value="${p}" ${p === cur.period ? 'selected' : ''}>${p}</option>`;
+                        }).join('')}
+                      </select>
                       <button class="secondary" data-act="save-kickoff" title="Saved as Asia/Yangon">Set Time (Yangon)</button>
                       <button class="danger" data-act="delete">Delete</button>
                     </div>
@@ -410,12 +484,15 @@
             homeLogo: fd.get('homeLogo'),
             awayLogo: fd.get('awayLogo'),
             date: fd.get('date'),
-            time: fd.get('time'),
+            time: time12FromFields(fd.get('timeHour'), fd.get('timeMinute'), fd.get('timePeriod')),
             status: fd.get('status'),
             streams,
           }),
         });
-        const t = created?.match?.time || fd.get('time');
+        const t = formatClock12(
+          created?.match?.time ||
+            time12FromFields(fd.get('timeHour'), fd.get('timeMinute'), fd.get('timePeriod'))
+        );
         toast(`MainLive created · kickoff ${t} Asia/Yangon · ${streams.length} stream(s)`);
         renderMainLive();
       } catch (err) {
@@ -457,14 +534,17 @@
         }
       });
       tr.querySelector('[data-act="save-kickoff"]')?.addEventListener('click', async () => {
-        const val = tr.querySelector('[data-act="kickoff"]').value;
-        if (!val) return toast('Pick a kickoff time', 'error');
-        const parts = yangonDateTimeLocalParts(val);
-        if (!parts) return toast('Invalid date/time', 'error');
+        const date = tr.querySelector('[data-act="kickoff-date"]')?.value;
+        const time = time12FromFields(
+          tr.querySelector('[data-act="kickoff-hour"]')?.value,
+          tr.querySelector('[data-act="kickoff-minute"]')?.value,
+          tr.querySelector('[data-act="kickoff-period"]')?.value
+        );
+        if (!date || !time) return toast('Pick date, time, and AM/PM', 'error');
         try {
           await api(`/mainlive/${encodeURIComponent(id)}`, {
             method: 'PATCH',
-            body: JSON.stringify({ date: parts.date, time: parts.time }),
+            body: JSON.stringify({ date, time }),
           });
           toast('Kickoff updated (Asia/Yangon)');
           renderMainLive();
