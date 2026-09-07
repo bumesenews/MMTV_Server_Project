@@ -2,7 +2,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { JsonStore } = require('../store/jsonStore');
 const { generateMatchId } = require('../../utils/matchId');
-const { combineDateAndTime, formatDate, formatTime, toYangon, nowYangon } = require('../../utils/time');
+const { combineDateAndTime, formatDate, formatTime, formatTime12, toYangon, nowYangon } = require('../../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../../utils/compare');
 
 /**
@@ -239,7 +239,11 @@ class MainLiveService {
    * Build Flutter delivery payload for mainlive.json (same shape as matches.json).
    */
   toDeliveryPayload() {
-    const matches = this.list();
+    const matches = this.list().map((m) => ({
+      ...m,
+      // Flutter / matches.json clock: "7:30 PM" (store stays 24h HH:mm for admin).
+      time: formatTime12(m.kickoff) || m.time,
+    }));
     const payload = {
       version: 1,
       generatedAt: nowYangon().toISO(),
