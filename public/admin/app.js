@@ -210,7 +210,6 @@
       dashboard: renderDashboard,
       mainlive: renderMainLive,
       matches: renderMatches,
-      adminmatch: renderAdminMatch,
       streams: renderStreams,
       feeds: renderFeeds,
       leagues: renderLeagues,
@@ -680,15 +679,11 @@
 
   async function renderMatches() {
     setTitle('Match (admin-match.json)');
-    const [matchData, leagueData, teamData, sourceData] = await Promise.all([
+    const [matchData, sourceData] = await Promise.all([
       api('/matches'),
-      api('/leagues'),
-      api('/teams'),
       api('/sources').catch(() => ({ sources: [], config: null })),
     ]);
     state.matches = matchData.matches || [];
-    const leagues = (leagueData.leagues || []).filter((l) => l.enabled !== false);
-    const teams = (teamData.teams || []).filter((t) => t.enabled !== false);
     const streamingSources = (sourceData.config?.sources || [])
       .filter((s) => s.type === 'streaming' && s.enabled !== false)
       .map((s) => s.name)
@@ -699,45 +694,11 @@
     const sourceOpts = sourceNames
       .map((name) => `<option value="${esc(name)}">${esc(name)}</option>`)
       .join('');
-    const leagueOpts = leagues
-      .map((l) => `<option value="${esc(l.standardName)}" data-icon="${esc(l.iconUrl || '')}">${esc(l.standardName)}</option>`)
-      .join('');
-    const teamOpts = teams
-      .map((t) => `<option value="${esc(t.standardName)}" data-logo="${esc(t.logo || '')}">${esc(t.standardName)}</option>`)
-      .join('');
 
     pageEl.innerHTML = `
       <div class="panel">
         <p class="muted">Live <code>admin-match.json</code> feed (${esc(String(matchData.matchCount ?? state.matches.length))} matches) · generated ${esc(matchData.generatedAt || '—')} · ${esc(matchData.timezone || 'Asia/Yangon')}</p>
-        <h3>Add Match</h3>
-        <form id="match-create-form" class="grid-2">
-          <label>League
-            <select name="league" required>
-              <option value="">Select league</option>
-              ${leagueOpts}
-            </select>
-          </label>
-          <label>League icon URL<input name="leagueIcon" placeholder="https://.../league.png" /></label>
-          <label>Home team
-            <input name="homeTeam" list="team-list" required placeholder="Home team" />
-          </label>
-          <label>Away team
-            <input name="awayTeam" list="team-list" required placeholder="Away team" />
-          </label>
-          <datalist id="team-list">${teamOpts}</datalist>
-          <label>Date (Asia/Yangon)<input name="date" type="date" required /></label>
-          <label>Time (Asia/Yangon, 24h)<input name="time" type="time" required step="60" title="Yangon local time HH:mm" /></label>
-          <label>Status
-            <select name="status">
-              <option>Scheduled</option>
-              <option>LIVE</option>
-              <option>END</option>
-            </select>
-          </label>
-          <label>Stream name<input name="streamName" value="HD" placeholder="HD / Link 1" /></label>
-          <label style="grid-column:1/-1">Streaming URL<input name="streamUrl" placeholder="https://.../index.m3u8" /></label>
-          <div style="grid-column:1/-1"><button type="submit">Create Match</button></div>
-        </form>
+        <p class="muted">Fixtures come from the scraper. Add a Match URL on a row, or use Manual Streams for m3u8.</p>
       </div>
       <div class="panel">
         <div class="table-wrap">
@@ -801,42 +762,11 @@
                       <button class="danger" data-act="delete">${m.isManual || m.manual ? 'Delete' : 'Hide'}</button>
                     </div>
                   </td>
-                </tr>`).join('') || '<tr><td colspan="9" class="muted">No matches yet. Add one above or run scraper.</td></tr>'}
+                </tr>`).join('') || '<tr><td colspan="9" class="muted">No matches yet. Run the scraper.</td></tr>'}
             </tbody>
           </table>
         </div>
       </div>`;
-
-    const form = $('#match-create-form');
-    const leagueSelect = form.league;
-    leagueSelect.addEventListener('change', () => {
-      const opt = leagueSelect.selectedOptions[0];
-      if (opt?.dataset?.icon) form.leagueIcon.value = opt.dataset.icon;
-    });
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(form);
-      try {
-        await api('/matches', {
-          method: 'POST',
-          body: JSON.stringify({
-            league: fd.get('league'),
-            leagueIcon: fd.get('leagueIcon'),
-            homeTeam: fd.get('homeTeam'),
-            awayTeam: fd.get('awayTeam'),
-            date: fd.get('date'),
-            time: fd.get('time'),
-            status: fd.get('status'),
-            streamName: fd.get('streamName'),
-            streamUrl: fd.get('streamUrl'),
-          }),
-        });
-        toast('Match created · JSON republished');
-        renderMatches();
-      } catch (err) {
-        toast(err.message, 'error');
-      }
-    });
 
     pageEl.querySelectorAll('tr[data-id]').forEach((tr) => {
       const id = tr.dataset.id;
@@ -936,142 +866,6 @@
     });
   }
 
-  async function renderAdminMatch() {
-    setTitle('Admin Match URLs (admin-match.json)');
-    const [matchData, adminData, sourceData] = await Promise.all([
-      api('/matches'),
-      api('/admin-match'),
-      api('/sources').catch(() => ({ sources: [], config: null })),
-    ]);
-    const fixtures = matchData.matches || [];
-    const stored = adminData.matches || adminData.content?.matches || [];
-    const byId = Object.fromEntries(stored.map((e) => [e.matchId, e]));
-    function manualOf(m) {
-      const row = byId[m.matchId] || {};
-      const am = m.adminManual || row.adminManual;
-      if (am && (am.matchUrl || am.streamUrl)) return am;
-      if (!row.homeTeam && (row.matchUrl || row.streamUrl)) return row;
-      return {};
-    }
-    const pretty = JSON.stringify(adminData.content || { matches: stored }, null, 2);
-    const sourceNames = (sourceData.config?.sources || [])
-      .filter((s) => s.type === 'streaming' && s.enabled !== false)
-      .map((s) => s.name);
-    const sourceOpts = (sourceNames.length ? sourceNames : ['cakhia', 'xoilac', 'socolive'])
-      .map((n) => `<option value="${esc(n)}">${esc(n)}</option>`)
-      .join('');
-
-    pageEl.innerHTML = `
-      <div class="panel">
-        <p class="muted">GitHub <code>config/admin-match.json</code> is the full internal matches document (fixture, Match URL, m3u8, H2H, search status). Public Flutter <code>matches.json</code> is still fixture + stream only.</p>
-        <p class="muted">Origin: ${esc(adminData.origin || 'local')} · ${esc(adminData.path || 'config/admin-match.json')} · ${stored.length} matches · AUTO search stays default. Manual Match URL is never overwritten.</p>
-        <p class="muted" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <button type="button" id="copy-admin-match-json">Copy admin-match.json</button>
-        </p>
-        <pre id="admin-match-json" class="muted" style="white-space:pre-wrap;max-height:420px;overflow:auto;margin:0;font-size:0.75rem">${esc(pretty)}</pre>
-        <form id="admin-match-form" class="grid-2">
-          <label>Match
-            <select name="matchId" required>
-              <option value="">Select fixture</option>
-              ${fixtures.map((m) => `<option value="${esc(m.matchId)}">${esc(m.homeTeam)} vs ${esc(m.awayTeam)} · ${esc(m.date || '')} ${esc(m.time || '')}</option>`).join('')}
-            </select>
-          </label>
-          <label>Source<select name="source">${sourceOpts}</select></label>
-          <label style="grid-column:1/-1">MANUAL Match URL (optional)
-            <input name="matchUrl" type="url" placeholder="https://…/truc-tiep/…" />
-          </label>
-          <label style="grid-column:1/-1">MANUAL Stream URL / m3u8 (optional)
-            <input name="streamUrl" type="url" placeholder="https://…/index.m3u8" />
-          </label>
-          <label>Referer (optional)<input name="referer" placeholder="https://ck.hexvaridstreamnode.com/" /></label>
-          <label>User-Agent (optional)<input name="userAgent" /></label>
-          <div style="grid-column:1/-1"><button type="submit">Save to admin-match.json</button></div>
-        </form>
-      </div>
-      <div class="panel">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Match</th><th>AUTO Match URL</th><th>MANUAL Match URL</th><th>MANUAL Stream URL</th><th></th>
-              </tr>
-            </thead>
-            <tbody>
-              ${fixtures.map((m) => {
-                const manual = manualOf(m);
-                const autoUrl = m.matchUrl && !manual.matchUrl ? m.matchUrl : '';
-                return `<tr data-id="${esc(m.matchId)}">
-                  <td><strong>${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</strong>
-                    <div class="muted" style="font-size:0.75rem">${esc(m.matchId)}</div></td>
-                  <td>${autoUrl
-                    ? `<span class="badge">AUTO</span> <span class="muted" style="word-break:break-all">${esc(autoUrl)}</span>`
-                    : '<span class="muted">—</span>'}</td>
-                  <td>${manual.matchUrl
-                    ? `<span class="badge manual">MANUAL</span> <span class="muted" style="word-break:break-all">${esc(manual.matchUrl)}</span>`
-                    : '<span class="muted">—</span>'}</td>
-                  <td>${manual.streamUrl
-                    ? `<span class="badge manual">MANUAL</span> <span class="muted" style="word-break:break-all">${esc(manual.streamUrl)}</span>`
-                    : '<span class="muted">—</span>'}</td>
-                  <td>${manual.matchUrl || manual.streamUrl
-                    ? `<button class="danger" data-clear="${esc(m.matchId)}">Clear manual</button>`
-                    : ''}</td>
-                </tr>`;
-              }).join('') || '<tr><td colspan="5" class="muted">No fixtures in cache. Run scraper first.</td></tr>'}
-            </tbody>
-          </table>
-        </div>
-      </div>`;
-
-    const copyBtn = $('#copy-admin-match-json');
-    if (copyBtn) {
-      copyBtn.addEventListener('click', async () => {
-        try {
-          await navigator.clipboard.writeText(pretty);
-          toast('admin-match.json copied');
-        } catch (err) {
-          toast(err.message, 'error');
-        }
-      });
-    }
-    $('#admin-match-form').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const matchId = fd.get('matchId');
-      const matchUrl = String(fd.get('matchUrl') || '').trim();
-      const streamUrl = String(fd.get('streamUrl') || '').trim();
-      if (!matchUrl && !streamUrl) return toast('Enter a Match URL and/or Stream URL', 'error');
-      try {
-        await api(`/admin-match/${encodeURIComponent(matchId)}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            source: fd.get('source'),
-            matchUrl,
-            streamUrl,
-            headers: {
-              Referer: String(fd.get('referer') || '').trim(),
-              'User-Agent': String(fd.get('userAgent') || '').trim(),
-            },
-          }),
-        });
-        toast('Saved admin-match.json');
-        renderAdminMatch();
-      } catch (err) {
-        toast(err.message, 'error');
-      }
-    });
-    pageEl.querySelectorAll('[data-clear]').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('Remove this manual Match/Stream URL from admin-match.json?')) return;
-        try {
-          await api(`/admin-match/${encodeURIComponent(btn.dataset.clear)}`, { method: 'DELETE' });
-          toast('Manual entry cleared');
-          renderAdminMatch();
-        } catch (err) {
-          toast(err.message, 'error');
-        }
-      });
-    });
-  }
 
   async function renderStreams() {
     setTitle('Manual Streams');
