@@ -370,7 +370,16 @@ class StreamEngine {
         const mins = minutesUntilKickoff(base.kickoff);
         order.push(base.matchId);
 
-        if (base.status === 'END') {
+        const stillNeedUrl = this.sources.some((s) =>
+          needsMatchUrlDiscovery(base, s.name, nowUtcUnixSeconds())
+        );
+        const huntEndedMatch =
+          stillNeedUrl && resolveAnyMatchUrlSlot(base.kickoff);
+        const huntEndedStream =
+          this.lateUrlExtractCatchup({ ...base, streamSearch }) ||
+          this.missedExtractCatchup({ ...base, streamSearch }) ||
+          this.incompletePlayerCatchup({ ...base, streamSearch });
+        if (base.status === 'END' && !huntEndedMatch && !huntEndedStream) {
           streamSearch = this.markStopped(streamSearch);
           this.extractQueue.cancelMatch(base.matchId);
           const ended = this.stampStreamFields(
@@ -386,9 +395,6 @@ class StreamEngine {
           continue;
         }
 
-        const stillNeedUrl = this.sources.some((s) =>
-          needsMatchUrlDiscovery(base, s.name, nowUtcUnixSeconds())
-        );
         const allowLateExtract =
           this.missedExtractCatchup({ ...base, streamSearch }) ||
           this.lateUrlExtractCatchup({ ...base, streamSearch }) ||
@@ -577,7 +583,14 @@ class StreamEngine {
           Object.values(streamSearch.sources || {}).some((s) => s?.slotsDone?.[slot.id])
       );
       if (extractedThisSlot) streamSearch = this.markSlotDone(streamSearch, slot.id);
-      if (isStreamSearchStopped(match.kickoff, streamSearch)) {
+      if (
+        isStreamSearchStopped(match.kickoff, streamSearch) &&
+        !this.lateUrlExtractCatchup({ ...match, streamSearch }) &&
+        !this.missedExtractCatchup({ ...match, streamSearch }) &&
+        !this.sources.some((s) =>
+          needsMatchUrlDiscovery(match, s.name, nowUtcUnixSeconds())
+        )
+      ) {
         streamSearch = this.markStopped(streamSearch);
       }
       const finalMatch = this.stampStreamFields(

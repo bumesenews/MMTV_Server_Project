@@ -74,11 +74,17 @@ function resolveMatchStatus(match, options = {}) {
     } else if (nowSec < liveUntil) {
       const searchStopAt = kickSec + STREAM_SEARCH_STOP_AFTER_MIN * 60;
       if (nowSec >= searchStopAt && !hasPlayableStream(match)) {
-        const searchTried = Boolean(
-          match.streamSearch?.started || match.streamSearch?.stopped
-        );
-        // Do not END a match we never searched (pipeline hung through −30..+15).
-        status = searchTried ? 'END' : 'LIVE';
+        const stillNeedMatchUrl = !String(match.matchUrl || '').trim();
+        // Keep LIVE so Match URL hunt continues (Championship listings often late).
+        if (stillNeedMatchUrl) {
+          status = 'LIVE';
+        } else {
+          const searchTried = Boolean(
+            match.streamSearch?.started || match.streamSearch?.stopped
+          );
+          // Do not END a match we never searched (pipeline hung through −30..+15).
+          status = searchTried ? 'END' : 'LIVE';
+        }
       } else {
         status = 'LIVE';
       }

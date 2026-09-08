@@ -693,6 +693,15 @@ const TEAM_NAME_ALIAS_TO_STANDARD = {
   'viet nam': 'Vietnam',
   vietnam: 'Vietnam',
   'dt viet nam': 'Vietnam',
+  'sheff utd': 'Sheffield United',
+  'sheffield utd': 'Sheffield United',
+  'sheff united': 'Sheffield United',
+  stoke: 'Stoke City',
+  preston: 'Preston North End',
+  cardiff: 'Cardiff City',
+  swansea: 'Swansea City',
+  bolton: 'Bolton Wanderers',
+  'west ham': 'West Ham United',
 };
 
 function resolveTeamNameAlias(name, normalizer) {
@@ -724,10 +733,39 @@ function resolveTeamNameAlias(name, normalizer) {
  * exact = 40, fuzzy (multi-token containment / full token overlap) = 32, else 0.
  * Single-token containment is rejected (Inter Milan vs Milan / AC Milan).
  */
+const TEAM_TOKEN_SYNONYMS = {
+  utd: 'united',
+  united: 'united',
+  ath: 'athletic',
+  athletic: 'athletic',
+};
+
+const SAFE_CLUB_SUFFIXES = new Set([
+  'city',
+  'united',
+  'town',
+  'rovers',
+  'wanderers',
+  'hotspur',
+  'county',
+  'athletic',
+  'albion',
+  'north',
+  'end',
+  'argyle',
+]);
+
+function canonTeamToken(token) {
+  const t = String(token || '').toLowerCase();
+  return TEAM_TOKEN_SYNONYMS[t] || t;
+}
+
 function tokenAbbrevCompatible(a, b) {
   if (!a || !b) return false;
-  if (a === b) return true;
-  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  const ca = canonTeamToken(a);
+  const cb = canonTeamToken(b);
+  if (ca === cb) return true;
+  const [short, long] = ca.length <= cb.length ? [ca, cb] : [cb, ca];
   return short.length >= 4 && long.startsWith(short);
 }
 
@@ -848,6 +886,14 @@ function compareTeamIdentity(fotmobName, streamName, normalizer) {
   if (shortTok.length === 1 && longTok.length >= 2) {
     const head = shortTok[0];
     if (head.length >= 8 && head === longTok[0]) {
+      return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };
+    }
+    // Stoke ↔ Stoke City, Preston ↔ Preston North End (safe suffixes only).
+    if (
+      head.length >= 5 &&
+      canonTeamToken(head) === canonTeamToken(longTok[0]) &&
+      longTok.slice(1).every((t) => SAFE_CLUB_SUFFIXES.has(canonTeamToken(t)))
+    ) {
       return { score: 32, kind: 'fuzzy', fotmobKey: a, streamKey: b };
     }
   }
@@ -994,8 +1040,21 @@ function scoreStreamMatch(fotmobMatch, streamUrlData, options = {}) {
   const strMs = toUtcMillis(streamTime);
   const timeKnown = fotMs != null && strMs != null;
   const timeMatched = timeKnown && isMatchWithinWindow(fotmobTime, streamTime, timeTolerance);
+  // Sites often print VN 02:00 for a 1:15 AM Yangon kickoff (15 min off).
+  // Keep a hard reject only when the clocks are far apart (default 45 min).
+  const timeRelaxMin = Math.max(
+    timeTolerance,
+    Number(options.timeRelaxMinutes != null ? options.timeRelaxMinutes : 45)
+  );
+  const timeDeltaMin =
+    timeKnown && Number.isFinite(fotMs) && Number.isFinite(strMs)
+      ? Math.abs(fotMs - strMs) / 60000
+      : null;
+  const timeCloseEnough =
+    timeMatched ||
+    (dateMatched && timeDeltaMin != null && timeDeltaMin <= timeRelaxMin);
 
-  if (timeKnown && !timeMatched) {
+  if (timeKnown && !timeCloseEnough) {
     return {
       ...emptyScoreResult('time_mismatch'),
       home,
@@ -1006,7 +1065,7 @@ function scoreStreamMatch(fotmobMatch, streamUrlData, options = {}) {
 
   let score = home.score + away.score;
   if (dateMatched) score += MATCH_SCORE_WEIGHTS.DATE;
-  if (timeMatched) score += MATCH_SCORE_WEIGHTS.TIME;
+  if (timeMatched || timeCloseEnough) score += MATCH_SCORE_WEIGHTS.TIME;
 
   const league = extraLeagueValidation(fotmobMatch, stream);
   const fuzzyTeam = home.kind === 'fuzzy' || away.kind === 'fuzzy';

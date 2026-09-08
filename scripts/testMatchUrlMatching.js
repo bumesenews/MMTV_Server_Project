@@ -188,6 +188,44 @@ console.log('\n=== Matching identity (home + away + date + kickoff) ===');
 
 {
   const url =
+    'https://cakhiazaa.tv/truc-tiep/blackburn-rovers-vs-sheffield-united-luc-0200-ngay-09-09-2026/';
+  const kick = yangonKickoff('2026-09-09T01:15:00');
+  const fotmob = {
+    matchId: 'blackburn_sheff',
+    homeTeam: 'Blackburn',
+    awayTeam: 'Sheff Utd',
+    date: kick.toFormat('yyyy-MM-dd'),
+    time: kick.toFormat('HH:mm'),
+    kickoff: kick.toISO(),
+    league: 'English Championship (ENG LCH)',
+  };
+  const r = scoreUrl(fotmob, url);
+  assert(
+    '5b. Championship 1:15 vs site 02:00 ICT still matches',
+    r.accepted === true,
+    JSON.stringify({ reason: r.reason, score: r.score, home: r.home, away: r.away })
+  );
+}
+
+{
+  const url =
+    'https://cakhiazaa.tv/truc-tiep/bolton-wanderers-vs-west-ham-luc-0200-ngay-09-09-2026/';
+  const parsed = parseStreamUrl(url);
+  const fotmob = fotmobFromParsed(parsed, {
+    homeTeam: 'Bolton',
+    awayTeam: 'West Ham United',
+    league: 'English Championship (ENG LCH)',
+  });
+  const r = scoreUrl(fotmob, url);
+  assert(
+    '5c. Bolton vs Bolton Wanderers / West Ham matches',
+    r.accepted === true,
+    JSON.stringify({ reason: r.reason, score: r.score, home: r.home, away: r.away })
+  );
+}
+
+{
+  const url =
     'https://xoilacxtn.tv/truc-tiep/inter-vs-juventus-luc-2000-ngay-15-08-2026/';
   const parsed = parseStreamUrl(url);
   const fotmob = fotmobFromParsed(parsed, {
@@ -377,6 +415,12 @@ console.log('\n=== Matching identity (home + away + date + kickoff) ===');
     milan.score === 0,
     JSON.stringify(milan)
   );
+  const sheff = compareTeamIdentity('Sheff Utd', 'Sheffield United', emptyNormalizer);
+  const stoke = compareTeamIdentity('Stoke', 'Stoke City', emptyNormalizer);
+  const preston = compareTeamIdentity('Preston', 'Preston North End', emptyNormalizer);
+  assert('13s. Sheff Utd matches Sheffield United', sheff.score > 0, JSON.stringify(sheff));
+  assert('13t. Stoke matches Stoke City', stoke.score > 0, JSON.stringify(stoke));
+  assert('13u. Preston matches Preston North End', preston.score > 0, JSON.stringify(preston));
 }
 
 console.log('\n=== Multiple matches at the same time ===');
