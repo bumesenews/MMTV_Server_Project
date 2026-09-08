@@ -293,6 +293,21 @@ class PublishService {
 
     const { changed, payload: cached } = this.cache.saveGenerated(payload);
 
+    if (this.adminMatches) {
+      try {
+        await this.adminMatches.saveFullPayload(cached, { actor });
+      } catch (err) {
+        if (this.logService) {
+          this.logService.add({
+            category: 'github',
+            action: 'admin_match_sync_failed',
+            message: err.message,
+            actor,
+          });
+        }
+      }
+    }
+
     const delivery = buildDeliveryBundle({
       matchesPayload: cached,
       highlights: extrasMerged.highlights,

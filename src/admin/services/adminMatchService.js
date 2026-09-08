@@ -1,6 +1,7 @@
 const {
   emptyAdminMatchDoc,
-  listAdminEntries,
+  toAdminMatchDoc,
+  listOverrideEntries,
   upsertAdminEntry,
   removeAdminEntry,
   findAdminEntry,
@@ -22,12 +23,22 @@ class AdminMatchService {
   }
 
   listSync() {
-    return listAdminEntries(this._doc || emptyAdminMatchDoc());
+    return listOverrideEntries(this._doc || emptyAdminMatchDoc());
   }
 
   async list() {
     const doc = await this.load();
-    return listAdminEntries(doc);
+    return listOverrideEntries(doc);
+  }
+
+  async saveFullPayload(payload, { actor } = {}) {
+    const doc = toAdminMatchDoc(payload);
+    const saved = await this.config.saveAdminMatchConfig(doc, {
+      actor,
+      message: 'chore: sync admin-match.json (full matches)',
+    });
+    this._doc = doc;
+    return saved;
   }
 
   async get(matchId) {

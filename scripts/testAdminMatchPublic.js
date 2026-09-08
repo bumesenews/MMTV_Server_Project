@@ -169,5 +169,49 @@ console.log('\n=== TEST 7 public matches.json strip ===');
   check('toPublicMatchesPayload same strip', !('matchUrl' in toPublicMatchesPayload(payload).matches[0]));
 }
 
+console.log('\n=== TEST 8 full admin-match.json does not lock AUTO urls ===');
+{
+  const { applyAdminMatchDocToMatches, toAdminMatchDoc, mergeAdminMatchDocs } = require('../src/utils/adminMatch');
+  const full = generateFlutterJson([
+    {
+      ...fixture,
+      homeTeam: 'Cagliari',
+      matchUrl: 'https://cakhia.example/auto',
+      matchUrlStatus: 'MATCH_URL_CONFIRMED',
+      streamUrl: 'https://cdn.example/auto.m3u8',
+      h2h: { matches: [{ score: '1-0' }] },
+    },
+  ]);
+  const applied = applyAdminMatchDocToMatches(
+    [{ ...fixture, matchUrl: 'https://cakhia.example/from-scrape' }],
+    full
+  );
+  check('full dump without adminManual is not an override', applied[0].matchUrl === 'https://cakhia.example/from-scrape');
+  check('toAdminMatchDoc keeps matchUrl + h2h', toAdminMatchDoc(full).matches[0].matchUrl.includes('auto') && toAdminMatchDoc(full).matches[0].h2h != null);
+
+  const withManual = {
+    ...full,
+    matches: [
+      {
+        ...full.matches[0],
+        adminManual: { matchUrl: 'https://cakhia.example/manual', streamUrl: '', source: 'cakhia' },
+      },
+    ],
+  };
+  const stamped = applyAdminMatchDocToMatches([fixture], withManual);
+  check('adminManual still applied from full dump', stamped[0].matchUrl === 'https://cakhia.example/manual');
+
+  const merged = mergeAdminMatchDocs({ version: 1, matches: [] }, full);
+  check('empty local does not wipe GitHub full dump', merged.matches[0].homeTeam === 'Cagliari' && merged.matches[0].h2h != null);
+
+  const upserted = upsertAdminEntry(full, {
+    matchId: fixture.matchId,
+    source: 'cakhia',
+    matchUrl: 'https://cakhia.example/typed',
+  });
+  check('upsert on full doc keeps fixture fields', upserted.matches[0].homeTeam === 'Cagliari' && upserted.matches[0].h2h != null);
+  check('upsert stamps adminManual', upserted.matches[0].adminManual.matchUrl === 'https://cakhia.example/typed');
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

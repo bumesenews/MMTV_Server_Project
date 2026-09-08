@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { githubHeaders, hasSources } = require('../../services/configLoader');
-const { adminMatchFileName } = require('../../utils/adminMatch');
+const { adminMatchFileName, toAdminMatchDoc } = require('../../utils/adminMatch');
 const { hasDataChanged } = require('../../utils/compare');
 
 /**
@@ -215,10 +215,7 @@ class ConfigAdminService {
   }
 
   async saveAdminMatchConfig(content, { message, actor } = {}) {
-    const doc = {
-      version: 1,
-      matches: Array.isArray(content?.matches) ? content.matches : [],
-    };
+    const doc = toAdminMatchDoc(content);
     const localPath = path.join(this.localDir, this.adminMatchFile);
     fs.writeFileSync(localPath, JSON.stringify(doc, null, 2), 'utf8');
 

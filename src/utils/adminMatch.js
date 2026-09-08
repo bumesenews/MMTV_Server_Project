@@ -1,7 +1,42 @@
 const { applyAdminMatchUrl } = require('./matchUrlDiscovery');
 
 function emptyAdminMatchDoc() {
-  return { version: 1, matches: [] };
+  return {
+    version: 1,
+    generatedAt: null,
+    timezone: 'Asia/Yangon',
+    matchCount: 0,
+    matches: [],
+    meta: { feed: 'admin-match' },
+  };
+}
+
+/** Full former matches.json row (fixture + matchUrl + streams + h2h), not a sparse override. */
+function isFullAdminMatch(m) {
+  return Boolean(
+    m &&
+      (m.homeTeam ||
+        m.awayTeam ||
+        m.kickoff ||
+        m.h2h !== undefined ||
+        m.matchUrlSearch ||
+        m.sourcePages)
+  );
+}
+
+function toAdminMatchDoc(content) {
+  const matches = Array.isArray(content?.matches) ? content.matches : [];
+  const meta =
+    content?.meta && typeof content.meta === 'object' ? { ...content.meta } : {};
+  meta.feed = 'admin-match';
+  return {
+    version: content?.version || 1,
+    generatedAt: content?.generatedAt || null,
+    timezone: content?.timezone || 'Asia/Yangon',
+    matchCount: content?.matchCount ?? matches.length,
+    matches,
+    meta,
+  };
 }
 
 /** File name under GITHUB_CONFIG_PATH. Default: admin-match.json */
@@ -51,12 +86,44 @@ function normalizeAdminEntry(input = {}) {
 }
 
 function mergeAdminMatchDocs(local, remote) {
+  const localMatches = listAdminEntries(local);
+  const remoteMatches = listAdminEntries(remote);
+  if (!localMatches.length && !remoteMatches.length) {
+    return toAdminMatchDoc(local || remote || emptyAdminMatchDoc());
+  }
+  if (!localMatches.length) return toAdminMatchDoc(remote);
+  if (!remoteMatches.length) return toAdminMatchDoc(local);
+
+  const localFull = localMatches.some(isFullAdminMatch);
+  const remoteFull = remoteMatches.some(isFullAdminMatch);
+  if (localFull || remoteFull) {
+    const byId = new Map();
+    for (const m of remoteMatches) {
+      if (m?.matchId) byId.set(m.matchId, m);
+    }
+    for (const m of localMatches) {
+      if (!m?.matchId) continue;
+      if (isFullAdminMatch(m)) {
+        byId.set(m.matchId, m);
+        continue;
+      }
+      const prev = byId.get(m.matchId);
+      const overlay = normalizeAdminEntry(m);
+      byId.set(
+        m.matchId,
+        prev && overlay ? applyAdminEntryToFixture(prev, overlay) : m
+      );
+    }
+    const base = localFull ? local : remote;
+    return toAdminMatchDoc({ ...base, matches: [...byId.values()] });
+  }
+
   const byId = new Map();
-  for (const entry of listAdminEntries(remote)) {
+  for (const entry of remoteMatches) {
     const n = normalizeAdminEntry(entry);
     if (n) byId.set(n.matchId, n);
   }
-  for (const entry of listAdminEntries(local)) {
+  for (const entry of localMatches) {
     const n = normalizeAdminEntry(entry);
     if (n) byId.set(n.matchId, n);
   }
@@ -69,15 +136,37 @@ function upsertAdminEntry(doc, input) {
     updatedAt: new Date().toISOString(),
   });
   if (!entry) throw new Error('matchId is required');
-  const rest = listAdminEntries(doc).filter((e) => e.matchId !== entry.matchId);
+  const matches = listAdminEntries(doc);
+  const idx = matches.findIndex((e) => e.matchId === entry.matchId);
+  if (idx >= 0 && isFullAdminMatch(matches[idx])) {
+    const next = matches.slice();
+    next[idx] = applyAdminEntryToFixture(matches[idx], entry);
+    return toAdminMatchDoc({ ...doc, matches: next, matchCount: next.length });
+  }
+  const rest = matches.filter((e) => e.matchId !== entry.matchId);
+  if (matches.some(isFullAdminMatch)) {
+    const next = [...rest, { matchId: entry.matchId, ...entry }];
+    return toAdminMatchDoc({ ...doc, matches: next, matchCount: next.length });
+  }
   return { version: 1, matches: [...rest, entry] };
 }
 
 function removeAdminEntry(doc, matchId) {
   const id = String(matchId || '').trim();
+  const matches = listAdminEntries(doc);
+  if (matches.some(isFullAdminMatch)) {
+    const next = matches.map((m) => {
+      if (m.matchId !== id) return m;
+      const copy = { ...m };
+      delete copy.adminManual;
+      delete copy.adminSkipExtract;
+      return copy;
+    });
+    return toAdminMatchDoc({ ...doc, matches: next, matchCount: next.length });
+  }
   return {
     version: 1,
-    matches: listAdminEntries(doc).filter((e) => e.matchId !== id),
+    matches: matches.filter((e) => e.matchId !== id),
   };
 }
 
@@ -134,8 +223,31 @@ function applyAdminEntryToFixture(fixture, entry) {
   };
 }
 
+function extractOverrideEntry(stored) {
+  if (!stored?.matchId) return null;
+  const manual = stored.adminManual;
+  if (manual && (manual.matchUrl || manual.streamUrl)) {
+    return normalizeAdminEntry({
+      matchId: stored.matchId,
+      source: manual.source || stored.matchUrlSource || stored.source,
+      matchUrl: manual.matchUrl,
+      streamUrl: manual.streamUrl,
+      quality: stored.quality,
+      headers: stored.streamHeaders || stored.headers,
+    });
+  }
+  if (!isFullAdminMatch(stored) && (stored.matchUrl || stored.streamUrl)) {
+    return normalizeAdminEntry(stored);
+  }
+  return null;
+}
+
+function listOverrideEntries(doc) {
+  return listAdminEntries(doc).map(extractOverrideEntry).filter(Boolean);
+}
+
 function applyAdminMatchDocToMatches(matches = [], doc) {
-  const byId = new Map(listAdminEntries(doc).map((e) => [e.matchId, e]));
+  const byId = new Map(listOverrideEntries(doc).map((e) => [e.matchId, e]));
   if (!byId.size) return matches;
   return (matches || []).map((m) => {
     const entry = byId.get(m.matchId);
@@ -145,8 +257,12 @@ function applyAdminMatchDocToMatches(matches = [], doc) {
 
 module.exports = {
   emptyAdminMatchDoc,
+  isFullAdminMatch,
+  toAdminMatchDoc,
   adminMatchFileName,
   listAdminEntries,
+  listOverrideEntries,
+  extractOverrideEntry,
   normalizeAdminEntry,
   mergeAdminMatchDocs,
   upsertAdminEntry,

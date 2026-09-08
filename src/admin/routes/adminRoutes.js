@@ -863,6 +863,10 @@ function createAdminRouter(ctx) {
         origin: result.origin,
         path: result.path,
         matches: result.content?.matches || [],
+        matchCount:
+          result.content?.matchCount ?? (result.content?.matches || []).length,
+        generatedAt: result.content?.generatedAt || null,
+        timezone: result.content?.timezone || 'Asia/Yangon',
       });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });

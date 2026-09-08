@@ -946,6 +946,14 @@
     const fixtures = matchData.matches || [];
     const stored = adminData.matches || adminData.content?.matches || [];
     const byId = Object.fromEntries(stored.map((e) => [e.matchId, e]));
+    function manualOf(m) {
+      const row = byId[m.matchId] || {};
+      const am = m.adminManual || row.adminManual;
+      if (am && (am.matchUrl || am.streamUrl)) return am;
+      if (!row.homeTeam && (row.matchUrl || row.streamUrl)) return row;
+      return {};
+    }
+    const pretty = JSON.stringify(adminData.content || { matches: stored }, null, 2);
     const sourceNames = (sourceData.config?.sources || [])
       .filter((s) => s.type === 'streaming' && s.enabled !== false)
       .map((s) => s.name);
@@ -955,8 +963,12 @@
 
     pageEl.innerHTML = `
       <div class="panel">
-        <p class="muted">Manual Match URL / Stream URL saved to GitHub <code>config/admin-match.json</code>. Flutter still reads only public <code>matches.json</code> (fixture + stream).</p>
-        <p class="muted">Origin: ${esc(adminData.origin || 'local')} · AUTO Match URL search stays default. Manual Match URL is never overwritten.</p>
+        <p class="muted">GitHub <code>config/admin-match.json</code> is the full internal matches document (fixture, Match URL, m3u8, H2H, search status). Public Flutter <code>matches.json</code> is still fixture + stream only.</p>
+        <p class="muted">Origin: ${esc(adminData.origin || 'local')} · ${esc(adminData.path || 'config/admin-match.json')} · ${stored.length} matches · AUTO search stays default. Manual Match URL is never overwritten.</p>
+        <p class="muted" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <button type="button" id="copy-admin-match-json">Copy admin-match.json</button>
+        </p>
+        <pre id="admin-match-json" class="muted" style="white-space:pre-wrap;max-height:420px;overflow:auto;margin:0;font-size:0.75rem">${esc(pretty)}</pre>
         <form id="admin-match-form" class="grid-2">
           <label>Match
             <select name="matchId" required>
@@ -986,15 +998,14 @@
             </thead>
             <tbody>
               ${fixtures.map((m) => {
-                const manual = byId[m.matchId] || m.adminManual || {};
+                const manual = manualOf(m);
+                const autoUrl = m.matchUrl && !manual.matchUrl ? m.matchUrl : '';
                 return `<tr data-id="${esc(m.matchId)}">
                   <td><strong>${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</strong>
                     <div class="muted" style="font-size:0.75rem">${esc(m.matchId)}</div></td>
-                  <td>${m.matchUrl && !manual.matchUrl
-                    ? `<span class="badge">AUTO</span> <span class="muted" style="word-break:break-all">${esc(m.matchUrl)}</span>`
-                    : (m.matchUrl && !m.adminManual?.matchUrl
-                      ? `<span class="badge">AUTO</span> <span class="muted" style="word-break:break-all">${esc(m.matchUrl)}</span>`
-                      : '<span class="muted">—</span>')}</td>
+                  <td>${autoUrl
+                    ? `<span class="badge">AUTO</span> <span class="muted" style="word-break:break-all">${esc(autoUrl)}</span>`
+                    : '<span class="muted">—</span>'}</td>
                   <td>${manual.matchUrl
                     ? `<span class="badge manual">MANUAL</span> <span class="muted" style="word-break:break-all">${esc(manual.matchUrl)}</span>`
                     : '<span class="muted">—</span>'}</td>
@@ -1011,6 +1022,17 @@
         </div>
       </div>`;
 
+    const copyBtn = $('#copy-admin-match-json');
+    if (copyBtn) {
+      copyBtn.addEventListener('click', async () => {
+        try {
+          await navigator.clipboard.writeText(pretty);
+          toast('admin-match.json copied');
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    }
     $('#admin-match-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
