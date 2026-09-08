@@ -54,6 +54,10 @@ function toYangon(input) {
     'yyyy-MM-dd',
     'dd/MM/yyyy HH:mm',
     'dd-MM-yyyy HH:mm',
+    'd.M.yyyy HH:mm',
+    'dd.MM.yyyy HH:mm',
+    'd.M.yyyy',
+    'dd.MM.yyyy',
   ];
 
   for (const fmt of formats) {
@@ -107,6 +111,12 @@ function combineDateAndTime(dateStr, timeStr) {
 function formatDate(dt) {
   const d = toYangon(dt);
   return d ? d.toFormat('yyyy-MM-dd') : null;
+}
+
+/** Flutter / matches.json date, e.g. 2026-09-07 → "7.9.2026". */
+function formatDateDisplay(dt) {
+  const d = toYangon(dt);
+  return d ? d.toFormat('d.M.yyyy') : null;
 }
 
 function formatTime(dt) {
@@ -296,6 +306,7 @@ module.exports = {
   toUtcUnixSeconds,
   combineDateAndTime,
   formatDate,
+  formatDateDisplay,
   formatTime,
   formatTime12,
   formatKickoffId,

@@ -232,6 +232,7 @@ class StreamEngine {
    * gate or the +2h lifecycle cutoff (checked before force).
    */
   shouldExtractStreams(fixture, { force = false } = {}) {
+    if (fixture?.adminSkipExtract && fixture?.streamUrl) return false;
     const mins = minutesUntilKickoff(fixture.kickoff);
     if (mins == null) return false;
     // Hard gate: never extract before −30m, even with forceStreamCheck.

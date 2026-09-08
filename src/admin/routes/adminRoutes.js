@@ -228,20 +228,29 @@ function createAdminRouter(ctx) {
     }
   });
 
-  router.get('/matches', auth, (_req, res) => {
+  router.get('/matches', auth, async (_req, res) => {
+    if (ctx.adminMatches) await ctx.adminMatches.load();
     const delivery =
       typeof ctx.cache.getDelivery === 'function'
         ? ctx.cache.getDelivery('matches')
         : null;
     const current = ctx.cache.getCurrent();
     const payload =
-      delivery && Array.isArray(delivery.matches) ? delivery : current;
+      current && Array.isArray(current.matches) && current.matches.length
+        ? current
+        : delivery && Array.isArray(delivery.matches)
+          ? delivery
+          : current;
     const overrides = ctx.overrides.all();
     const manual = ctx.manualMatches.all();
+    const adminById = Object.fromEntries(
+      (ctx.adminMatches ? ctx.adminMatches.listSync() : []).map((e) => [e.matchId, e])
+    );
     const matches = (payload?.matches || []).map((m) => ({
       ...m,
       override: overrides[m.matchId] || null,
       isManual: Boolean(m.manual || manual[m.matchId]),
+      adminManual: m.adminManual || adminById[m.matchId] || null,
     }));
     // Include hidden matches for admin (from overrides even if filtered out of public JSON)
     for (const [matchId, ov] of Object.entries(overrides)) {
@@ -532,6 +541,19 @@ function createAdminRouter(ctx) {
         url: body.matchUrl || body.url,
         addedBy: req.admin.username,
       });
+      if (ctx.adminMatches && (body.matchUrl || body.url || body.streamUrl)) {
+        await ctx.adminMatches.upsert(
+          {
+            matchId,
+            source: body.source,
+            matchUrl: body.matchUrl || body.url,
+            streamUrl: body.streamUrl,
+            quality: body.quality || body.streamName,
+            headers: body.headers,
+          },
+          { actor: req.admin.username }
+        );
+      }
 
       const current = ctx.cache.getCurrent();
       if (!current?.matches) {
@@ -543,6 +565,10 @@ function createAdminRouter(ctx) {
       }
 
       current.matches[idx] = ctx.overrides.applyManualMatchUrlsToFixture(current.matches[idx]);
+      if (ctx.adminMatches) {
+        await ctx.adminMatches.load();
+        current.matches[idx] = ctx.adminMatches.applyToMatches([current.matches[idx]])[0];
+      }
       ctx.cache.writeJson(ctx.cache.currentPath, current);
 
       const published = await ctx.publish.republishFromCache({
@@ -612,6 +638,9 @@ function createAdminRouter(ctx) {
       const { matchId } = req.params;
       const source = decodeURIComponent(req.params.source);
       ctx.overrides.removeManualMatchUrl(matchId, source);
+      if (ctx.adminMatches) {
+        await ctx.adminMatches.remove(matchId, { actor: req.admin.username });
+      }
 
       const current = ctx.cache.getCurrent();
       if (current?.matches) {
@@ -820,6 +849,100 @@ function createAdminRouter(ctx) {
         meta: result,
       });
       res.json({ ok: true, ...result, content });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.get('/admin-match', auth, async (_req, res) => {
+    try {
+      const result = await ctx.config.getAdminMatchConfig();
+      res.json({
+        ok: true,
+        content: result.content,
+        origin: result.origin,
+        path: result.path,
+        matches: result.content?.matches || [],
+      });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.put('/admin-match', auth, editor, async (req, res) => {
+    try {
+      const content = req.body?.content || req.body;
+      const result = await ctx.config.saveAdminMatchConfig(content, {
+        actor: req.admin.username,
+        message: req.body?.message,
+      });
+      if (ctx.adminMatches) await ctx.adminMatches.load(true);
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'admin_match_save' },
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'admin_match_save',
+        message: 'Saved admin-match.json',
+        actor: req.admin.username,
+        meta: result,
+      });
+      res.json({ ok: true, ...result, published, content });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.put('/admin-match/:matchId', auth, editor, async (req, res) => {
+    try {
+      const { matchId } = req.params;
+      const body = req.body || {};
+      const upserted = await ctx.adminMatches.upsert(
+        {
+          matchId,
+          source: body.source,
+          matchUrl: body.matchUrl,
+          streamUrl: body.streamUrl,
+          quality: body.quality,
+          headers: body.headers,
+        },
+        { actor: req.admin.username }
+      );
+      const current = ctx.cache.getCurrent();
+      if (current?.matches) {
+        const idx = current.matches.findIndex((m) => m.matchId === matchId);
+        if (idx >= 0) {
+          current.matches[idx] = ctx.adminMatches.applyToMatches([current.matches[idx]])[0];
+          ctx.cache.writeJson(ctx.cache.currentPath, current);
+        }
+      }
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'admin_match_upsert' },
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'admin_match_upsert',
+        message: `Saved admin-match ${matchId}`,
+        actor: req.admin.username,
+        meta: { matchId },
+      });
+      res.json({ ok: true, entry: upserted.entry, saved: upserted.saved, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.delete('/admin-match/:matchId', auth, editor, async (req, res) => {
+    try {
+      const { matchId } = req.params;
+      await ctx.adminMatches.remove(matchId, { actor: req.admin.username });
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'admin_match_delete' },
+      });
+      res.json({ ok: true, published });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
     }

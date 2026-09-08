@@ -52,6 +52,20 @@ function yangonDateKey() {
   return fmt.format(new Date());
 }
 
+function fixtureYangonDateKey(m) {
+  const kick = String(m.kickoff || '');
+  const fromKick = kick.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (fromKick) return fromKick[1];
+  const raw = String(m.date || '').trim();
+  const iso = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const dotted = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (dotted) {
+    return `${dotted[3]}-${dotted[2].padStart(2, '0')}-${dotted[1].padStart(2, '0')}`;
+  }
+  return raw;
+}
+
 async function main() {
   const sourcesDoc = JSON.parse(
     fs.readFileSync(path.join(ROOT, 'config/sources.json'), 'utf8')
@@ -61,7 +75,7 @@ async function main() {
 
   const feed = await getJson(FEED_URL);
   const today = yangonDateKey();
-  const fixtures = (feed.matches || []).filter((m) => m.date === today);
+  const fixtures = (feed.matches || []).filter((m) => fixtureYangonDateKey(m) === today);
   console.log(`Feed generatedAt=${feed.generatedAt}`);
   console.log(`Today (${today}) fixtures: ${fixtures.length}`);
   console.log(

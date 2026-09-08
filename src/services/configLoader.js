@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { logger } = require('../utils/logger');
+const { mergeAdminMatchDocs, emptyAdminMatchDoc, adminMatchFileName } = require('../utils/adminMatch');
 
 /**
  * Loads remote scraper configuration from GitHub.
@@ -47,6 +48,7 @@ class ConfigLoader {
       leagues: mergeLeaguesDoc(local.leagues, remote?.leagues),
       teams: mergeTeamsDoc(local.teams, remote?.teams),
       sources,
+      adminMatch: mergeAdminMatchDocs(local.adminMatch, remote?.adminMatch),
       origin: remote ? (preferLocal && hasSources(local.sources) ? 'local+github' : 'github') : 'local',
       loadedAt: new Date().toISOString(),
       sourcesOrigin: hasSources(local.sources) && (preferLocal || !hasSources(remote?.sources))
@@ -73,17 +75,23 @@ class ConfigLoader {
       leagues: readJson(path.join(this.localDir, 'leagues.json')),
       teams: readJson(path.join(this.localDir, 'teams.json')),
       sources: readJson(path.join(this.localDir, 'sources.json')),
+      adminMatch: readJson(path.join(this.localDir, adminMatchFileName(this.env))),
     };
   }
 
   async loadFromGitHub() {
     const base = this.env.GITHUB_CONFIG_PATH || 'config';
-    const [leagues, teams, sources] = await Promise.all([
+    const adminFile = adminMatchFileName(this.env);
+    const [leagues, teams, sources, adminMatch] = await Promise.all([
       this.fetchGitHubFile(`${base}/leagues.json`),
       this.fetchGitHubFile(`${base}/teams.json`),
       this.fetchGitHubFile(`${base}/sources.json`),
+      this.fetchGitHubFile(`${base}/${adminFile}`).catch((err) => {
+        if (err.response?.status === 404) return emptyAdminMatchDoc();
+        throw err;
+      }),
     ]);
-    return { leagues, teams, sources };
+    return { leagues, teams, sources, adminMatch };
   }
 
   async fetchGitHubFile(filePath) {

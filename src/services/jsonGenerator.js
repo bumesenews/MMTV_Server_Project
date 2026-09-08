@@ -1,5 +1,5 @@
 const { resolveLeagueIcon } = require('../utils/fotmobLogos');
-const { nowYangon, formatTime12, minutesUntilKickoff } = require('../utils/time');
+const { nowYangon, formatTime12, formatDateDisplay, minutesUntilKickoff } = require('../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../utils/compare');
 const { enrichMatchState } = require('./statusService');
 const {
@@ -129,7 +129,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
     awayTeamId: m.awayTeamId || null,
     homeLogo: m.homeLogo || null,
     awayLogo: m.awayLogo || null,
-    date: m.date,
+    date: formatDateDisplay(m.kickoff) || m.date,
     time: formatTime12(m.kickoff) || m.time,
     kickoff: m.kickoff,
     timezone: m.timezone || 'Asia/Yangon',
@@ -231,4 +231,99 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
   return payload;
 }
 
-module.exports = { generateFlutterJson, flutterPlaybackHeaders };
+const PUBLIC_STREAM_KEYS = new Set([
+  'source',
+  'type',
+  'quality',
+  'name',
+  'url',
+  'headers',
+  'streamHeaders',
+  'active',
+]);
+
+const PUBLIC_MATCH_KEYS = [
+  'matchId',
+  'league',
+  'leagueIcon',
+  'homeTeam',
+  'awayTeam',
+  'homeTeamId',
+  'awayTeamId',
+  'homeLogo',
+  'awayLogo',
+  'date',
+  'time',
+  'kickoff',
+  'timezone',
+  'status',
+  'h2h',
+  'fotmobMatchId',
+  'leagueId',
+  'leagueName',
+  'pinned',
+  'featured',
+  'hasStreams',
+  'streamCount',
+  'streams',
+  'streamUrl',
+  'streamHeaders',
+  'streamStatus',
+];
+
+function toPublicStream(stream) {
+  if (!stream || !stream.url) return null;
+  const out = {};
+  for (const key of PUBLIC_STREAM_KEYS) {
+    if (stream[key] !== undefined) out[key] = stream[key];
+  }
+  return out;
+}
+
+/** Flutter GitHub matches.json — fixture + stream only (no Match URL / admin / debug). */
+function toPublicMatch(match) {
+  if (!match) return match;
+  const streams = (match.streams || []).map(toPublicStream).filter(Boolean);
+  const out = {};
+  for (const key of PUBLIC_MATCH_KEYS) {
+    if (key === 'streams') {
+      out.streams = streams;
+      continue;
+    }
+    if (match[key] !== undefined) out[key] = match[key];
+  }
+  out.hasStreams = streams.length > 0;
+  out.streamCount = streams.length;
+  if (!out.streamUrl && streams[0]) out.streamUrl = streams[0].url;
+  if (!out.streamHeaders && streams[0]) {
+    out.streamHeaders = streams[0].streamHeaders || streams[0].headers || null;
+  }
+  return out;
+}
+
+function toPublicMatchesPayload(payload) {
+  if (!payload || !Array.isArray(payload.matches)) return payload;
+  const matches = payload.matches.map(toPublicMatch);
+  const next = {
+    version: payload.version || 1,
+    generatedAt: payload.generatedAt,
+    timezone: payload.timezone || 'Asia/Yangon',
+    matchCount: matches.length,
+    matches,
+    meta: {
+      feed: 'matches',
+      liveCount: matches.filter((m) => m.status === 'LIVE').length,
+      scheduledCount: matches.filter((m) => m.status === 'Scheduled').length,
+      endedCount: matches.filter((m) => m.status === 'END').length,
+    },
+  };
+  next.meta.checksum = hashPayload(sanitizeForCompare(next));
+  return next;
+}
+
+module.exports = {
+  generateFlutterJson,
+  flutterPlaybackHeaders,
+  toPublicMatch,
+  toPublicMatchesPayload,
+};

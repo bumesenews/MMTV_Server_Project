@@ -267,6 +267,7 @@ function getSourceMatchUrlState(fixture, sourceName) {
     lastAttemptAt: raw.lastAttemptAt || null,
     slotsDone: repairSlotsDone(raw.slotsDone, attempts, Boolean(url)),
     confidence: Number(raw.confidence) || 0,
+    manual: Boolean(raw.manual),
   };
 }
 
@@ -287,6 +288,7 @@ function lastAttemptAgeSec(lastAttemptAt, nowSec) {
  */
 function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
   const st = getSourceMatchUrlState(fixture, sourceName);
+  if (st.manual) return false;
   if (sourceHasSavedMatchUrl(st)) return false;
 
   const cooldownSec = Math.max(1, STREAM_SEARCH_INTERVAL_MINUTES) * 60;
@@ -319,6 +321,9 @@ function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
 function applySourceDiscoveryResult(fixture, sourceName, hit, slot, nowIso) {
   const search = ensureMatchUrlSearch(fixture);
   const prev = getSourceMatchUrlState(fixture, sourceName);
+  if (prev.manual && prev.matchUrl) {
+    return skipDiscoveryKeepKnown(fixture, sourceName);
+  }
   let attempts = prev.attempts;
   let liveAttempts = prev.liveAttempts;
   if (slot?.early) {

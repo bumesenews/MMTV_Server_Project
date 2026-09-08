@@ -210,6 +210,7 @@
       dashboard: renderDashboard,
       mainlive: renderMainLive,
       matches: renderMatches,
+      adminmatch: renderAdminMatch,
       streams: renderStreams,
       feeds: renderFeeds,
       leagues: renderLeagues,
@@ -757,7 +758,14 @@
                   <td>${esc(m.date || '')} ${esc(m.time || '')}</td>
                   <td><span class="badge ${m.status === 'LIVE' ? 'live' : m.status === 'PREPARING_STREAM' ? 'preparing' : ''}">${esc(m.status || '')}</span></td>
                   <td>
-                    <div>${esc(m.matchUrlStatus || '—')}</div>
+                    <div>${esc(m.matchUrlStatus || '—')}
+                      ${m.adminManual?.matchUrl
+                        ? ' <span class="badge manual">MANUAL Match URL</span>'
+                        : m.matchUrl
+                          ? ' <span class="badge">AUTO Match URL</span>'
+                          : ''}
+                      ${m.adminManual?.streamUrl ? ' <span class="badge manual">MANUAL Stream</span>' : ''}
+                    </div>
                     ${m.matchUrl ? `<div class="muted" style="font-size:0.75rem;word-break:break-all">${esc(m.matchUrl)}</div>` : ''}
                     ${(m.override?.manualMatchUrls || []).map((u) => `
                       <div class="muted" style="font-size:0.72rem;margin-top:4px">
@@ -924,6 +932,121 @@
             toast(err.message, 'error');
           }
         });
+      });
+    });
+  }
+
+  async function renderAdminMatch() {
+    setTitle('Admin Match URLs (admin-match.json)');
+    const [matchData, adminData, sourceData] = await Promise.all([
+      api('/matches'),
+      api('/admin-match'),
+      api('/sources').catch(() => ({ sources: [], config: null })),
+    ]);
+    const fixtures = matchData.matches || [];
+    const stored = adminData.matches || adminData.content?.matches || [];
+    const byId = Object.fromEntries(stored.map((e) => [e.matchId, e]));
+    const sourceNames = (sourceData.config?.sources || [])
+      .filter((s) => s.type === 'streaming' && s.enabled !== false)
+      .map((s) => s.name);
+    const sourceOpts = (sourceNames.length ? sourceNames : ['cakhia', 'xoilac', 'socolive'])
+      .map((n) => `<option value="${esc(n)}">${esc(n)}</option>`)
+      .join('');
+
+    pageEl.innerHTML = `
+      <div class="panel">
+        <p class="muted">Manual Match URL / Stream URL saved to GitHub <code>config/admin-match.json</code>. Flutter still reads only public <code>matches.json</code> (fixture + stream).</p>
+        <p class="muted">Origin: ${esc(adminData.origin || 'local')} · AUTO Match URL search stays default. Manual Match URL is never overwritten.</p>
+        <form id="admin-match-form" class="grid-2">
+          <label>Match
+            <select name="matchId" required>
+              <option value="">Select fixture</option>
+              ${fixtures.map((m) => `<option value="${esc(m.matchId)}">${esc(m.homeTeam)} vs ${esc(m.awayTeam)} · ${esc(m.date || '')} ${esc(m.time || '')}</option>`).join('')}
+            </select>
+          </label>
+          <label>Source<select name="source">${sourceOpts}</select></label>
+          <label style="grid-column:1/-1">MANUAL Match URL (optional)
+            <input name="matchUrl" type="url" placeholder="https://…/truc-tiep/…" />
+          </label>
+          <label style="grid-column:1/-1">MANUAL Stream URL / m3u8 (optional)
+            <input name="streamUrl" type="url" placeholder="https://…/index.m3u8" />
+          </label>
+          <label>Referer (optional)<input name="referer" placeholder="https://ck.hexvaridstreamnode.com/" /></label>
+          <label>User-Agent (optional)<input name="userAgent" /></label>
+          <div style="grid-column:1/-1"><button type="submit">Save to admin-match.json</button></div>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Match</th><th>AUTO Match URL</th><th>MANUAL Match URL</th><th>MANUAL Stream URL</th><th></th>
+              </tr>
+            </thead>
+            <tbody>
+              ${fixtures.map((m) => {
+                const manual = byId[m.matchId] || m.adminManual || {};
+                return `<tr data-id="${esc(m.matchId)}">
+                  <td><strong>${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</strong>
+                    <div class="muted" style="font-size:0.75rem">${esc(m.matchId)}</div></td>
+                  <td>${m.matchUrl && !manual.matchUrl
+                    ? `<span class="badge">AUTO</span> <span class="muted" style="word-break:break-all">${esc(m.matchUrl)}</span>`
+                    : (m.matchUrl && !m.adminManual?.matchUrl
+                      ? `<span class="badge">AUTO</span> <span class="muted" style="word-break:break-all">${esc(m.matchUrl)}</span>`
+                      : '<span class="muted">—</span>')}</td>
+                  <td>${manual.matchUrl
+                    ? `<span class="badge manual">MANUAL</span> <span class="muted" style="word-break:break-all">${esc(manual.matchUrl)}</span>`
+                    : '<span class="muted">—</span>'}</td>
+                  <td>${manual.streamUrl
+                    ? `<span class="badge manual">MANUAL</span> <span class="muted" style="word-break:break-all">${esc(manual.streamUrl)}</span>`
+                    : '<span class="muted">—</span>'}</td>
+                  <td>${manual.matchUrl || manual.streamUrl
+                    ? `<button class="danger" data-clear="${esc(m.matchId)}">Clear manual</button>`
+                    : ''}</td>
+                </tr>`;
+              }).join('') || '<tr><td colspan="5" class="muted">No fixtures in cache. Run scraper first.</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>`;
+
+    $('#admin-match-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const matchId = fd.get('matchId');
+      const matchUrl = String(fd.get('matchUrl') || '').trim();
+      const streamUrl = String(fd.get('streamUrl') || '').trim();
+      if (!matchUrl && !streamUrl) return toast('Enter a Match URL and/or Stream URL', 'error');
+      try {
+        await api(`/admin-match/${encodeURIComponent(matchId)}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            source: fd.get('source'),
+            matchUrl,
+            streamUrl,
+            headers: {
+              Referer: String(fd.get('referer') || '').trim(),
+              'User-Agent': String(fd.get('userAgent') || '').trim(),
+            },
+          }),
+        });
+        toast('Saved admin-match.json');
+        renderAdminMatch();
+      } catch (err) {
+        toast(err.message, 'error');
+      }
+    });
+    pageEl.querySelectorAll('[data-clear]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Remove this manual Match/Stream URL from admin-match.json?')) return;
+        try {
+          await api(`/admin-match/${encodeURIComponent(btn.dataset.clear)}`, { method: 'DELETE' });
+          toast('Manual entry cleared');
+          renderAdminMatch();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
       });
     });
   }

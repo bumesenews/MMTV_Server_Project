@@ -254,6 +254,10 @@ class Pipeline {
     if (this.admin?.overrides) {
       mergedMatches = this.admin.overrides.applyToMatches(mergedMatches);
     }
+    if (this.admin?.adminMatches) {
+      await this.admin.adminMatches.load();
+      mergedMatches = this.admin.adminMatches.applyToMatches(mergedMatches);
+    }
 
     const payload = generateFlutterJson(
       mergedMatches,
@@ -332,6 +336,10 @@ class Pipeline {
       let matchesOut = sync.matches;
       if (this.admin?.overrides) {
         matchesOut = this.admin.overrides.applyToMatches(matchesOut);
+      }
+      if (this.admin?.adminMatches) {
+        await this.admin.adminMatches.load();
+        matchesOut = this.admin.adminMatches.applyToMatches(matchesOut);
       }
       const payload = generateFlutterJson(
         matchesOut,
@@ -510,6 +518,10 @@ class Pipeline {
           fixtures = fixtures.map((f) =>
             this.admin.overrides.applyManualMatchUrlsToFixture(f)
           );
+        }
+        if (this.admin?.adminMatches) {
+          await this.admin.adminMatches.load();
+          fixtures = this.admin.adminMatches.applyToMatches(fixtures);
         }
       } catch (err) {
         logEvent(events.SCRAPER_ERROR, 'Fixture collection failed — keep previous data', {

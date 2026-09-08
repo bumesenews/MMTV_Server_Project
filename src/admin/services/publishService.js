@@ -28,6 +28,7 @@ class PublishService {
     overrideService,
     leagueAdminService,
     manualMatchService = null,
+    adminMatchService = null,
     mainLiveService = null,
     teamAdminService = null,
     logService = null,
@@ -38,6 +39,7 @@ class PublishService {
     this.overrides = overrideService;
     this.leagues = leagueAdminService;
     this.manualMatches = manualMatchService;
+    this.adminMatches = adminMatchService;
     this.mainLive = mainLiveService;
     this.teams = teamAdminService;
     this.logService = logService;
@@ -232,7 +234,11 @@ class PublishService {
     // Kickoff-window status (Scheduled / PREPARING_STREAM / LIVE / END)
     const statusFixed = (filteredLeagues || []).map((m) => enrichMatchState(m));
     const priorityMap = priorityMapFromSourcesDoc(meta.sourcesDoc || null);
-    const withOverrides = this.overrides.applyToMatches(statusFixed, priorityMap);
+    let withOverrides = this.overrides.applyToMatches(statusFixed, priorityMap);
+    if (this.adminMatches) {
+      await this.adminMatches.load();
+      withOverrides = this.adminMatches.applyToMatches(withOverrides);
+    }
 
     const previous = this.cache.getCurrent();
     const existingMatches = readExistingMatches(this.cache);

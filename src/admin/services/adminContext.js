@@ -8,6 +8,7 @@ const { MainLiveService } = require('./mainLiveService');
 const { TeamAdminService } = require('./teamAdminService');
 const { SourceAdminService } = require('./sourceAdminService');
 const { ConfigAdminService } = require('./configAdminService');
+const { AdminMatchService } = require('./adminMatchService');
 const { AppVersionAdminService } = require('./appVersionAdminService');
 const { NotificationService } = require('./notificationService');
 const { PublishService } = require('./publishService');
@@ -24,6 +25,7 @@ function createAdminContext({ pipeline, cache, github, env = process.env }) {
   const teams = new TeamAdminService(dataDir, env);
   const sources = new SourceAdminService(dataDir);
   const config = new ConfigAdminService(env);
+  const adminMatches = new AdminMatchService(config);
   const appVersion = new AppVersionAdminService(env);
   const notifications = new NotificationService({ dataDir, env, logService });
   const publish = new PublishService({
@@ -32,6 +34,7 @@ function createAdminContext({ pipeline, cache, github, env = process.env }) {
     overrideService: overrides,
     leagueAdminService: leagues,
     manualMatchService: manualMatches,
+    adminMatchService: adminMatches,
     mainLiveService: mainLive,
     teamAdminService: teams,
     logService,
@@ -57,6 +60,7 @@ function createAdminContext({ pipeline, cache, github, env = process.env }) {
     teams,
     sources,
     config,
+    adminMatches,
     appVersion,
     notifications,
     publish,

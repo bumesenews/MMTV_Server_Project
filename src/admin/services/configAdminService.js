@@ -2,6 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const axios = require('axios');
 const { githubHeaders, hasSources } = require('../../services/configLoader');
+const { adminMatchFileName } = require('../../utils/adminMatch');
 const { hasDataChanged } = require('../../utils/compare');
 
 /**
@@ -12,6 +13,7 @@ class ConfigAdminService {
     this.env = env;
     this.localDir = path.resolve(process.cwd(), env.LOCAL_CONFIG_DIR || './config');
     this.configPath = env.GITHUB_CONFIG_PATH || 'config';
+    this.adminMatchFile = adminMatchFileName(env);
   }
 
   get enabled() {
@@ -181,6 +183,70 @@ class ConfigAdminService {
       message: message || `chore: sync local sources.json (${actor || 'admin'})`,
       actor,
     });
+  }
+
+  async getAdminMatchConfig() {
+    if (this.enabled) {
+      try {
+        const remote = await this.getRemoteFile(this.adminMatchFile);
+        if (remote) return remote;
+      } catch (err) {
+        const local = this.readLocalFile(this.adminMatchFile);
+        if (local) return { ...local, remoteError: err.message };
+        throw err;
+      }
+    }
+    const local = this.readLocalFile(this.adminMatchFile);
+    if (!local) {
+      return {
+        sha: null,
+        content: { version: 1, matches: [] },
+        path: path.join(this.localDir, this.adminMatchFile),
+        origin: 'local',
+      };
+    }
+    return local;
+  }
+
+  async saveAdminMatchConfig(content, { message, actor } = {}) {
+    const doc = {
+      version: 1,
+      matches: Array.isArray(content?.matches) ? content.matches : [],
+    };
+    const localPath = path.join(this.localDir, this.adminMatchFile);
+    fs.writeFileSync(localPath, JSON.stringify(doc, null, 2), 'utf8');
+
+    if (!this.enabled) {
+      return { saved: true, origin: 'local', uploaded: false, reason: 'github_not_configured' };
+    }
+
+    const remote = await this.getRemoteFile(this.adminMatchFile);
+    if (remote && !hasDataChanged(remote.content, doc)) {
+      return { saved: true, origin: 'github', uploaded: false, reason: 'unchanged' };
+    }
+
+    const filePath = `${this.configPath}/${this.adminMatchFile}`.replace(/\/+/g, '/');
+    const body = {
+      message:
+        message ||
+        `chore: update admin-match.json via admin (${actor || 'admin'}) ${new Date().toISOString()}`,
+      content: Buffer.from(JSON.stringify(doc, null, 2), 'utf8').toString('base64'),
+      branch: this.env.GITHUB_BRANCH || 'main',
+      ...(remote?.sha ? { sha: remote.sha } : {}),
+    };
+
+    const { data } = await axios.put(this.apiUrl(filePath), body, {
+      headers: githubHeaders(this.env.GITHUB_TOKEN),
+      timeout: 30000,
+    });
+
+    return {
+      saved: true,
+      origin: 'github',
+      uploaded: true,
+      commit: data.commit?.sha || null,
+      htmlUrl: data.content?.html_url || null,
+    };
   }
 
   /** Push local config/leagues.json to GitHub (ops recovery). */

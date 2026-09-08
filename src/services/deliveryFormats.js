@@ -1,5 +1,6 @@
 const { nowYangon } = require('../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../utils/compare');
+const { toPublicMatchesPayload } = require('./jsonGenerator');
 
 /**
  * Split Flutter delivery feeds:
@@ -13,23 +14,12 @@ const { hashPayload, sanitizeForCompare } = require('../utils/compare');
  * Scraped matches feed — matches only (no highlights/channels nested).
  */
 function formatMatchesDelivery(matchesPayload) {
-  const matches = matchesPayload?.matches || [];
-  const payload = {
+  return toPublicMatchesPayload({
     version: matchesPayload?.version || 1,
     generatedAt: matchesPayload?.generatedAt || nowYangon().toISO(),
-    timezone: 'Asia/Yangon',
-    matchCount: matches.length,
-    matches,
-    meta: {
-      ...(matchesPayload?.meta || {}),
-      feed: 'matches',
-      liveCount: matches.filter((m) => m.status === 'LIVE').length,
-      scheduledCount: matches.filter((m) => m.status === 'Scheduled').length,
-      endedCount: matches.filter((m) => m.status === 'END').length,
-    },
-  };
-  payload.meta.checksum = hashPayload(sanitizeForCompare(payload));
-  return payload;
+    timezone: matchesPayload?.timezone || 'Asia/Yangon',
+    matches: matchesPayload?.matches || [],
+  });
 }
 
 /**
