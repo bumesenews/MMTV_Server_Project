@@ -679,7 +679,7 @@
   }
 
   async function renderMatches() {
-    setTitle('Matches (matches.json)');
+    setTitle('Match (admin-match.json)');
     const [matchData, leagueData, teamData, sourceData] = await Promise.all([
       api('/matches'),
       api('/leagues'),
@@ -708,7 +708,7 @@
 
     pageEl.innerHTML = `
       <div class="panel">
-        <p class="muted">Live <code>matches.json</code> feed (${esc(String(matchData.matchCount ?? state.matches.length))} matches) · generated ${esc(matchData.generatedAt || '—')} · ${esc(matchData.timezone || 'Asia/Yangon')}</p>
+        <p class="muted">Live <code>admin-match.json</code> feed (${esc(String(matchData.matchCount ?? state.matches.length))} matches) · generated ${esc(matchData.generatedAt || '—')} · ${esc(matchData.timezone || 'Asia/Yangon')}</p>
         <h3>Add Match</h3>
         <form id="match-create-form" class="grid-2">
           <label>League
