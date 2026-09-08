@@ -190,6 +190,12 @@ class ConfigAdminService {
       try {
         const remote = await this.getRemoteFile(this.adminMatchFile);
         if (remote) return remote;
+        const seeded = await this.saveAdminMatchConfig(
+          this.readLocalFile(this.adminMatchFile)?.content || { version: 1, matches: [] },
+          { actor: 'system', message: 'chore: create config/admin-match.json' }
+        );
+        const created = await this.getRemoteFile(this.adminMatchFile);
+        if (created) return { ...created, seeded };
       } catch (err) {
         const local = this.readLocalFile(this.adminMatchFile);
         if (local) return { ...local, remoteError: err.message };
