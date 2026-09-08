@@ -27,6 +27,7 @@ const {
   syncMatchesForDelivery,
   readExistingMatches,
 } = require('./matchesSyncService');
+const { adminMatchFileName } = require('../utils/adminMatch');
 
 /**
  * Main AWS processing pipeline (matches.json):
@@ -219,10 +220,22 @@ class Pipeline {
     if (!this.github?.enabled) {
       return { ok: false, reason: 'github_not_configured', restored: 0 };
     }
-    const path = this.github.paths?.matches || this.github.dataPath || 'matches.json';
+    const publicPath = this.github.paths?.matches || this.github.dataPath || 'matches.json';
+    const adminPath = `${this.env.GITHUB_CONFIG_PATH || 'config'}/${adminMatchFileName(this.env)}`.replace(/\/+/g, '/');
     let remote;
+    let restoreSource = 'matches.json';
     try {
-      remote = await this.github.getFileSha(path);
+      const existingPreview = readExistingMatches(this.cache);
+      if (!existingPreview.length) {
+        const adminRemote = await this.github.getFileSha(adminPath);
+        if (Array.isArray(adminRemote?.content?.matches) && adminRemote.content.matches.length) {
+          remote = adminRemote;
+          restoreSource = 'admin-match.json';
+        }
+      }
+      if (!remote) {
+        remote = await this.github.getFileSha(publicPath);
+      }
     } catch (err) {
       return { ok: false, reason: 'github_error', error: err.message, restored: 0 };
     }
@@ -276,8 +289,9 @@ class Pipeline {
       channels: extras.channels,
     });
     this.cache.saveDeliveryBundle(delivery);
-    logger.info('Restored matches.json from GitHub', {
+    logger.info('Restored matches from GitHub', {
       restored: remoteMatches.length,
+      restoreSource,
       localBaseline: existing.length,
       finalCount: cached.matches?.length || mergedMatches.length,
       actor,

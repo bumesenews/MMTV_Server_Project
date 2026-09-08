@@ -211,6 +211,17 @@ console.log('\n=== TEST 8 full admin-match.json does not lock AUTO urls ===');
   });
   check('upsert on full doc keeps fixture fields', upserted.matches[0].homeTeam === 'Cagliari' && upserted.matches[0].h2h != null);
   check('upsert stamps adminManual', upserted.matches[0].adminManual.matchUrl === 'https://cakhia.example/typed');
+
+  const { applyStickyStoredMatch, preserveDiscoveredFields } = require('../src/utils/adminMatch');
+  const shell = { ...fixture, matchUrl: null, matchUrlStatus: 'MATCH_URL_PENDING' };
+  const sticky = applyStickyStoredMatch(shell, full.matches[0]);
+  check('sticky restores AUTO matchUrl onto empty scrape shell', sticky.matchUrl === 'https://cakhia.example/auto');
+  check('sticky does not set adminManual', !sticky.adminManual);
+  const wiped = preserveDiscoveredFields(full, generateFlutterJson([shell]));
+  check(
+    'publish preserve does not write null over stored AUTO url',
+    wiped.matches[0].matchUrl === 'https://cakhia.example/auto'
+  );
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

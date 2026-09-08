@@ -223,6 +223,71 @@ function applyAdminEntryToFixture(fixture, entry) {
   };
 }
 
+function hasText(value) {
+  return Boolean(String(value || '').trim());
+}
+
+/**
+ * Keep AUTO Match URL / stream from a previous admin-match.json row.
+ * Does not mark the fixture manual — discovery can still improve it.
+ */
+function applyStickyStoredMatch(fixture, stored) {
+  if (!fixture || !stored || !isFullAdminMatch(stored)) return fixture;
+  const next = { ...fixture };
+  if (!hasText(next.matchUrl) && hasText(stored.matchUrl)) {
+    next.matchUrl = stored.matchUrl;
+    next.matchUrlStatus = stored.matchUrlStatus || next.matchUrlStatus || 'MATCH_URL_CONFIRMED';
+    next.matchUrlSource = stored.matchUrlSource || next.matchUrlSource || null;
+    next.matchUrlAttempts = Math.max(
+      Number(next.matchUrlAttempts) || 0,
+      Number(stored.matchUrlAttempts) || 0
+    );
+    next.lastMatchUrlAttemptAt =
+      next.lastMatchUrlAttemptAt || stored.lastMatchUrlAttemptAt || null;
+    const nextPages = next.sourcePages && typeof next.sourcePages === 'object'
+      ? next.sourcePages
+      : {};
+    const prevPages = stored.sourcePages && typeof stored.sourcePages === 'object'
+      ? stored.sourcePages
+      : {};
+    if (!Object.keys(nextPages).length && Object.keys(prevPages).length) {
+      next.sourcePages = { ...prevPages };
+    }
+    if (stored.matchUrlSearch && typeof stored.matchUrlSearch === 'object') {
+      next.matchUrlSearch = next.matchUrlSearch && typeof next.matchUrlSearch === 'object'
+        ? {
+            ...stored.matchUrlSearch,
+            ...next.matchUrlSearch,
+            sources: {
+              ...(stored.matchUrlSearch.sources || {}),
+              ...(next.matchUrlSearch.sources || {}),
+            },
+          }
+        : stored.matchUrlSearch;
+    }
+  }
+  if (!hasText(next.streamUrl) && hasText(stored.streamUrl)) {
+    next.streamUrl = stored.streamUrl;
+    next.streamHeaders = next.streamHeaders || stored.streamHeaders || null;
+    next.streamStatus = next.streamStatus || stored.streamStatus || null;
+  }
+  if (!(next.streams || []).length && (stored.streams || []).length) {
+    next.streams = stored.streams;
+  }
+  return next;
+}
+
+function preserveDiscoveredFields(previousDoc, nextDoc) {
+  const prevById = new Map(
+    listAdminEntries(previousDoc).map((m) => [m.matchId, m])
+  );
+  const matches = listAdminEntries(nextDoc).map((m) => {
+    const prev = prevById.get(m.matchId);
+    return prev ? applyStickyStoredMatch(m, prev) : m;
+  });
+  return toAdminMatchDoc({ ...nextDoc, matches, matchCount: matches.length });
+}
+
 function extractOverrideEntry(stored) {
   if (!stored?.matchId) return null;
   const manual = stored.adminManual;
@@ -247,11 +312,18 @@ function listOverrideEntries(doc) {
 }
 
 function applyAdminMatchDocToMatches(matches = [], doc) {
-  const byId = new Map(listOverrideEntries(doc).map((e) => [e.matchId, e]));
-  if (!byId.size) return matches;
+  const storedById = new Map(
+    listAdminEntries(doc).map((e) => [e.matchId, e])
+  );
+  const overrideById = new Map(
+    listOverrideEntries(doc).map((e) => [e.matchId, e])
+  );
+  if (!storedById.size) return matches;
   return (matches || []).map((m) => {
-    const entry = byId.get(m.matchId);
-    return entry ? applyAdminEntryToFixture(m, entry) : m;
+    const stored = storedById.get(m.matchId);
+    let next = stored ? applyStickyStoredMatch(m, stored) : m;
+    const entry = overrideById.get(m.matchId);
+    return entry ? applyAdminEntryToFixture(next, entry) : next;
   });
 }
 
@@ -270,5 +342,7 @@ module.exports = {
   findAdminEntry,
   adminManualStream,
   applyAdminEntryToFixture,
+  applyStickyStoredMatch,
+  preserveDiscoveredFields,
   applyAdminMatchDocToMatches,
 };

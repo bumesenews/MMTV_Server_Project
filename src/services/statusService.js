@@ -21,6 +21,7 @@ const {
  * - current ≥ kickoff + 2h → END (streams stripped)
  */
 function hasPlayableStream(match) {
+  if (String(match?.streamUrl || '').trim()) return true;
   return (match.streams || []).some((s) => s && String(s.url || '').trim());
 }
 

@@ -1,6 +1,7 @@
 const {
   emptyAdminMatchDoc,
   toAdminMatchDoc,
+  preserveDiscoveredFields,
   listOverrideEntries,
   upsertAdminEntry,
   removeAdminEntry,
@@ -32,7 +33,9 @@ class AdminMatchService {
   }
 
   async saveFullPayload(payload, { actor } = {}) {
-    const doc = toAdminMatchDoc(payload);
+    if (!this._doc) await this.load();
+    const incoming = toAdminMatchDoc(payload);
+    const doc = preserveDiscoveredFields(this._doc || emptyAdminMatchDoc(), incoming);
     const saved = await this.config.saveAdminMatchConfig(doc, {
       actor,
       message: 'chore: sync admin-match.json (full matches)',
