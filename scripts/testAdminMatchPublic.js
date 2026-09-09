@@ -4,7 +4,7 @@
  */
 const { applyAdminEntryToFixture, upsertAdminEntry, emptyAdminMatchDoc } = require('../src/utils/adminMatch');
 const { needsMatchUrlDiscovery, applySourceDiscoveryResult, MATCH_URL_STATUS } = require('../src/utils/matchUrlDiscovery');
-const { generateFlutterJson, toPublicMatch, toPublicMatchesPayload } = require('../src/services/jsonGenerator');
+const { generateFlutterJson, toPublicMatch, toPublicMatchesPayload, flutterStreamName } = require('../src/services/jsonGenerator');
 const { formatMatchesDelivery } = require('../src/services/deliveryFormats');
 
 let passed = 0;
@@ -166,6 +166,8 @@ console.log('\n=== TEST 7 public matches.json strip ===');
   check('no matchUrlSearch', !('matchUrlSearch' in m));
   check('no validationReason', !('validationReason' in m));
   check('no adminManual', !('adminManual' in m));
+  check('public stream has no source', m.streams.every((s) => !('source' in s)));
+  check('public stream has no quality', m.streams.every((s) => !('quality' in s)));
   check('toPublicMatchesPayload same strip', !('matchUrl' in toPublicMatchesPayload(payload).matches[0]));
 }
 
@@ -281,6 +283,47 @@ console.log('\n=== TEST 9 public matches.json keeps m3u8 when only streamUrl is 
     'extracted m3u8 published even without saved Match URL on that source',
     noMatchUrlStream.matches[0].streams.some((s) => s.url.includes('extracted.m3u8')) &&
       noMatchUrlStream.matches[0].hasStreams === true
+  );
+}
+
+console.log('\n=== TEST 10 public stream names are quality-only (no source/quality keys) ===');
+{
+  check(
+    'Cakhia + HD ROY',
+    flutterStreamName({ source: 'cakhia', quality: 'HD ROY' }) === 'HD ROY'
+  );
+  check(
+    'does not keep domain as the title',
+    flutterStreamName({ source: 'cakhia', name: 'cakhiazaa.tv', quality: 'HD ROY' }) === 'HD ROY'
+  );
+  check(
+    'strips old Cakhia · prefix',
+    flutterStreamName({ source: 'cakhia', name: 'Cakhia · HD ROY', quality: 'HD ROY' }) === 'HD ROY'
+  );
+  check(
+    'manual ENG HD',
+    flutterStreamName({ source: 'manual', quality: 'ENG HD' }) === 'ENG HD'
+  );
+  const namedPayload = generateFlutterJson([
+    {
+      ...fixture,
+      kickoff: '2026-09-10T23:00:00.000+06:30',
+      status: 'LIVE',
+      matchUrl: 'https://cakhia.example/page',
+      matchUrlSearch: {
+        sources: { cakhia: { matchUrl: 'https://cakhia.example/page', status: 'MATCH_URL_CONFIRMED' } },
+      },
+      streams: [
+        { source: 'cakhia', quality: 'HD ROY', url: 'https://cdn.example/a.m3u8', active: true },
+      ],
+    },
+  ]);
+  const pubName = toPublicMatch(namedPayload.matches[0]);
+  check(
+    'matches.json name field only',
+    pubName.streams[0].name === 'HD ROY' &&
+      !('quality' in pubName.streams[0]) &&
+      !('source' in pubName.streams[0])
   );
 }
 

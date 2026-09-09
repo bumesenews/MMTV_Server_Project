@@ -324,12 +324,24 @@
               <option>END</option>
             </select>
           </label>
+          <label>Match page source
+            <select name="matchUrlSource">
+              <option value="">Auto</option>
+              <option value="cakhia">cakhia</option>
+              <option value="xoilac">xoilac</option>
+              <option value="socolive">socolive</option>
+              <option value="mitomtm">mitomtm</option>
+            </select>
+          </label>
+          <label style="grid-column:1/-1">Match page URL (auto-find m3u8)
+            <input name="matchUrl" type="url" placeholder="https://…/truc-tiep/…" />
+          </label>
           <div style="grid-column:1/-1">
             <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
               <strong>Stream URLs</strong>
               <button type="button" class="secondary" id="mainlive-add-stream">+ Add stream</button>
             </div>
-            <p class="muted" style="margin:0 0 8px">Add as many as you have (HD, SD, Full HD, …). Referer / User-Agent / Cookie are optional per stream.</p>
+            <p class="muted" style="margin:0 0 8px">Paste a streaming site match page above — the server finds the m3u8 and uploads <code>mainlive.json</code>. You can still add m3u8s by hand below.</p>
             <div id="mainlive-streams"></div>
           </div>
           <div style="grid-column:1/-1"><button type="submit">Create MainLive Match</button></div>
@@ -353,7 +365,7 @@
                   <td>${esc(m.league || '')}${m.leagueIcon ? `<div><img src="${esc(m.leagueIcon)}" alt="" style="height:18px;margin-top:4px" /></div>` : ''}</td>
                   <td>${esc(m.date || '')} ${esc(formatClock12(m.time || m.kickoff))} <span class="muted" style="font-size:0.7rem">Yangon</span></td>
                   <td><span class="badge ${m.status === 'LIVE' ? 'live' : ''}">${esc(m.status || '')}</span></td>
-                  <td>${(m.streams || []).length}</td>
+                  <td>${(m.streams || []).length}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}</td>
                   <td>
                     ${m.pinned ? '<span class="badge">PIN</span>' : ''}
                     ${m.featured ? '<span class="badge">FEAT</span>' : ''}
@@ -486,6 +498,8 @@
             date: fd.get('date'),
             time: time12FromFields(fd.get('timeHour'), fd.get('timeMinute'), fd.get('timePeriod')),
             status: fd.get('status'),
+            matchUrl: String(fd.get('matchUrl') || '').trim() || undefined,
+            matchUrlSource: String(fd.get('matchUrlSource') || '').trim() || undefined,
             streams,
           }),
         });
@@ -493,7 +507,14 @@
           created?.match?.time ||
             time12FromFields(fd.get('timeHour'), fd.get('timeMinute'), fd.get('timePeriod'))
         );
-        toast(`MainLive created · kickoff ${t} Asia/Yangon · ${streams.length} stream(s)`);
+        const extractNote = created?.extraction?.queued
+          ? ' · m3u8 search queued'
+          : created?.extraction?.ok
+            ? ' · m3u8 found'
+            : created?.match?.matchUrl
+              ? ` · extract ${created.match.matchUrlStatus || 'done'}`
+              : '';
+        toast(`MainLive created · kickoff ${t} Asia/Yangon · ${streams.length} stream(s)${extractNote}`);
         renderMainLive();
       } catch (err) {
         toast(err.message, 'error');
@@ -612,7 +633,22 @@
     const renderList = () => {
       card.innerHTML = `
         <h3>Streams · ${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</h3>
-        <p class="muted" style="margin-top:0">Per stream: m3u8 URL plus optional User-Agent, Referer, and Cookie.</p>
+        <p class="muted" style="margin-top:0">Paste a match page URL to auto-find m3u8, or enter m3u8s by hand.</p>
+        <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
+          <label style="flex:0 0 120px">Source
+            <select id="ml-match-source">
+              <option value="" ${!m.matchUrlSource ? 'selected' : ''}>Auto</option>
+              ${['cakhia', 'xoilac', 'socolive', 'mitomtm'].map((s) =>
+                `<option value="${s}" ${m.matchUrlSource === s ? 'selected' : ''}>${s}</option>`
+              ).join('')}
+            </select>
+          </label>
+          <label style="flex:1;min-width:220px">Match page URL
+            <input id="ml-match-url" type="url" value="${esc(m.matchUrl || '')}" placeholder="https://…/truc-tiep/…" />
+          </label>
+          <button type="button" class="secondary" id="ml-find-m3u8">Find m3u8</button>
+        </div>
+        <p class="muted" style="margin-top:0">${m.matchUrlStatus ? `Extract: ${esc(m.matchUrlStatus)}${m.matchUrlExtractError ? ` (${esc(m.matchUrlExtractError)})` : ''}` : ''}</p>
         <div id="ml-stream-list">
           ${streams.map((s, i) => `
             <div style="border:1px solid var(--border,#333);border-radius:8px;padding:10px;margin-bottom:10px" data-i="${i}">
@@ -653,6 +689,32 @@
         renderList();
       });
       card.querySelector('#ml-close')?.addEventListener('click', () => overlay.remove());
+      card.querySelector('#ml-find-m3u8')?.addEventListener('click', async () => {
+        const matchUrl = card.querySelector('#ml-match-url')?.value?.trim();
+        const source = card.querySelector('#ml-match-source')?.value;
+        if (!matchUrl) {
+          toast('Enter a match page URL', 'error');
+          return;
+        }
+        try {
+          toast('Searching for m3u8…');
+          const result = await api(`/mainlive/${encodeURIComponent(matchId)}/match-url`, {
+            method: 'POST',
+            body: JSON.stringify({ matchUrl, source }),
+          });
+          if (result?.extraction?.queued) {
+            toast('Match URL saved — extract queued behind the scraper');
+          } else if (result?.extraction?.ok) {
+            toast(`Found ${result.extraction.streams?.length || 0} stream(s)`);
+          } else {
+            toast(`Saved URL · ${result?.match?.matchUrlStatus || result?.extraction?.error || 'no m3u8 yet'}`, 'error');
+          }
+          overlay.remove();
+          renderMainLive();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
       card.querySelector('#ml-save')?.addEventListener('click', async () => {
         syncFromDom();
         const next = streams.filter((s) => s.url);

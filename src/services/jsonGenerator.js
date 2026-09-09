@@ -16,16 +16,52 @@ const {
   sanitizeSourcePages,
 } = require('../utils/matchUrlDiscovery');
 
+const STREAM_SOURCE_LABELS = {
+  cakhia: 'Cakhia',
+  xoilac: 'Xoilac',
+  socolive: 'Socolive',
+  phut: 'Phut',
+  '90phut': 'Phut',
+  mitomtm: 'Mitom',
+  mitom: 'Mitom',
+  manual: 'Manual',
+};
+
+function looksLikeDomain(value) {
+  const s = String(value || '').trim();
+  if (!s) return false;
+  return /https?:\/\//i.test(s) || /\b[\w-]+\.[a-z]{2,}(?:\/|\b)/i.test(s);
+}
+
+function streamSourceLabel(source) {
+  const key = String(source || '').trim().toLowerCase();
+  if (!key || key === 'stream') return '';
+  if (looksLikeDomain(key)) return '';
+  if (STREAM_SOURCE_LABELS[key]) return STREAM_SOURCE_LABELS[key];
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
+function streamQualityLabel(stream, pretty) {
+  let quality = String(stream?.quality || '').trim();
+  let name = String(stream?.name || '').trim();
+  if (looksLikeDomain(quality)) quality = '';
+  if (looksLikeDomain(name)) name = '';
+  const raw = quality || name;
+  if (!raw) return 'HD';
+  let q = raw;
+  const labels = [pretty, streamSourceLabel(stream?.source)].filter(Boolean);
+  for (const label of labels) {
+    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    q = q.replace(new RegExp(`^${escaped}\\s*[·.]\\s*`, 'i'), '').trim();
+    if (q.toLowerCase() === label.toLowerCase()) q = '';
+  }
+  q = q.replace(/^[\s·.]+/, '').trim();
+  return q || 'HD';
+}
+
+/** Public stream title: quality only (HD ROY), never a domain or source host. */
 function flutterStreamName(stream) {
-  const source = String(stream?.source || '').trim();
-  const pretty = source
-    ? source.charAt(0).toUpperCase() + source.slice(1).toLowerCase()
-    : '';
-  const quality = String(stream?.name || stream?.quality || '').trim();
-  if (!pretty) return quality || 'HD';
-  if (!quality || quality.toLowerCase() === pretty.toLowerCase()) return pretty;
-  if (quality.toLowerCase().startsWith(`${pretty.toLowerCase()} ·`)) return quality;
-  return `${pretty} · ${quality}`;
+  return streamQualityLabel(stream, streamSourceLabel(stream?.source));
 }
 
 function sourceAllowsPublishedStream(match, sourceName) {
@@ -124,7 +160,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
         .map((s) => ({
           source: s.source,
           type: s.type || 'm3u8',
-          quality: s.quality || s.name || 'HD',
+          quality: streamQualityLabel(s, streamSourceLabel(s.source)),
           name: flutterStreamName(s),
           url: s.url,
           headers: flutterPlaybackHeaders(s.streamHeaders || s.headers),
@@ -256,9 +292,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
 }
 
 const PUBLIC_STREAM_KEYS = new Set([
-  'source',
   'type',
-  'quality',
   'name',
   'url',
   'headers',
@@ -301,6 +335,9 @@ function toPublicStream(stream) {
   for (const key of PUBLIC_STREAM_KEYS) {
     if (stream[key] !== undefined) out[key] = stream[key];
   }
+  out.name = flutterStreamName(stream);
+  delete out.source;
+  delete out.quality;
   return out;
 }
 
@@ -321,10 +358,11 @@ function toPublicMatch(match) {
   if (topUrl && !streams.some((s) => String(s.url || '').trim() === topUrl)) {
     streams = [
       {
-        source: 'stream',
         type: 'm3u8',
-        quality: 'HD',
-        name: 'HD',
+        name: flutterStreamName({
+          source: match.matchUrlSource || match.source,
+          quality: 'HD',
+        }),
         url: topUrl,
         headers: out.streamHeaders || null,
         streamHeaders: out.streamHeaders || null,
@@ -362,6 +400,7 @@ function toPublicMatchesPayload(payload) {
 module.exports = {
   generateFlutterJson,
   flutterPlaybackHeaders,
+  flutterStreamName,
   toPublicMatch,
   toPublicMatchesPayload,
 };

@@ -13,6 +13,14 @@ const { clearSourceMatchUrl } = require('../../utils/matchUrlDiscovery');
 const { assertFeedKey, feedSummary } = require('../services/feedAdminService');
 const { collectSourceFailuresFromMatches } = require('../services/dashboardService');
 
+function extractAndPublishMainLive(ctx, matchId, options) {
+  return require('../services/mainLiveExtract').extractAndPublishMainLive(
+    ctx,
+    matchId,
+    options
+  );
+}
+
 function createAdminRouter(ctx) {
   const router = express.Router();
   const auth = authRequired(ctx.env);
@@ -81,19 +89,33 @@ function createAdminRouter(ctx) {
       }
 
       const match = ctx.mainLive.create(body);
-      const published = await ctx.publish.publishMainLive({
+      let published = await ctx.publish.publishMainLive({
         actor: req.admin.username,
       });
+      let extraction = null;
+      if (match.matchUrl) {
+        const extracted = await extractAndPublishMainLive(ctx, match.matchId, {
+          actor: req.admin.username,
+          force: true,
+        });
+        extraction = extracted.extraction;
+        if (extracted.published) published = extracted.published;
+      }
 
       ctx.logService.add({
         category: 'admin',
         action: 'mainlive_create',
         message: `Created MainLive match ${match.matchId}`,
         actor: req.admin.username,
-        meta: { matchId: match.matchId },
+        meta: { matchId: match.matchId, matchUrl: Boolean(match.matchUrl) },
       });
 
-      res.json({ ok: true, match, published });
+      res.json({
+        ok: true,
+        match: ctx.mainLive.get(match.matchId) || match,
+        published,
+        extraction,
+      });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
     }
@@ -114,10 +136,23 @@ function createAdminRouter(ctx) {
       // When admin sends date/time, MainLiveService treats them as Asia/Yangon wall clock.
       if (patch.status != null) patch.statusLocked = true;
 
+      const previousUrl = ctx.mainLive.get(matchId)?.matchUrl || null;
       const match = ctx.mainLive.update(matchId, patch);
-      const published = await ctx.publish.publishMainLive({
+      let published = await ctx.publish.publishMainLive({
         actor: req.admin.username,
       });
+      let extraction = null;
+      const urlChanged =
+        patch.matchUrl !== undefined &&
+        String(match.matchUrl || '') !== String(previousUrl || '');
+      if (match.matchUrl && (urlChanged || patch.extract === true)) {
+        const extracted = await extractAndPublishMainLive(ctx, match.matchId, {
+          actor: req.admin.username,
+          force: true,
+        });
+        extraction = extracted.extraction;
+        if (extracted.published) published = extracted.published;
+      }
 
       ctx.logService.add({
         category: 'admin',
@@ -127,7 +162,12 @@ function createAdminRouter(ctx) {
         meta: patch,
       });
 
-      res.json({ ok: true, match, published });
+      res.json({
+        ok: true,
+        match: ctx.mainLive.get(matchId) || match,
+        published,
+        extraction,
+      });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
     }
@@ -149,6 +189,41 @@ function createAdminRouter(ctx) {
       });
 
       res.json({ ok: true, published, deleted: true });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.post('/mainlive/:matchId/match-url', auth, editor, async (req, res) => {
+    try {
+      const { matchId } = req.params;
+      const body = req.body || {};
+      const matchUrl = String(body.matchUrl || body.url || '').trim();
+      if (!matchUrl) throw new Error('Match URL is required');
+      ctx.mainLive.update(matchId, {
+        matchUrl,
+        matchUrlSource: body.source || body.matchUrlSource || undefined,
+      });
+      const publishedInitial = await ctx.publish.publishMainLive({
+        actor: req.admin.username,
+      });
+      const extracted = await extractAndPublishMainLive(ctx, matchId, {
+        actor: req.admin.username,
+        force: true,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'mainlive_match_url',
+        message: `MainLive match URL saved for ${matchId}`,
+        actor: req.admin.username,
+        meta: { matchId, matchUrl, queued: extracted.extraction?.queued === true },
+      });
+      res.json({
+        ok: true,
+        match: extracted.match,
+        extraction: extracted.extraction,
+        published: extracted.published || publishedInitial,
+      });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
     }

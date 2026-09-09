@@ -71,6 +71,8 @@ class Pipeline {
     this._pendingMatches = false;
     /** Next queued Matches run should force stream extract (Admin Match URL). */
     this._pendingForceStreamCheck = false;
+    /** Retry MainLive match-page extracts after this Matches run. */
+    this._pendingMainLiveExtract = false;
     this._drainingQueued = false;
     this.lastDiscoveryAt = null;
     this.lastDiscoverySummary = null;
@@ -210,6 +212,43 @@ class Pipeline {
       isEnabled: (name) =>
         this.admin?.sources ? this.admin.sources.isEnabled(name) : true,
     });
+  }
+
+  /**
+   * MainLive is not in the FotMob fixture loop. After Matches extract,
+   * retry admin-entered match pages until an m3u8 is found and published.
+   */
+  async retryPendingMainLiveExtracts({ actor = 'scraper', force = false } = {}) {
+    const { needsMainLiveExtract } = require('../admin/services/mainLiveExtractPolicy');
+    const { extractMainLiveStreams } = require('../admin/services/mainLiveExtract');
+    const mainLive = this.admin?.mainLive;
+    if (!mainLive || !this.admin?.publish) {
+      return { attempted: 0, found: 0 };
+    }
+    const pending = mainLive.list().filter((m) => needsMainLiveExtract(m, { force }));
+    if (!pending.length) return { attempted: 0, found: 0 };
+
+    let found = 0;
+    for (const row of pending) {
+      mainLive.markExtractStatus(row.matchId, { status: 'SEARCHING' });
+      const extraction = await extractMainLiveStreams({
+        pipeline: this,
+        matchUrl: row.matchUrl,
+        sourceName: row.matchUrlSource,
+      });
+      const next = mainLive.applyExtractResult(row.matchId, extraction);
+      if (extraction.ok || (next.streams || []).length > (row.streams || []).length) {
+        found += 1;
+      }
+    }
+    if (found > 0 || pending.length) {
+      await this.admin.publish.publishMainLive({ actor });
+    }
+    logger.info('MainLive match URL extract retry', {
+      attempted: pending.length,
+      found,
+    });
+    return { attempted: pending.length, found };
   }
 
   /**
@@ -656,6 +695,11 @@ class Pipeline {
           at: new Date().toISOString(),
         };
 
+        await this.retryPendingMainLiveExtracts({ actor: 'scraper' }).catch((err) => {
+          logger.warn('MainLive extract retry failed', { error: err.message });
+        });
+        this._pendingMainLiveExtract = false;
+
         return {
           ok: true,
           payload: published.payload,
@@ -748,6 +792,12 @@ class Pipeline {
       await this._drainQueuedJobs().catch((err) => {
         logger.error('Queued job drain failed', { error: err.message });
       });
+      if (this._pendingMainLiveExtract) {
+        this._pendingMainLiveExtract = false;
+        await this.retryPendingMainLiveExtracts({ actor: 'admin', force: true }).catch((err) => {
+          logger.warn('Queued MainLive extract failed', { error: err.message });
+        });
+      }
       // Only tear down Chromium when no other scrape owns it
       if (!this.highlightRunning && !this.channelsRunning && !this.tipsRunning) {
         try {

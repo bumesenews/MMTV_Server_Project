@@ -4,6 +4,8 @@ const { JsonStore } = require('../store/jsonStore');
 const { generateMatchId } = require('../../utils/matchId');
 const { combineDateAndTime, formatDate, formatTime, formatTime12, formatDateDisplay, toYangon, nowYangon } = require('../../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../../utils/compare');
+const { toPublicMatch } = require('../../services/jsonGenerator');
+const { looksLikeM3u8 } = require('./mainLiveExtractPolicy');
 
 /**
  * Admin-owned MainLive feed (mainlive.json) — separate from scraped matches.json.
@@ -56,7 +58,17 @@ class MainLiveService {
     if (existing[matchId]) throw new Error(`Match already exists: ${matchId}`);
 
     const status = normalizeStatus(input.status);
-    const streams = normalizeStreamsInput(input);
+    let streams = normalizeStreamsInput(input);
+    const matchUrl = String(input.matchUrl || '').trim();
+    const matchUrlSource = String(input.matchUrlSource || input.source || '').trim() || null;
+    if (matchUrl && looksLikeM3u8(matchUrl) && !streams.length) {
+      streams.push(
+        ...normalizeStreamsInput({
+          streamUrl: matchUrl,
+          streamName: 'HD',
+        })
+      );
+    }
 
     const match = {
       matchId,
@@ -80,8 +92,15 @@ class MainLiveService {
       streams,
       hasStreams: streams.length > 0,
       streamCount: streams.length,
+      streamUrl: streams[0]?.url || null,
+      streamHeaders: streams[0]?.headers || null,
+      matchUrl: matchUrl || null,
+      matchUrlSource,
+      matchUrlStatus: matchUrl ? (looksLikeM3u8(matchUrl) ? 'AVAILABLE' : 'SEARCHING') : null,
+      matchUrlExtractAt: null,
+      matchUrlExtractError: null,
       originalNames: {},
-      sourcePages: {},
+      sourcePages: matchUrlSource && matchUrl ? { [matchUrlSource]: matchUrl } : {},
       streamAttempts: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -142,6 +161,53 @@ class MainLiveService {
       next.timezone = 'Asia/Yangon';
     }
 
+    if (patch.matchUrl !== undefined || patch.matchUrlSource !== undefined || patch.source !== undefined) {
+      if (patch.matchUrl !== undefined) {
+        const nextUrl = String(patch.matchUrl || patch.url || '').trim();
+        next.matchUrl = nextUrl || null;
+      }
+      if (patch.matchUrlSource !== undefined || patch.source !== undefined) {
+        const src = String(patch.matchUrlSource || patch.source || '').trim();
+        next.matchUrlSource = src || null;
+      }
+      if (!next.matchUrl) {
+        next.matchUrlSource = null;
+        next.matchUrlStatus = null;
+        next.matchUrlExtractAt = null;
+        next.matchUrlExtractError = null;
+      } else if (next.matchUrl !== current.matchUrl) {
+        next.matchUrlStatus = looksLikeM3u8(next.matchUrl) ? 'AVAILABLE' : 'SEARCHING';
+        next.matchUrlExtractAt = null;
+        next.matchUrlExtractError = null;
+        next.streams = (next.streams || []).filter(
+          (s) => String(s.source || '').toLowerCase() === 'manual'
+        );
+        next.hasStreams = next.streams.length > 0;
+        next.streamCount = next.streams.length;
+        next.streamUrl = next.streams[0]?.url || null;
+        next.streamHeaders = next.streams[0]?.headers || null;
+      }
+      if (next.matchUrl && looksLikeM3u8(next.matchUrl)) {
+        const already = (next.streams || []).some(
+          (s) => String(s.url || '').trim() === next.matchUrl
+        );
+        if (!already) {
+          next.streams = [
+            ...(next.streams || []),
+            ...normalizeStreamsInput({ streamUrl: next.matchUrl, streamName: 'HD' }),
+          ];
+          next.hasStreams = next.streams.length > 0;
+          next.streamCount = next.streams.length;
+          next.streamUrl = next.streams[0]?.url || null;
+          next.streamHeaders = next.streams[0]?.headers || null;
+          next.matchUrlStatus = 'AVAILABLE';
+        }
+      }
+      if (next.matchUrlSource && next.matchUrl) {
+        next.sourcePages = { ...(next.sourcePages || {}), [next.matchUrlSource]: next.matchUrl };
+      }
+    }
+
     if (Array.isArray(patch.streams)) {
       next.streams = normalizeStreamsInput({ streams: patch.streams });
       next.hasStreams = next.streams.length > 0;
@@ -165,6 +231,64 @@ class MainLiveService {
     next.manual = true;
     next.statusLocked = next.statusLocked !== false;
     next.updatedAt = new Date().toISOString();
+    all[matchId] = next;
+    this.store.write({ matches: all });
+    return next;
+  }
+
+  markExtractStatus(matchId, { status, error = null, queued = false } = {}) {
+    const all = this.all();
+    const current = all[matchId];
+    if (!current) throw new Error('MainLive match not found');
+    const next = {
+      ...current,
+      matchUrlStatus: status || current.matchUrlStatus,
+      matchUrlExtractError: error,
+      matchUrlExtractAt: new Date().toISOString(),
+      matchUrlExtractQueued: Boolean(queued),
+      updatedAt: new Date().toISOString(),
+    };
+    all[matchId] = next;
+    this.store.write({ matches: all });
+    return next;
+  }
+
+  applyExtractResult(matchId, extraction = {}) {
+    const all = this.all();
+    const current = all[matchId];
+    if (!current) throw new Error('MainLive match not found');
+
+    const found = Array.isArray(extraction.streams) ? extraction.streams.filter((s) => s?.url) : [];
+    const sourceName = String(extraction.source || current.matchUrlSource || 'stream').trim();
+    const manual = (current.streams || []).filter(
+      (s) => String(s.source || '').toLowerCase() === 'manual'
+    );
+    const auto = found.map((s) => ({
+      ...s,
+      id: s.id || newStreamId(),
+      source: sourceName,
+      checkedAt: new Date().toISOString(),
+    }));
+    const streams = [...manual, ...auto];
+    const ok = found.length > 0;
+    const next = {
+      ...current,
+      streams,
+      hasStreams: streams.length > 0,
+      streamCount: streams.length,
+      streamUrl: streams[0]?.url || null,
+      streamHeaders: streams[0]?.headers || null,
+      matchUrlSource: sourceName || current.matchUrlSource,
+      matchUrlStatus: ok ? 'AVAILABLE' : 'FAILED',
+      matchUrlExtractError: ok ? null : extraction.error || 'NOT_FOUND',
+      matchUrlExtractAt: new Date().toISOString(),
+      matchUrlExtractQueued: false,
+      sourcePages: {
+        ...(current.sourcePages || {}),
+        ...(current.matchUrl ? { [sourceName]: current.matchUrl } : {}),
+      },
+      updatedAt: new Date().toISOString(),
+    };
     all[matchId] = next;
     this.store.write({ matches: all });
     return next;
@@ -239,12 +363,14 @@ class MainLiveService {
    * Build Flutter delivery payload for mainlive.json (same shape as matches.json).
    */
   toDeliveryPayload() {
-    const matches = this.list().map((m) => ({
-      ...m,
-      // Flutter / matches.json clock: "7:30 PM" (store stays 24h HH:mm for admin).
-      date: formatDateDisplay(m.kickoff) || m.date,
-      time: formatTime12(m.kickoff) || m.time,
-    }));
+    const matches = this.list().map((m) =>
+      toPublicMatch({
+        ...m,
+        // Flutter / matches.json clock: "7:30 PM" (store stays 24h HH:mm for admin).
+        date: formatDateDisplay(m.kickoff) || m.date,
+        time: formatTime12(m.kickoff) || m.time,
+      })
+    );
     const payload = {
       version: 1,
       generatedAt: nowYangon().toISO(),
@@ -305,7 +431,7 @@ function normalizeStreamsInput(input = {}) {
         String(raw.name || raw.quality || raw.streamName || 'HD').trim() || 'HD';
       rows.push({
         id: String(raw.id || '').trim() || newStreamId(),
-        source: 'manual',
+        source: String(raw.source || 'manual').trim() || 'manual',
         type: String(raw.type || 'm3u8').trim() || 'm3u8',
         quality: name,
         name,
