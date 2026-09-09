@@ -352,7 +352,7 @@
           <table>
             <thead>
               <tr>
-                <th>Match</th><th>League</th><th>Kickoff</th><th>Status</th><th>Streams</th><th>Flags</th><th>Actions</th>
+                <th>Match</th><th>League</th><th>Kickoff</th><th>Status</th><th>Match URL</th><th>Streams</th><th>Flags</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -365,6 +365,19 @@
                   <td>${esc(m.league || '')}${m.leagueIcon ? `<div><img src="${esc(m.leagueIcon)}" alt="" style="height:18px;margin-top:4px" /></div>` : ''}</td>
                   <td>${esc(m.date || '')} ${esc(formatClock12(m.time || m.kickoff))} <span class="muted" style="font-size:0.7rem">Yangon</span></td>
                   <td><span class="badge ${m.status === 'LIVE' ? 'live' : ''}">${esc(m.status || '')}</span></td>
+                  <td>
+                    ${m.matchUrl ? `<div class="muted" style="font-size:0.75rem;word-break:break-all">${esc(m.matchUrl)}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}</div>` : '<span class="muted">None yet</span>'}
+                    <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">
+                      <select data-act="ml-match-source" style="width:auto;min-width:88px">
+                        <option value="">Auto</option>
+                        ${['cakhia', 'xoilac', 'socolive', 'mitomtm'].map((s) =>
+                          `<option value="${s}" ${m.matchUrlSource === s ? 'selected' : ''}>${s}</option>`
+                        ).join('')}
+                      </select>
+                      <input data-act="ml-match-url" type="url" value="${esc(m.matchUrl || '')}" placeholder="https://…/truc-tiep/…" style="flex:1;min-width:140px" />
+                      <button class="secondary" data-act="save-match-url" title="Save page URL and extract m3u8">Add URL</button>
+                    </div>
+                  </td>
                   <td>${(m.streams || []).length}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}</td>
                   <td>
                     ${m.pinned ? '<span class="badge">PIN</span>' : ''}
@@ -401,7 +414,7 @@
                       <button class="danger" data-act="delete">Delete</button>
                     </div>
                   </td>
-                </tr>`).join('') || '<tr><td colspan="7" class="muted">No MainLive matches yet. Add one above.</td></tr>'}
+                </tr>`).join('') || '<tr><td colspan="8" class="muted">No MainLive matches yet. Add one above.</td></tr>'}
             </tbody>
           </table>
         </div>
@@ -541,6 +554,28 @@
       });
       tr.querySelector('[data-act="streams"]')?.addEventListener('click', async () => {
         await manageMainLiveStreams(id);
+      });
+      tr.querySelector('[data-act="save-match-url"]')?.addEventListener('click', async () => {
+        const matchUrl = tr.querySelector('[data-act="ml-match-url"]')?.value?.trim();
+        const source = tr.querySelector('[data-act="ml-match-source"]')?.value;
+        if (!matchUrl) return toast('Enter a match page URL', 'error');
+        try {
+          toast('Saving match URL — searching m3u8…');
+          const result = await api(`/mainlive/${encodeURIComponent(id)}/match-url`, {
+            method: 'POST',
+            body: JSON.stringify({ matchUrl, source }),
+          });
+          if (result?.extraction?.queued) {
+            toast('Match URL saved — extract queued behind the scraper');
+          } else if (result?.extraction?.ok) {
+            toast(`Match URL saved · found ${result.extraction.streams?.length || 0} stream(s)`);
+          } else {
+            toast(`Match URL saved · ${result?.match?.matchUrlStatus || result?.extraction?.error || 'searching'}`);
+          }
+          renderMainLive();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
       });
       tr.querySelector('[data-act="status"]')?.addEventListener('change', async (e) => {
         try {
