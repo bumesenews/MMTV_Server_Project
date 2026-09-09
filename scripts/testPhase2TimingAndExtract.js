@@ -76,15 +76,17 @@ function engineStub() {
 
 console.log('\n=== Phase 2: slot config ===');
 assert(
-  'Match URL slots include −60/−45/−30',
+  'Match URL slots include −60/−50/−40/−30',
   MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't60') &&
-    MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't45') &&
+    MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't50') &&
+    MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't40') &&
     MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't30')
 );
 assert(
-  'Extract slots include −30/−15/−5 and post-kickoff',
+  'Extract slots include −30/−20/−10/−5 and post-kickoff',
   STREAM_SEARCH_SLOTS.some((s) => s.id === 't30') &&
-    STREAM_SEARCH_SLOTS.some((s) => s.id === 't15') &&
+    STREAM_SEARCH_SLOTS.some((s) => s.id === 't20') &&
+    STREAM_SEARCH_SLOTS.some((s) => s.id === 't10') &&
     STREAM_SEARCH_SLOTS.some((s) => s.id === 't5') &&
     STREAM_SEARCH_SLOTS.some((s) => s.postKickoff)
 );
@@ -94,7 +96,8 @@ console.log('\n=== Phase 2: discovery slot resolution ===');
 {
   const k = kickSecFromNow(0);
   assert('Discovery at −60', resolveMatchUrlSearchSlot(k, k - 60 * 60)?.id === 't60');
-  assert('Discovery at −45', resolveMatchUrlSearchSlot(k, k - 45 * 60)?.id === 't45');
+  assert('Discovery at −50', resolveMatchUrlSearchSlot(k, k - 50 * 60)?.id === 't50');
+  assert('Discovery at −45', resolveMatchUrlSearchSlot(k, k - 45 * 60)?.id === 't50');
   assert('Discovery at −30', resolveMatchUrlSearchSlot(k, k - 30 * 60)?.id === 't30');
   assert('No discovery before −60', resolveMatchUrlSearchSlot(k, k - 90 * 60) == null);
   assert('Live discovery at kickoff', resolveMatchUrlLiveSlot(k, k)?.live === true);
@@ -104,7 +107,9 @@ console.log('\n=== Phase 2: extract slot resolution ===');
 {
   const k = kickSecFromNow(0);
   assert('Extract at −30', resolveStreamSearchSlot(k, k - 30 * 60)?.id === 't30');
-  assert('Extract at −15', resolveStreamSearchSlot(k, k - 15 * 60)?.id === 't15');
+  assert('Extract at −20', resolveStreamSearchSlot(k, k - 20 * 60)?.id === 't20');
+  assert('Extract at −15', resolveStreamSearchSlot(k, k - 15 * 60)?.id === 't20');
+  assert('Extract at −10', resolveStreamSearchSlot(k, k - 10 * 60)?.id === 't10');
   assert('Extract at −5', resolveStreamSearchSlot(k, k - 5 * 60)?.id === 't5');
   assert('No extract at −31', resolveStreamSearchSlot(k, k - 31 * 60) == null);
   assert('No extract at −60', resolveStreamSearchSlot(k, k - 60 * 60) == null);

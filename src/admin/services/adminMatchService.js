@@ -41,7 +41,7 @@ class AdminMatchService {
       message: 'chore: sync admin-match.json (full matches)',
     });
     this._doc = doc;
-    return saved;
+    return { ...saved, doc };
   }
 
   async get(matchId) {

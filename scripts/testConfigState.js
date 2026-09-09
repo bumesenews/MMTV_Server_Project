@@ -178,6 +178,15 @@ async function run() {
       'MATCH_URL_PRE_KICKOFF_MINUTES=60,45,30',
       cfg.matchUrlPreKickoffMinutes.join(',') === '60,45,30'
     );
+    const tenMin = loadScraperConfig({
+      MATCH_URL_PRE_KICKOFF_MINUTES: '60,50,40,30',
+      MATCH_URL_SEARCH_INTERVAL_MINUTES: '10',
+    });
+    assert(
+      'MATCH_URL_PRE_KICKOFF_MINUTES=60,50,40,30',
+      tenMin.matchUrlPreKickoffMinutes.join(',') === '60,50,40,30'
+    );
+    assert('Match URL cooldown 10 minutes', tenMin.matchUrlSearchIntervalMinutes === 10);
     assert('stream offsets are 0,5,10', cfg.streamAttemptOffsets.join(',') === '0,5,10');
     assert('defaults match exported constants', STREAM_MAX_ATTEMPTS === 3 && STREAM_SEARCH_STOP_AFTER_MIN === 15);
     assert('scraperConcurrency() reads env/config', scraperConcurrency() >= 1);
@@ -199,11 +208,11 @@ async function run() {
     const at1945 = slotAt(kickoff, 15);
     const at2000 = slotAt(kickoff, 0);
     assert('19:00 → Match URL attempt 1 (t60)', at1900.matchUrl?.id === 't60' && at1900.matchUrl.attempt === 1);
-    assert('19:15 → Match URL attempt 2 (t45)', at1915.matchUrl?.id === 't45' && at1915.matchUrl.attempt === 2);
-    assert('19:30 → Match URL attempt 3 (t30)', at1930.matchUrl?.id === 't30');
+    assert('19:15 → Match URL t50 (4:10-style window)', at1915.matchUrl?.id === 't50');
+    assert('19:30 → Match URL t30', at1930.matchUrl?.id === 't30');
     assert('19:45 → still t30 Match URL window (no extra attempt)', at1945.matchUrl?.id === 't30');
     assert('20:00 → no Match URL discovery', at2000.matchUrl == null);
-    assert('max Match URL attempts is 3', MATCH_URL_MAX_ATTEMPTS === 3);
+    assert('max Match URL attempts is 4', MATCH_URL_MAX_ATTEMPTS === 4);
     assert('Match URL slots are only pre-kickoff', MATCH_URL_SEARCH_SLOTS.every((s) => s.maxInclusive > 0));
   }
 
@@ -215,9 +224,11 @@ async function run() {
     ).toISO();
     assert('11:00 → no Match URL slot yet, no stream extract', slotAt(kickoff, 9 * 60).matchUrl == null && slotAt(kickoff, 9 * 60).stream == null);
     assert('19:00 → Match URL t60, no stream extract yet', slotAt(kickoff, 60).matchUrl?.id === 't60' && slotAt(kickoff, 60).stream == null);
-    assert('19:15 → Match URL t45, no stream extract yet', slotAt(kickoff, 45).matchUrl?.id === 't45' && slotAt(kickoff, 45).stream == null);
+    assert('19:15 → Match URL t50, no stream extract yet', slotAt(kickoff, 45).matchUrl?.id === 't50' && slotAt(kickoff, 45).stream == null);
     assert('19:30 → stream extract from Match URL (t30)', slotAt(kickoff, 30).stream?.id === 't30');
-    assert('19:45 → stream extract t15', slotAt(kickoff, 15).stream?.id === 't15');
+    assert('19:40 → stream extract t20', slotAt(kickoff, 20).stream?.id === 't20');
+    assert('19:50 → stream extract t10', slotAt(kickoff, 10).stream?.id === 't10');
+    assert('19:55 → stream extract t5', slotAt(kickoff, 5).stream?.id === 't5');
     assert('20:00 → stream attempt at kickoff', slotAt(kickoff, 0).stream?.id === 't0');
     assert('20:05 → stream attempt +5', slotAt(kickoff, -5).stream?.id === 'tP5');
     assert('20:10 → stream attempt +10', slotAt(kickoff, -10).stream?.id === 'tP10');
@@ -535,9 +546,10 @@ async function run() {
     assert('Match URL found at −30m', m.matchUrlAttempts === 3 && Boolean(m.matchUrl));
 
     m = applySourceDiscoveryResult({ ...base }, 'socolive', null, { id: 't60', attempt: 1 }, 't1');
-    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't45', attempt: 2 }, 't2');
-    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't30', attempt: 3 }, 't3');
-    m = finalizeMatchUrlStatus(m, toUtcUnixSeconds(kickoffIso(0)));
+    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't50', attempt: 2 }, 't2');
+    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't40', attempt: 3 }, 't3');
+    m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't30', attempt: 4 }, 't4');
+    m = finalizeMatchUrlStatus(m, toUtcUnixSeconds(m.kickoff));
     assert(
       'Match URL never found before kickoff stays SEARCHING for catch-up',
       m.matchUrlStatus === MATCH_URL_STATUS.SEARCHING

@@ -5,6 +5,7 @@ const {
   STREAM_EXTRACT_LEAD_MIN,
   STREAM_SEARCH_STOP_AFTER_MIN,
   STREAM_SEARCH_INTERVAL_MINUTES,
+  MATCH_URL_SEARCH_INTERVAL_MINUTES,
   MATCH_URL_MAX_ATTEMPTS,
   MATCH_URL_SEARCH_SLOTS,
   MATCH_URL_EARLY_SLOT,
@@ -176,7 +177,7 @@ const MATCH_TIME_TOLERANCE_MIN = Math.max(
 
 /**
  * Resolve which Match URL discovery slot the fixture is in.
- * Default: −60 / −45 / −30 (max 3). Optional tEarly only if enabled.
+ * Default: −60 / −50 / −40 / −30 (max 4). Optional tEarly only if enabled.
  * Null at/after kickoff.
  */
 function resolveMatchUrlSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
@@ -221,7 +222,7 @@ function resolveAnyMatchUrlSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
 }
 
 /**
- * Resolve the m3u8 extract slot: −30 / −15 / −5, then kickoff / +5 / +10.
+ * Resolve the m3u8 extract slot: −30 / −20 / −10 / −5, then kickoff / +5 / +10.
  * Returns null before −30m and at/after the +15 stop.
  */
 function resolveStreamSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
@@ -288,7 +289,7 @@ function resolveFixtureStatus(kickoff, nowSec = nowUtcUnixSeconds()) {
 /**
  * m3u8 extraction window: kickoff−STREAM_EXTRACT_LEAD_MIN .. kickoff+MATCH_LIVE_DURATION_MIN.
  * forceStreamCheck / Admin Match URL must not extract outside this gate.
- * (Slot cadence −30/−15/−5/0/+5/+10 and live catch-up still apply inside the window.)
+ * (Slot cadence −30/−20/−10/−5/0/+5/+10 and live catch-up still apply inside the window.)
  */
 function isStreamExtractEligible(kickoff, nowSec = nowUtcUnixSeconds()) {
   const mins = minutesUntilKickoff(kickoff, nowSec);
@@ -332,6 +333,7 @@ module.exports = {
   MATCH_URL_SEARCH_SLOTS,
   MATCH_URL_EARLY_SLOT,
   STREAM_SEARCH_INTERVAL_MINUTES,
+  MATCH_URL_SEARCH_INTERVAL_MINUTES,
   MATCH_TIME_TOLERANCE_MIN,
   MATCH_URL_MAX_ATTEMPTS,
   MATCH_LIVE_DURATION_MIN,

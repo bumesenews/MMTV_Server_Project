@@ -473,7 +473,7 @@ console.log('\n=== Multiple matches at the same time ===');
   assert('14b. Does not assign the other same-time URL', wrong.length === 0);
 }
 
-console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
+console.log('\n=== Match URL discovery timing (−60 / −50 / −40 / −30) ===');
 {
   const kickoffDt = yangonKickoff('2026-08-15T20:00:00');
   const kickSec = toUtcUnixSeconds(kickoffDt.toISO());
@@ -489,7 +489,9 @@ console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
     resolveMatchUrlSearchSlot(kickoffDt.toISO(), kickSec - minsBefore * 60);
 
   assert('8a0. −60m is t60 slot', slotAt(60)?.id === 't60', JSON.stringify(slotAt(60)));
-  assert('8a. −45m is t45 slot', slotAt(45)?.id === 't45', JSON.stringify(slotAt(45)));
+  assert('8a. −50m is t50 slot', slotAt(50)?.id === 't50', JSON.stringify(slotAt(50)));
+  assert('8a2. −45m still t50', slotAt(45)?.id === 't50', JSON.stringify(slotAt(45)));
+  assert('8a3. −40m is t40 slot', slotAt(40)?.id === 't40', JSON.stringify(slotAt(40)));
   assert('9a. −30m is t30 slot', slotAt(30)?.id === 't30', JSON.stringify(slotAt(30)));
   assert('10a. −15m still in t30 (final Match URL window)', slotAt(15)?.id === 't30', JSON.stringify(slotAt(15)));
   assert('10b. kickoff is not a pre-kickoff Match URL slot', slotAt(0) == null);
@@ -544,28 +546,30 @@ console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
   );
   assert('2a. Miss at −60m stays PENDING and attempts=1', m.matchUrlStatus === MATCH_URL_STATUS.PENDING && m.matchUrlAttempts === 1);
   assert(
-    '2b. −45m slot still due after −60 miss',
-    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 45 * 60) === true
+    '2b. −50m slot still due after −60 miss',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 50 * 60) === true
   );
-  m = applySourceDiscoveryResult(m, 'cakhia', hit, { id: 't45', attempt: 2, maxInclusive: 45 }, '2026-08-15T19:15:00.000Z');
-  assert('2. Match URL found at −45m', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrlAttempts === 2);
+  m = applySourceDiscoveryResult(m, 'cakhia', hit, { id: 't50', attempt: 2, maxInclusive: 50 }, '2026-08-15T19:10:00.000Z');
+  assert('2. Match URL found at −50m', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrlAttempts === 2);
 
   m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't60', attempt: 1 }, 't1');
-  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't45', attempt: 2 }, 't2');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't50', attempt: 2 }, 't2');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't40', attempt: 3 }, 't3');
   assert(
-    '3a. After two misses, −30m still due',
+    '3a. After three misses, −30m still due',
     needsMatchUrlDiscovery(m, 'cakhia', kickSec - 30 * 60) === true
   );
-  m = applySourceDiscoveryResult(m, 'cakhia', hit, { id: 't30', attempt: 3 }, 't3');
-  assert('3. Match URL found at −30m', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrlAttempts === 3);
+  m = applySourceDiscoveryResult(m, 'cakhia', hit, { id: 't30', attempt: 4 }, 't4');
+  assert('3. Match URL found at −30m', m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && m.matchUrlAttempts === 4);
 
   m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't60', attempt: 1 }, 't1');
-  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't45', attempt: 2 }, 't2');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't50', attempt: 2 }, 't2');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't40', attempt: 3 }, 't3');
   m = applySourceDiscoveryResult(
     m,
     'cakhia',
     null,
-    { id: 't30', attempt: 3 },
+    { id: 't30', attempt: 4 },
     new Date((kickSec - 30 * 60) * 1000).toISOString()
   );
   assert(
@@ -574,7 +578,7 @@ console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
   );
   m = finalizeMatchUrlStatus(m, kickSec);
   assert(
-    '4. After 3 misses, kickoff stays SEARCHING for live catch-up',
+    '4. After 4 misses, kickoff stays SEARCHING for live catch-up',
     m.matchUrlStatus === MATCH_URL_STATUS.SEARCHING && !m.matchUrl,
     JSON.stringify({ status: m.matchUrlStatus, attempts: m.matchUrlAttempts })
   );
@@ -616,8 +620,9 @@ console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
   );
 
   m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't60', attempt: 1 }, 't1');
-  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't45', attempt: 2 }, 't2');
-  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't30', attempt: 3 }, 't3');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't50', attempt: 2 }, 't2');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't40', attempt: 3 }, 't3');
+  m = applySourceDiscoveryResult(m, 'cakhia', null, { id: 't30', attempt: 4 }, 't4');
   m = finalizeMatchUrlStatus(m, kickSec + 121 * 60);
   assert(
     '4h. Match URL FAILED after live window closes',
@@ -675,23 +680,30 @@ console.log('\n=== Match URL discovery timing (−60 / −45 / −30) ===');
     threeMiss,
     'cakhia',
     null,
-    { id: 't45', attempt: 2 },
-    new Date((kickSec - 40 * 60) * 1000).toISOString()
+    { id: 't50', attempt: 2 },
+    new Date((kickSec - 45 * 60) * 1000).toISOString()
   );
   const threeMiss3 = applySourceDiscoveryResult(
     threeMiss2,
     'cakhia',
     null,
-    { id: 't30', attempt: 3 },
+    { id: 't40', attempt: 3 },
+    new Date((kickSec - 35 * 60) * 1000).toISOString()
+  );
+  const threeMiss4 = applySourceDiscoveryResult(
+    threeMiss3,
+    'cakhia',
+    null,
+    { id: 't30', attempt: 4 },
     new Date((kickSec - 28 * 60) * 1000).toISOString()
   );
   assert(
-    '4i. After 3 misses, last pre-kickoff window retries once cooldown elapses',
-    threeMiss3.matchUrlSearch.sources.cakhia.status === MATCH_URL_STATUS.FAILED &&
-      needsMatchUrlDiscovery(threeMiss3, 'cakhia', kickSec - 20 * 60) === true
+    '4i. After 4 misses, last pre-kickoff window retries once cooldown elapses',
+    threeMiss4.matchUrlSearch.sources.cakhia.status === MATCH_URL_STATUS.FAILED &&
+      needsMatchUrlDiscovery(threeMiss4, 'cakhia', kickSec - 18 * 60) === true
   );
   const mixed = applySourceDiscoveryResult(
-    threeMiss3,
+    threeMiss4,
     'xoilac',
     null,
     { id: 't30', attempt: 1 },
@@ -726,15 +738,16 @@ console.log('\n=== Independent sources + duplicate candidates ===');
   m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't60', attempt: 1 }, 't1');
   m = applySourceDiscoveryResult(m, 'socolive', hit('socolivepp.tv'), { id: 't60', attempt: 1 }, 't1');
   assert(
-    '14. Found sources stop; unresolved sources still due at −45m',
-    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 45 * 60) === false &&
-      needsMatchUrlDiscovery(m, 'socolive', kickSec - 45 * 60) === false &&
-      needsMatchUrlDiscovery(m, 'mitomtm', kickSec - 45 * 60) === true &&
-      needsMatchUrlDiscovery(m, 'xoilac', kickSec - 45 * 60) === true
+    '14. Found sources stop; unresolved sources still due at −50m',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec - 50 * 60) === false &&
+      needsMatchUrlDiscovery(m, 'socolive', kickSec - 50 * 60) === false &&
+      needsMatchUrlDiscovery(m, 'mitomtm', kickSec - 50 * 60) === true &&
+      needsMatchUrlDiscovery(m, 'xoilac', kickSec - 50 * 60) === true
   );
 
-  m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't45', attempt: 2 }, 't2');
-  m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't30', attempt: 3 }, 't3');
+  m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't50', attempt: 2 }, 't2');
+  m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't40', attempt: 3 }, 't3');
+  m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't30', attempt: 4 }, 't4');
   assert(
     '15. One source FAILED while others remain FOUND',
     m.matchUrlSearch.sources.xoilac.status === MATCH_URL_STATUS.FAILED &&

@@ -326,10 +326,12 @@ console.log('\n=== Phase 4: discoverAll source isolation ===');
   {
     const k = Math.floor(Date.now() / 1000);
     assert('Match URL −60', resolveMatchUrlSearchSlot(k, k - 60 * 60)?.id === 't60');
-    assert('Match URL −45', resolveMatchUrlSearchSlot(k, k - 45 * 60)?.id === 't45');
+    assert('Match URL −50', resolveMatchUrlSearchSlot(k, k - 50 * 60)?.id === 't50');
+    assert('Match URL −40', resolveMatchUrlSearchSlot(k, k - 40 * 60)?.id === 't40');
     assert('Match URL −30', resolveMatchUrlSearchSlot(k, k - 30 * 60)?.id === 't30');
     assert('m3u8 −30', resolveStreamSearchSlot(k, k - 30 * 60)?.id === 't30');
-    assert('m3u8 −15', resolveStreamSearchSlot(k, k - 15 * 60)?.id === 't15');
+    assert('m3u8 −20', resolveStreamSearchSlot(k, k - 20 * 60)?.id === 't20');
+    assert('m3u8 −10', resolveStreamSearchSlot(k, k - 10 * 60)?.id === 't10');
     assert('m3u8 −5', resolveStreamSearchSlot(k, k - 5 * 60)?.id === 't5');
     assert(
       'Admin −60 no extract',

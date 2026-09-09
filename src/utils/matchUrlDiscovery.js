@@ -7,6 +7,7 @@ const {
   MATCH_URL_MAX_ATTEMPTS,
   MATCH_URL_SEARCH_SLOTS,
   STREAM_SEARCH_INTERVAL_MINUTES,
+  MATCH_URL_SEARCH_INTERVAL_MINUTES,
   MATCH_LIVE_DURATION_MIN,
 } = require('./time');
 const { MATCH_URL_STATUS } = require('./streamUrlHelper');
@@ -169,8 +170,8 @@ function logMatchUrlFailed({ sourceName, attempts } = {}) {
 
 /**
  * Per-source Match URL discovery state on a FotMob fixture.
- * Today-page search runs at most 3 times: −60 / −45 / −30. Once a URL is saved,
- * that source is not searched again.
+ * Today-page search: −60 / −50 / −40 / −30, then every 10 minutes until kickoff.
+ * Once a URL is saved, that source is not searched again.
  */
 function ensureMatchUrlSearch(fixture) {
   const prev =
@@ -188,7 +189,7 @@ function repairSlotsDone(slotsDone, attempts, hasUrl) {
   const n = Number(attempts) || 0;
   if (hasUrl || n >= MATCH_URL_MAX_ATTEMPTS) return next;
   // Legacy tEarly rows marked t30 done after one miss and never ran −60/−45.
-  if (next.tEarly && !next.t60 && !next.t45) {
+  if (next.tEarly && !next.t60 && !next.t45 && !next.t50 && !next.t40) {
     delete next.tEarly;
     delete next.t30;
   }
@@ -291,7 +292,7 @@ function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
   if (st.manual) return false;
   if (sourceHasSavedMatchUrl(st)) return false;
 
-  const cooldownSec = Math.max(1, STREAM_SEARCH_INTERVAL_MINUTES) * 60;
+  const cooldownSec = Math.max(1, MATCH_URL_SEARCH_INTERVAL_MINUTES) * 60;
   const liveSlot = resolveMatchUrlLiveSlot(fixture?.kickoff, nowSec);
   if (liveSlot) {
     if ((Number(st.liveAttempts) || 0) >= MATCH_URL_MAX_ATTEMPTS) return false;

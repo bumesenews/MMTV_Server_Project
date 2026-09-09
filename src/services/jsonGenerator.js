@@ -35,11 +35,9 @@ function sourceAllowsPublishedStream(match, sourceName) {
   return sourceHasSavedMatchUrl(getSourceMatchUrlState(match, name));
 }
 
-/** If a source is AVAILABLE but its stream was collapsed as a URL duplicate, still expose a link. */
+/** Already-extracted m3u8 is always published. Match URL is only required to clone a source tab. */
 function expandStreamsForAvailableSources(match) {
-  const list = [...(match?.streams || [])]
-    .filter((s) => s && s.url)
-    .filter((s) => sourceAllowsPublishedStream(match, s.source));
+  const list = [...(match?.streams || [])].filter((s) => s && String(s.url || '').trim());
   const template = list[0];
   if (!template) return list;
   const have = new Set(list.map((s) => String(s.source || '').toLowerCase()));
@@ -57,6 +55,29 @@ function expandStreamsForAvailableSources(match) {
     have.add(key);
   }
   return list;
+}
+
+/** Top-level streamUrl must appear in streams[] so the player feed is not empty. */
+function ensureStreamUrlInList(match, flutterStreams) {
+  const url = String(match?.streamUrl || '').trim();
+  if (!url) return flutterStreams;
+  if (flutterStreams.some((s) => String(s.url || '').trim() === url)) return flutterStreams;
+  const headers = flutterPlaybackHeaders(match.streamHeaders);
+  const source = String(match.matchUrlSource || match.source || 'stream').trim() || 'stream';
+  return [
+    {
+      source,
+      type: 'm3u8',
+      quality: 'HD',
+      name: flutterStreamName({ source, quality: 'HD' }),
+      url,
+      headers,
+      streamHeaders: headers,
+      active: true,
+      checkedAt: match.lastAttemptAt || null,
+    },
+    ...flutterStreams,
+  ];
 }
 
 function flutterPlaybackHeaders(raw) {
@@ -96,29 +117,32 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
             validationReason: m.validationReason || null,
           }
         : aggregateValidationFields(m, streamStatus);
-    const flutterStreams = expandStreamsForAvailableSources(m)
-      .filter((s) => s && s.url)
-      .map((s) => ({
-        source: s.source,
-        type: s.type || 'm3u8',
-        quality: s.quality || s.name || 'HD',
-        name: flutterStreamName(s),
-        url: s.url,
-        headers: flutterPlaybackHeaders(s.streamHeaders || s.headers),
-        streamHeaders: flutterPlaybackHeaders(s.streamHeaders || s.headers),
-        active: Boolean(s.active),
-        checkedAt: s.checkedAt || null,
-        ...(s.validation?.state || s.validation?.reason
-          ? {
-              validationStatus: s.validation.state || s.validation.reason,
-              validationReason:
-                s.validation.ok === true
-                  ? null
-                  : s.validation.state || s.validation.reason || null,
-            }
-          : {}),
-        ...(s.manualId ? { manualId: s.manualId } : {}),
-      }));
+    const flutterStreams = ensureStreamUrlInList(
+      m,
+      expandStreamsForAvailableSources(m)
+        .filter((s) => s && s.url)
+        .map((s) => ({
+          source: s.source,
+          type: s.type || 'm3u8',
+          quality: s.quality || s.name || 'HD',
+          name: flutterStreamName(s),
+          url: s.url,
+          headers: flutterPlaybackHeaders(s.streamHeaders || s.headers),
+          streamHeaders: flutterPlaybackHeaders(s.streamHeaders || s.headers),
+          active: s.active !== false,
+          checkedAt: s.checkedAt || null,
+          ...(s.validation?.state || s.validation?.reason
+            ? {
+                validationStatus: s.validation.state || s.validation.reason,
+                validationReason:
+                  s.validation.ok === true
+                    ? null
+                    : s.validation.state || s.validation.reason || null,
+              }
+            : {}),
+          ...(s.manualId ? { manualId: s.manualId } : {}),
+        }))
+    );
     return {
     matchId: m.matchId,
     league: m.league,
@@ -283,21 +307,35 @@ function toPublicStream(stream) {
 /** Flutter GitHub matches.json — fixture + stream only (no Match URL / admin / debug). */
 function toPublicMatch(match) {
   if (!match) return match;
-  const streams = (match.streams || []).map(toPublicStream).filter(Boolean);
+  let streams = (match.streams || []).map(toPublicStream).filter(Boolean);
   const out = {};
   for (const key of PUBLIC_MATCH_KEYS) {
-    if (key === 'streams') {
-      out.streams = streams;
-      continue;
-    }
+    if (key === 'streams') continue;
     if (match[key] !== undefined) out[key] = match[key];
   }
-  out.hasStreams = streams.length > 0;
-  out.streamCount = streams.length;
   if (!out.streamUrl && streams[0]) out.streamUrl = streams[0].url;
   if (!out.streamHeaders && streams[0]) {
     out.streamHeaders = streams[0].streamHeaders || streams[0].headers || null;
   }
+  const topUrl = String(out.streamUrl || '').trim();
+  if (topUrl && !streams.some((s) => String(s.url || '').trim() === topUrl)) {
+    streams = [
+      {
+        source: 'stream',
+        type: 'm3u8',
+        quality: 'HD',
+        name: 'HD',
+        url: topUrl,
+        headers: out.streamHeaders || null,
+        streamHeaders: out.streamHeaders || null,
+        active: true,
+      },
+      ...streams,
+    ];
+  }
+  out.streams = streams;
+  out.hasStreams = streams.length > 0;
+  out.streamCount = streams.length;
   return out;
 }
 

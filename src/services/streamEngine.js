@@ -52,7 +52,7 @@ const {
  *
  * Kickoff-relative search slots (no fixed daily times):
  *  Match URL: −60 / −45 / −30 (max 3 per source)
- *  Stream extract: −30 / −15 / −5 / kickoff / +5 / +10
+ *  Stream extract: −30 / −20 / −10 / −5 / kickoff / +5 / +10
  * Stop all searching at +15m (keep already-found valid streams).
  *
  * Per source: skip once AVAILABLE; permanently FAILED after 3 post-kickoff attempts;
@@ -293,7 +293,9 @@ class StreamEngine {
     const attempts = {};
     const done = streamSearch.slotsDone || {};
     if (done.t30 || (mins != null && mins <= 30)) attempts.t30 = true;
+    if (done.t20 || (mins != null && mins <= 20)) attempts.t20 = true;
     if (done.t15 || (mins != null && mins <= 15)) attempts.t15 = true;
+    if (done.t10 || (mins != null && mins <= 10)) attempts.t10 = true;
     if (done.t5 || (mins != null && mins <= 5)) attempts.t5 = true;
     if (done.t0 || (mins != null && mins <= 0)) attempts.t0 = true;
     if (done.tP5 || (mins != null && mins <= -5)) attempts.tP5 = true;

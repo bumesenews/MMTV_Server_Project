@@ -224,5 +224,65 @@ console.log('\n=== TEST 8 full admin-match.json does not lock AUTO urls ===');
   );
 }
 
+console.log('\n=== TEST 9 public matches.json keeps m3u8 when only streamUrl is set ===');
+{
+  const payload = generateFlutterJson([
+    {
+      ...fixture,
+      streams: [],
+      hasStreams: false,
+      streamCount: 0,
+      streamUrl: 'https://live2.example/channel15.m3u8',
+      streamHeaders: { Referer: 'https://ck.example/' },
+      streamStatus: 'AVAILABLE',
+      matchUrl: 'https://cakhia.example/page',
+    },
+  ]);
+  const internal = payload.matches[0];
+  check(
+    'internal streams[] includes streamUrl',
+    internal.hasStreams === true &&
+      internal.streamCount >= 1 &&
+      internal.streams.some((s) => s.url === 'https://live2.example/channel15.m3u8')
+  );
+  const pub = toPublicMatch({
+    ...fixture,
+    streams: [],
+    hasStreams: false,
+    streamCount: 0,
+    streamUrl: 'https://live2.example/channel15.m3u8',
+    streamHeaders: { Referer: 'https://ck.example/' },
+    streamStatus: 'AVAILABLE',
+    matchUrl: 'https://cakhia.example/page',
+  });
+  check('public has no matchUrl', !('matchUrl' in pub));
+  check(
+    'public streams[] + hasStreams from streamUrl',
+    pub.hasStreams === true &&
+      pub.streamCount === 1 &&
+      pub.streams[0].url === 'https://live2.example/channel15.m3u8' &&
+      pub.streamUrl === 'https://live2.example/channel15.m3u8'
+  );
+  const noMatchUrlStream = generateFlutterJson([
+    {
+      ...fixture,
+      matchUrl: null,
+      streams: [
+        {
+          source: 'cakhia',
+          url: 'https://live2.example/extracted.m3u8',
+          active: true,
+        },
+      ],
+      streamUrl: 'https://live2.example/extracted.m3u8',
+    },
+  ]);
+  check(
+    'extracted m3u8 published even without saved Match URL on that source',
+    noMatchUrlStream.matches[0].streams.some((s) => s.url.includes('extracted.m3u8')) &&
+      noMatchUrlStream.matches[0].hasStreams === true
+  );
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

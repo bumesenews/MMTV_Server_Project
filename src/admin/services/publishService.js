@@ -293,9 +293,17 @@ class PublishService {
 
     const { changed, payload: cached } = this.cache.saveGenerated(payload);
 
+    let payloadForDelivery = cached;
     if (this.adminMatches) {
       try {
-        await this.adminMatches.saveFullPayload(cached, { actor });
+        const saved = await this.adminMatches.saveFullPayload(cached, { actor });
+        if (Array.isArray(saved?.doc?.matches)) {
+          payloadForDelivery = {
+            ...cached,
+            matches: saved.doc.matches,
+            matchCount: saved.doc.matches.length,
+          };
+        }
       } catch (err) {
         if (this.logService) {
           this.logService.add({
@@ -309,7 +317,7 @@ class PublishService {
     }
 
     const delivery = buildDeliveryBundle({
-      matchesPayload: cached,
+      matchesPayload: payloadForDelivery,
       highlights: extrasMerged.highlights,
       channels: extrasMerged.channels,
     });
