@@ -28,6 +28,7 @@ const {
   readExistingMatches,
 } = require('./matchesSyncService');
 const { adminMatchFileName } = require('../utils/adminMatch');
+const { decryptMatchesList } = require('../utils/streamUrlCrypto');
 
 /**
  * Main AWS processing pipeline (matches.json):
@@ -278,9 +279,13 @@ class Pipeline {
     } catch (err) {
       return { ok: false, reason: 'github_error', error: err.message, restored: 0 };
     }
-    const remoteMatches = Array.isArray(remote?.content?.matches)
+    const remoteMatchesRaw = Array.isArray(remote?.content?.matches)
       ? remote.content.matches
       : [];
+    const remoteMatches =
+      restoreSource === 'matches.json'
+        ? decryptMatchesList(remoteMatchesRaw)
+        : remoteMatchesRaw;
     if (!remoteMatches.length) {
       return { ok: false, reason: 'remote_empty', restored: 0 };
     }

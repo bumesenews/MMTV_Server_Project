@@ -307,7 +307,7 @@ console.log('\n=== TEST 10 public stream names are quality-only (no source/quali
   const namedPayload = generateFlutterJson([
     {
       ...fixture,
-      kickoff: '2026-09-10T23:00:00.000+06:30',
+      kickoff: '2099-01-01T23:00:00.000+06:30',
       status: 'LIVE',
       matchUrl: 'https://cakhia.example/page',
       matchUrlSearch: {

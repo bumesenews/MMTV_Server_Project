@@ -2,7 +2,7 @@ const { logger } = require('../utils/logger');
 const { toUtcUnixSeconds, MATCH_LIVE_DURATION_MIN } = require('../utils/time');
 const { hasDataChanged, streamIdentityKey } = require('../utils/compare');
 const { enrichMatchState } = require('./statusService');
-const { isFalseEnglishPremierLabel } = require('../utils/normalize');
+const { decryptMatchesList } = require('../utils/streamUrlCrypto');
 
 /** Seconds after kickoff before a match is removed from matches.json (2 hours). */
 const MATCH_EXPIRE_AFTER_SEC = Number(
@@ -504,7 +504,7 @@ function readExistingMatches(cache) {
     ? cache.getDelivery('matches')
     : null;
   if (Array.isArray(delivery?.matches) && delivery.matches.length) {
-    return delivery.matches;
+    return decryptMatchesList(delivery.matches);
   }
   const current = typeof cache.getCurrent === 'function' ? cache.getCurrent() : null;
   return Array.isArray(current?.matches) ? current.matches : [];

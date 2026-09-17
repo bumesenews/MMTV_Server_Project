@@ -1,6 +1,7 @@
 const { nowYangon } = require('../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../utils/compare');
 const { toPublicMatchesPayload } = require('./jsonGenerator');
+const { encryptPublicMatchesPayload } = require('../utils/streamUrlCrypto');
 
 /**
  * Split Flutter delivery feeds:
@@ -14,12 +15,13 @@ const { toPublicMatchesPayload } = require('./jsonGenerator');
  * Scraped matches feed — matches only (no highlights/channels nested).
  */
 function formatMatchesDelivery(matchesPayload) {
-  return toPublicMatchesPayload({
+  const publicPayload = toPublicMatchesPayload({
     version: matchesPayload?.version || 1,
     generatedAt: matchesPayload?.generatedAt || nowYangon().toISO(),
     timezone: matchesPayload?.timezone || 'Asia/Yangon',
     matches: matchesPayload?.matches || [],
   });
+  return encryptPublicMatchesPayload(publicPayload);
 }
 
 /**
