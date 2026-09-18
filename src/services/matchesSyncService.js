@@ -3,6 +3,7 @@ const { toUtcUnixSeconds, MATCH_LIVE_DURATION_MIN } = require('../utils/time');
 const { hasDataChanged, streamIdentityKey } = require('../utils/compare');
 const { enrichMatchState } = require('./statusService');
 const { decryptMatchesList } = require('../utils/streamUrlCrypto');
+const { isFalseEnglishPremierLabel } = require('../utils/normalize');
 
 /** Seconds after kickoff before a match is removed from matches.json (2 hours). */
 const MATCH_EXPIRE_AFTER_SEC = Number(
