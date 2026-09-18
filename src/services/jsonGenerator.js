@@ -82,6 +82,8 @@ function expandStreamsForAvailableSources(match) {
     if (!sourceAllowsPublishedStream(match, name)) continue;
     const key = String(name || '').toLowerCase();
     if (!key || have.has(key)) continue;
+    const cloneUrl = String(template.url || '').trim();
+    if (list.some((s) => String(s.url || '').trim() === cloneUrl)) continue;
     list.push({
       ...template,
       source: name,
@@ -371,9 +373,23 @@ function toPublicMatch(match) {
       ...streams,
     ];
   }
-  out.streams = streams;
-  out.hasStreams = streams.length > 0;
-  out.streamCount = streams.length;
+  out.streams = dedupePublicStreams(streams);
+  out.hasStreams = out.streams.length > 0;
+  out.streamCount = out.streams.length;
+  return out;
+}
+
+function dedupePublicStreams(streams) {
+  const seen = new Set();
+  const out = [];
+  for (const stream of streams || []) {
+    const url = String(stream?.url || '').trim();
+    if (!url) continue;
+    const key = url.split('#')[0].toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(stream);
+  }
   return out;
 }
 

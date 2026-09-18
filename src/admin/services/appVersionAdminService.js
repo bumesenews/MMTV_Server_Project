@@ -14,6 +14,7 @@ const DEFAULT_APP_VERSION = {
   uriversionDetails: 'Ui fix So Please Update',
   facebook: 'https://www.facebook.com/share/1cQtGLvaQV/',
   telegram: 'https://t.me/burmesestreamplayer',
+  key: '',
 };
 
 /**
@@ -62,6 +63,7 @@ class AppVersionAdminService {
       uriversionDetails: String(src.uriversionDetails ?? DEFAULT_APP_VERSION.uriversionDetails).trim(),
       facebook: String(src.facebook ?? DEFAULT_APP_VERSION.facebook).trim(),
       telegram: String(src.telegram ?? DEFAULT_APP_VERSION.telegram).trim(),
+      key: String(src.key ?? DEFAULT_APP_VERSION.key).trim(),
     };
   }
 
@@ -77,7 +79,12 @@ class AppVersionAdminService {
 
   writeLocal(content) {
     this.ensureLocalDir();
-    const normalized = this.normalize(content);
+    const src = content && typeof content === 'object' ? { ...content } : {};
+    const previousKey = this.readLocal()?.content?.key || '';
+    if (!String(src.key || '').trim() && previousKey) {
+      src.key = previousKey;
+    }
+    const normalized = this.normalize(src);
     fs.writeFileSync(this.localPath, JSON.stringify(normalized, null, 2), 'utf8');
     return normalized;
   }

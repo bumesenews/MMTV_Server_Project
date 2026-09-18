@@ -31,8 +31,10 @@ function assertProductionEnv(env = process.env) {
     );
   }
 
-  if (!env.GITHUB_TOKEN) {
-    logger.warn('GITHUB_TOKEN missing — Flutter JSON will not upload to GitHub');
+  if (!env.STREAM_URL_ENCRYPTION_KEY) {
+    logger.warn(
+      'STREAM_URL_ENCRYPTION_KEY missing — public matches.json will publish plaintext stream URLs'
+    );
   }
 
   if (!env.API_KEY && env.ENABLE_PUBLIC_JSON !== 'true') {

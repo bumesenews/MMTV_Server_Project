@@ -5,6 +5,7 @@ const { generateMatchId } = require('../../utils/matchId');
 const { combineDateAndTime, formatDate, formatTime, formatTime12, formatDateDisplay, toYangon, nowYangon } = require('../../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../../utils/compare');
 const { toPublicMatch } = require('../../services/jsonGenerator');
+const { encryptPublicMatchesPayload } = require('../../utils/streamUrlCrypto');
 const { looksLikeM3u8 } = require('./mainLiveExtractPolicy');
 
 /**
@@ -386,7 +387,7 @@ class MainLiveService {
       },
     };
     payload.meta.checksum = hashPayload(sanitizeForCompare(payload));
-    return payload;
+    return encryptPublicMatchesPayload(payload);
   }
 }
 

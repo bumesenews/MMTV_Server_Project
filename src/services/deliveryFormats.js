@@ -45,7 +45,7 @@ function formatMainLiveDelivery(matchesPayload) {
     },
   };
   payload.meta.checksum = hashPayload(sanitizeForCompare(payload));
-  return payload;
+  return encryptPublicMatchesPayload(payload);
 }
 
 /**

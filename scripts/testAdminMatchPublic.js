@@ -327,5 +327,25 @@ console.log('\n=== TEST 10 public stream names are quality-only (no source/quali
   );
 }
 
+console.log('\n=== TEST 11 public matches.json dedupes identical stream URLs ===');
+{
+  const pubDup = toPublicMatch({
+    matchId: 'dup_1',
+    homeTeam: 'A',
+    awayTeam: 'B',
+    league: 'Serie A',
+    status: 'PREPARING_STREAM',
+    streamUrl: 'https://cdn.example/same.m3u8',
+    streams: [
+      { name: 'NICK', url: 'https://cdn.example/same.m3u8', headers: { Referer: 'https://soco.example/' } },
+      { name: 'NICK', url: 'https://cdn.example/same.m3u8', headers: { Referer: 'https://ck.example/' } },
+      { name: 'NICK', url: 'https://cdn.example/same.m3u8', headers: { Referer: 'https://xl.example/' } },
+    ],
+  });
+  check('one unique url', pubDup.streams.length === 1 && pubDup.streamCount === 1);
+  check('keeps first name', pubDup.streams[0].name === 'NICK');
+  check('hasStreams', pubDup.hasStreams === true);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

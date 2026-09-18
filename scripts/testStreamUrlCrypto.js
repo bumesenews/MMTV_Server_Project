@@ -1,5 +1,5 @@
 /**
- * Stream URL AES-256-GCM (ENC:v1:) — GitHub matches.json only.
+ * Stream URL AES-256-GCM (ENC:v1:) — GitHub matches.json and mainlive.json.
  * Run: node scripts/testStreamUrlCrypto.js
  */
 const {
@@ -12,7 +12,7 @@ const {
   isEncryptedStreamUrl,
 } = require('../src/utils/streamUrlCrypto');
 const { generateFlutterJson, toPublicMatch } = require('../src/services/jsonGenerator');
-const { formatMatchesDelivery } = require('../src/services/deliveryFormats');
+const { formatMatchesDelivery, formatMainLiveDelivery } = require('../src/services/deliveryFormats');
 
 let passed = 0;
 let failed = 0;
@@ -137,6 +137,29 @@ try {
   check('delivery has no matchUrl', !('matchUrl' in delivery.matches[0]));
   const back = decryptStreamUrl(delivery.matches[0].streams[0].url, KEY);
   check('delivery decrypt exact m3u8', back === M3U8);
+
+  const mainlive = formatMainLiveDelivery({
+    matches: [
+      {
+        matchId: 'ml_1',
+        homeTeam: 'A',
+        awayTeam: 'B',
+        league: 'Cup',
+        status: 'LIVE',
+        streams: [{ name: 'HD', url: M3U8, type: 'm3u8', active: true }],
+        streamUrl: M3U8,
+      },
+    ],
+  });
+  check(
+    'mainlive.json encrypts admin stream url',
+    isEncryptedStreamUrl(mainlive.matches[0].streams[0].url) &&
+      isEncryptedStreamUrl(mainlive.matches[0].streamUrl)
+  );
+  check(
+    'mainlive decrypt exact m3u8',
+    decryptStreamUrl(mainlive.matches[0].streams[0].url, KEY) === M3U8
+  );
 } finally {
   if (originalKey === undefined) delete process.env.STREAM_URL_ENCRYPTION_KEY;
   else process.env.STREAM_URL_ENCRYPTION_KEY = originalKey;

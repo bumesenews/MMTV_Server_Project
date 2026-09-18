@@ -1130,7 +1130,7 @@ function createAdminRouter(ctx) {
         action: 'app_version_save',
         message: 'Saved app version JSON',
         actor: req.admin.username,
-        meta: { uploaded: result.uploaded, rawUrl: result.rawUrl },
+        meta: { uploaded: result.uploaded, rawUrl: result.rawUrl, keySet: Boolean(result.content?.key) },
       });
       res.json({ ok: true, ...result });
     } catch (err) {
@@ -1149,7 +1149,12 @@ function createAdminRouter(ctx) {
         action: 'app_version_sync',
         message: 'Synced local app version JSON to GitHub',
         actor: req.admin.username,
-        meta: result,
+        meta: {
+          uploaded: result.uploaded,
+          rawUrl: result.rawUrl,
+          origin: result.origin,
+          keySet: Boolean(result.content?.key),
+        },
       });
       res.json({ ok: true, ...result });
     } catch (err) {

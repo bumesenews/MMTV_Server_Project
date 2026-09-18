@@ -1483,6 +1483,8 @@
           <label>Version details<input name="uriversionDetails" value="${esc(c.uriversionDetails || '')}" required /></label>
           <label style="grid-column:1/-1">Facebook URL<input name="facebook" value="${esc(c.facebook || '')}" /></label>
           <label style="grid-column:1/-1">Telegram URL<input name="telegram" value="${esc(c.telegram || '')}" /></label>
+          <label style="grid-column:1/-1">Stream URL encryption key<input name="key" type="password" autocomplete="off" value="${esc(c.key || '')}" placeholder="Same as STREAM_URL_ENCRYPTION_KEY" /></label>
+          <p class="muted" style="grid-column:1/-1">Flutter reads <code>key</code> from this GitHub JSON and decrypts ENC:v1 stream URLs. Use the same value as the server <code>STREAM_URL_ENCRYPTION_KEY</code>. Leave blank to keep the current key. After changing it, update the server env and republish matches/mainlive.</p>
           <div style="grid-column:1/-1" class="row">
             <button type="submit">Save &amp; Publish</button>
             <button type="button" id="btn-sync-app-version" class="secondary">Push local to GitHub</button>
@@ -1507,6 +1509,7 @@
               uriversionDetails: fd.get('uriversionDetails'),
               facebook: fd.get('facebook'),
               telegram: fd.get('telegram'),
+              key: fd.get('key'),
             },
           }),
         });
