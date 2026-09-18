@@ -44,6 +44,62 @@ class GitHubService {
     return `https://api.github.com/repos/${this.owner}/${this.repo}/contents/${path}`;
   }
 
+  gitUrl(suffix) {
+    return `https://api.github.com/repos/${this.owner}/${this.repo}/${suffix}`;
+  }
+
+  parseGithubJson(raw, encoding = 'base64') {
+    if (raw == null || raw === '') return null;
+    try {
+      const text =
+        encoding === 'utf-8' || encoding === 'utf8'
+          ? String(raw)
+          : Buffer.from(String(raw).replace(/\n/g, ''), 'base64').toString('utf8');
+      return JSON.parse(text);
+    } catch {
+      return null;
+    }
+  }
+
+  isTooLargeGithubError(errOrBody) {
+    const msg = String(
+      errOrBody?.response?.data?.message || errOrBody?.message || errOrBody || ''
+    );
+    return /too large|larger than 1\s*mb|blob is too large|too_large/i.test(msg);
+  }
+
+  async getHeadSha() {
+    const { data } = await axios.get(this.gitUrl(`git/ref/heads/${this.branch}`), {
+      headers: githubHeaders(this.token),
+      timeout: 20000,
+    });
+    return data.object.sha;
+  }
+
+  async getFileViaGitTree(path) {
+    const head = await this.getHeadSha();
+    const { data: commit } = await axios.get(this.gitUrl(`git/commits/${head}`), {
+      headers: githubHeaders(this.token),
+      timeout: 20000,
+    });
+    const { data: tree } = await axios.get(this.gitUrl(`git/trees/${commit.tree.sha}`), {
+      headers: githubHeaders(this.token),
+      params: { recursive: '1' },
+      timeout: 30000,
+    });
+    const entry = (tree.tree || []).find((item) => item.path === path && item.type === 'blob');
+    if (!entry?.sha) return { sha: null, content: null, size: 0 };
+    const { data: blob } = await axios.get(this.gitUrl(`git/blobs/${entry.sha}`), {
+      headers: githubHeaders(this.token),
+      timeout: 30000,
+    });
+    return {
+      sha: entry.sha,
+      content: this.parseGithubJson(blob.content, blob.encoding),
+      size: blob.size || entry.size || 0,
+    };
+  }
+
   async getFileSha(path = this.dataPath) {
     try {
       const { data } = await axios.get(this.apiUrl(path), {
@@ -51,18 +107,76 @@ class GitHubService {
         params: { ref: this.branch },
         timeout: 20000,
       });
-      const raw = Buffer.from(data.content, 'base64').toString('utf8');
-      let content = null;
-      try {
-        content = JSON.parse(raw);
-      } catch {
-        content = null;
+      if (!data.content) {
+        if (data.sha) {
+          try {
+            return await this.getFileViaGitTree(path);
+          } catch (blobErr) {
+            logger.warn('GitHub blob fetch failed for large file', {
+              path,
+              error: blobErr.message,
+            });
+            return { sha: data.sha, content: null, size: data.size || 0 };
+          }
+        }
+        return { sha: data.sha || null, content: null, size: data.size || 0 };
       }
-      return { sha: data.sha, content };
+      return {
+        sha: data.sha,
+        content: this.parseGithubJson(data.content, data.encoding || 'base64'),
+        size: data.size || 0,
+      };
     } catch (err) {
-      if (err.response?.status === 404) return { sha: null, content: null };
+      if (err.response?.status === 404) return { sha: null, content: null, size: 0 };
+      if (err.response?.status === 403 && this.isTooLargeGithubError(err)) {
+        return this.getFileViaGitTree(path);
+      }
       throw err;
     }
+  }
+
+  needsGitDataUpload(json, remoteSize = 0) {
+    const bytes = Buffer.byteLength(json, 'utf8');
+    return bytes > 700 * 1024 || remoteSize > 700 * 1024;
+  }
+
+  async putViaGitData(filePath, json, message) {
+    const head = await this.getHeadSha();
+    const { data: commit } = await axios.get(this.gitUrl(`git/commits/${head}`), {
+      headers: githubHeaders(this.token),
+      timeout: 20000,
+    });
+    const { data: blob } = await axios.post(
+      this.gitUrl('git/blobs'),
+      {
+        content: Buffer.from(json, 'utf8').toString('base64'),
+        encoding: 'base64',
+      },
+      { headers: githubHeaders(this.token), timeout: 60000 }
+    );
+    const { data: tree } = await axios.post(
+      this.gitUrl('git/trees'),
+      {
+        base_tree: commit.tree.sha,
+        tree: [{ path: filePath, mode: '100644', type: 'blob', sha: blob.sha }],
+      },
+      { headers: githubHeaders(this.token), timeout: 30000 }
+    );
+    const { data: nextCommit } = await axios.post(
+      this.gitUrl('git/commits'),
+      {
+        message,
+        tree: tree.sha,
+        parents: [head],
+      },
+      { headers: githubHeaders(this.token), timeout: 30000 }
+    );
+    await axios.patch(
+      this.gitUrl(`git/refs/heads/${this.branch}`),
+      { sha: nextCommit.sha, force: false },
+      { headers: githubHeaders(this.token), timeout: 20000 }
+    );
+    return nextCommit.sha;
   }
 
   stripVolatile(payload) {
@@ -155,21 +269,60 @@ class GitHubService {
       return { uploaded: false, reason: 'unchanged', path: filePath };
     }
 
+    const json = JSON.stringify(payload, null, 2);
+    const message = `chore: sync ${feedKey}.json ${new Date().toISOString()}`;
+    const useGitData = this.needsGitDataUpload(json, remote.size || 0);
+
+    if (useGitData) {
+      const commit = await this.putViaGitData(filePath, json, message);
+      logEvent(events.GITHUB_UPLOAD, 'GitHub JSON uploaded via git data API', {
+        path: filePath,
+        feed: feedKey,
+        commit,
+        bytes: Buffer.byteLength(json, 'utf8'),
+      });
+      return {
+        uploaded: true,
+        reason: 'changed',
+        path: filePath,
+        feed: feedKey,
+        commit: commit || null,
+        htmlUrl: null,
+      };
+    }
+
     const body = {
-      message: `chore: sync ${feedKey}.json ${new Date().toISOString()}`,
-      content: Buffer.from(JSON.stringify(payload, null, 2), 'utf8').toString('base64'),
+      message,
+      content: Buffer.from(json, 'utf8').toString('base64'),
       branch: this.branch,
       ...(remote.sha ? { sha: remote.sha } : {}),
     };
 
-    const { data } = await axios.put(this.apiUrl(filePath), body, {
+    const { data, status: httpStatus } = await axios.put(this.apiUrl(filePath), body, {
       headers: githubHeaders(this.token),
       timeout: 30000,
       validateStatus: () => true,
     });
 
-    if (data?.message || (data?.status && Number(data.status) >= 400)) {
-      const status = Number(data.status) || 403;
+    if (this.isTooLargeGithubError(data) || httpStatus === 413) {
+      const commit = await this.putViaGitData(filePath, json, message);
+      logEvent(events.GITHUB_UPLOAD, 'GitHub JSON uploaded via git data API (contents too large)', {
+        path: filePath,
+        feed: feedKey,
+        commit,
+      });
+      return {
+        uploaded: true,
+        reason: 'changed',
+        path: filePath,
+        feed: feedKey,
+        commit: commit || null,
+        htmlUrl: null,
+      };
+    }
+
+    if (data?.message || (data?.status && Number(data.status) >= 400) || httpStatus >= 400) {
+      const status = httpStatus || Number(data.status) || 403;
       const msg = data.message || 'GitHub upload failed';
       const err = new Error(msg);
       err.status = status;

@@ -34,6 +34,9 @@ class ConfigAdminService {
         params: { ref: this.env.GITHUB_BRANCH || 'main' },
         timeout: 20000,
       });
+      if (!data.content) {
+        return null;
+      }
       const content = JSON.parse(Buffer.from(data.content, 'base64').toString('utf8'));
       return { sha: data.sha, content, path: filePath, origin: 'github' };
     } catch (err) {

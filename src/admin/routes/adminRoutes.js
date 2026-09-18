@@ -12,6 +12,7 @@ const {
 const { clearSourceMatchUrl } = require('../../utils/matchUrlDiscovery');
 const { assertFeedKey, feedSummary } = require('../services/feedAdminService');
 const { collectSourceFailuresFromMatches } = require('../services/dashboardService');
+const { toAdminMatchDoc, listAdminEntries } = require('../../utils/adminMatch');
 
 function extractAndPublishMainLive(ctx, matchId, options) {
   return require('../services/mainLiveExtract').extractAndPublishMainLive(
@@ -931,17 +932,51 @@ function createAdminRouter(ctx) {
 
   router.get('/admin-match', auth, async (_req, res) => {
     try {
-      const result = await ctx.config.getAdminMatchConfig();
+      let origin = 'pipeline-cache';
+      let filePath = ctx.config
+        ? `${ctx.config.configPath}/${ctx.config.adminMatchFile}`
+        : 'config/admin-match.json';
+      let raw = null;
+
+      const current = ctx.cache.getCurrent();
+      if (current && Array.isArray(current.matches) && current.matches.length) {
+        raw = current;
+        origin = 'pipeline-cache';
+      }
+
+      if (!raw && ctx.adminMatches) {
+        try {
+          const stored = await ctx.adminMatches.load();
+          if (listAdminEntries(stored).length) {
+            raw = stored;
+            origin = 'admin-match-store';
+          }
+        } catch (_) {
+          /* fall through to GitHub / empty doc */
+        }
+      }
+
+      if (!raw) {
+        const result = await ctx.config.getAdminMatchConfig();
+        raw = result?.content || null;
+        origin = result?.origin || 'config';
+        if (result?.path) filePath = result.path;
+      }
+
+      const content = toAdminMatchDoc({
+        ...(raw && typeof raw === 'object' ? raw : {}),
+        matches: listAdminEntries(raw),
+      });
+
       res.json({
         ok: true,
-        content: result.content,
-        origin: result.origin,
-        path: result.path,
-        matches: result.content?.matches || [],
-        matchCount:
-          result.content?.matchCount ?? (result.content?.matches || []).length,
-        generatedAt: result.content?.generatedAt || null,
-        timezone: result.content?.timezone || 'Asia/Yangon',
+        content,
+        origin,
+        path: filePath,
+        matches: content.matches || [],
+        matchCount: content.matchCount ?? (content.matches || []).length,
+        generatedAt: content.generatedAt || null,
+        timezone: content.timezone || 'Asia/Yangon',
       });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
