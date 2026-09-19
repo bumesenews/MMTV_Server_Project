@@ -93,19 +93,34 @@ function expandStreamsForAvailableSources(match) {
   return list;
 }
 
+function isEncryptedStreamUrl(value) {
+  return String(value || '').startsWith('ENC:v1:');
+}
+
+/** True when streamUrl is only the encrypted form of streams[] (or the reverse). */
+function streamUrlAlreadyRepresented(url, flutterStreams) {
+  const top = String(url || '').trim();
+  if (!top) return true;
+  if (flutterStreams.some((s) => String(s.url || '').trim() === top)) return true;
+  if (!flutterStreams.length) return false;
+  const topEnc = isEncryptedStreamUrl(top);
+  const listEnc = flutterStreams.some((s) => isEncryptedStreamUrl(s.url));
+  return topEnc !== listEnc;
+}
+
 /** Top-level streamUrl must appear in streams[] so the player feed is not empty. */
 function ensureStreamUrlInList(match, flutterStreams) {
   const url = String(match?.streamUrl || '').trim();
-  if (!url) return flutterStreams;
-  if (flutterStreams.some((s) => String(s.url || '').trim() === url)) return flutterStreams;
+  if (!url || streamUrlAlreadyRepresented(url, flutterStreams)) return flutterStreams;
   const headers = flutterPlaybackHeaders(match.streamHeaders);
-  const source = String(match.matchUrlSource || match.source || 'stream').trim() || 'stream';
+  const source = String(match.matchUrlSource || match.source || flutterStreams[0]?.source || '').trim();
+  const extracted = flutterStreams[0] || { source, quality: 'HD' };
   return [
     {
-      source,
+      source: source || undefined,
       type: 'm3u8',
-      quality: 'HD',
-      name: flutterStreamName({ source, quality: 'HD' }),
+      quality: streamQualityLabel(extracted, streamSourceLabel(extracted.source)),
+      name: flutterStreamName(extracted),
       url,
       headers,
       streamHeaders: headers,
@@ -358,15 +373,16 @@ function toPublicMatch(match) {
     out.streamHeaders = streams[0].streamHeaders || streams[0].headers || null;
   }
   const topUrl = String(out.streamUrl || '').trim();
-  if (topUrl && !streams.some((s) => String(s.url || '').trim() === topUrl)) {
+  if (topUrl && !streamUrlAlreadyRepresented(topUrl, streams)) {
+    const extracted = streams[0] || {
+      source: match.matchUrlSource || match.source,
+      quality: 'HD',
+    };
     streams = [
       {
         type: 'm3u8',
-        name: flutterStreamName({
-          source: match.matchUrlSource || match.source,
-          quality: 'HD',
-        }),
-        source: match.matchUrlSource || match.source || undefined,
+        name: flutterStreamName(extracted),
+        source: extracted.source || match.matchUrlSource || match.source || undefined,
         url: topUrl,
         headers: out.streamHeaders || null,
         streamHeaders: out.streamHeaders || null,

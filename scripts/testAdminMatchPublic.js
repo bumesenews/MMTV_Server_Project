@@ -393,6 +393,21 @@ console.log('\n=== TEST 11 public streams keep source and one row per source+URL
   );
   check('second URL stays', pubDup.streams.some((s) => s.url === otherUrl && s.name === 'HD TOM'));
   check('hasStreams', pubDup.hasStreams === true);
+  const noHd = toPublicMatch({
+    matchId: 'enc_top',
+    homeTeam: 'A',
+    awayTeam: 'B',
+    streamUrl: 'ENC:v1:abc',
+    streams: [
+      { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8' },
+    ],
+  });
+  check(
+    'encrypted streamUrl does not add a generic HD row',
+    noHd.streams.length === 1 &&
+      noHd.streams[0].name === 'ROY' &&
+      noHd.streams[0].source === 'cakhia'
+  );
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
