@@ -166,7 +166,7 @@ console.log('\n=== TEST 7 public matches.json strip ===');
   check('no matchUrlSearch', !('matchUrlSearch' in m));
   check('no validationReason', !('validationReason' in m));
   check('no adminManual', !('adminManual' in m));
-  check('public stream has no source', m.streams.every((s) => !('source' in s)));
+  check('public stream keeps source', m.streams.every((s) => s.source === 'cakhia'));
   check('public stream has no quality', m.streams.every((s) => !('quality' in s)));
   check('toPublicMatchesPayload same strip', !('matchUrl' in toPublicMatchesPayload(payload).matches[0]));
 }
@@ -320,14 +320,44 @@ console.log('\n=== TEST 10 public stream names use button/quality; quality key s
   ]);
   const pubName = toPublicMatch(namedPayload.matches[0]);
   check(
-    'matches.json drops source, name is button not site',
-    !('source' in pubName.streams[0]) &&
+    'matches.json keeps source, name is button not site',
+    pubName.streams[0].source === 'cakhia' &&
       pubName.streams[0].name === 'HD ROY' &&
       !('quality' in pubName.streams[0])
   );
+  const expanded = generateFlutterJson([
+    {
+      ...fixture,
+      kickoff: '2099-01-01T23:00:00.000+06:30',
+      status: 'LIVE',
+      streams: [
+        { source: 'cakhia', name: 'JOHAN', url: 'https://cdn.example/a.m3u8', active: true },
+      ],
+      matchUrlSearch: {
+        sources: {
+          cakhia: { matchUrl: 'https://ck.example/p', status: 'MATCH_URL_CONFIRMED' },
+          xoilac: { matchUrl: 'https://xl.example/p', status: 'MATCH_URL_CONFIRMED' },
+          socolive: { matchUrl: 'https://soco.example/p', status: 'MATCH_URL_CONFIRMED' },
+        },
+      },
+      streamSearch: {
+        sources: {
+          cakhia: { status: 'AVAILABLE' },
+          xoilac: { status: 'AVAILABLE' },
+          socolive: { status: 'AVAILABLE' },
+        },
+      },
+    },
+  ]);
+  const pubExp = toPublicMatch(expanded.matches[0]);
+  check('AVAILABLE sources each get a public stream', pubExp.streamCount === 3);
+  check(
+    'public rows include source values',
+    pubExp.streams.map((s) => s.source).sort().join(',') === 'cakhia,socolive,xoilac'
+  );
 }
 
-console.log('\n=== TEST 11 public streams dedupe by URL; keep distinct m3u8 buttons ===');
+console.log('\n=== TEST 11 public streams keep source and one row per source+URL ===');
 {
   const sameUrl = 'https://cdn.example/same.m3u8';
   const otherUrl = 'https://cdn.example/other.m3u8';
@@ -340,16 +370,28 @@ console.log('\n=== TEST 11 public streams dedupe by URL; keep distinct m3u8 butt
     streamUrl: sameUrl,
     streams: [
       { source: 'cakhia', name: 'JOHAN', url: sameUrl, headers: { Referer: 'https://ck.example/' } },
-      { source: 'xoilac', name: 'HD', url: sameUrl, headers: { Referer: 'https://xl.example/' } },
-      { source: 'socolive', name: 'HD', url: sameUrl, headers: { Referer: 'https://soco.example/' } },
+      { source: 'xoilac', name: 'JOHAN', url: sameUrl, headers: { Referer: 'https://xl.example/' } },
+      { source: 'socolive', name: 'JOHAN', url: sameUrl, headers: { Referer: 'https://soco.example/' } },
+      { source: 'cakhia', name: 'JOHAN', url: sameUrl, headers: { Referer: 'https://ck.example/dup/' } },
       { source: 'cakhia', name: 'HD TOM', url: otherUrl, headers: { Referer: 'https://ck.example/' } },
     ],
   });
-  check('same m3u8 is one public button', pubDup.streams.length === 2);
+  check('keeps one row per source+url', pubDup.streams.length === 4);
   check('streamCount equals streams.length', pubDup.streamCount === pubDup.streams.length);
-  check('public streams have no source', pubDup.streams.every((s) => !('source' in s)));
-  check('first button keeps extracted name', pubDup.streams[0].name === 'JOHAN');
-  check('second URL stays as its own button', pubDup.streams[1].name === 'HD TOM' && pubDup.streams[1].url === otherUrl);
+  check('public streams keep source', pubDup.streams.every((s) => String(s.source || '').trim()));
+  check(
+    'cakhia JOHAN kept once',
+    pubDup.streams.filter((s) => s.source === 'cakhia' && s.url === sameUrl).length === 1
+  );
+  check(
+    'xoilac kept with source',
+    pubDup.streams.some((s) => s.source === 'xoilac' && s.name === 'JOHAN')
+  );
+  check(
+    'socolive kept with source',
+    pubDup.streams.some((s) => s.source === 'socolive' && s.url === sameUrl)
+  );
+  check('second URL stays', pubDup.streams.some((s) => s.url === otherUrl && s.name === 'HD TOM'));
   check('hasStreams', pubDup.hasStreams === true);
 }
 

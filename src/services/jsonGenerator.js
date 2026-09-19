@@ -71,9 +71,26 @@ function sourceAllowsPublishedStream(match, sourceName) {
   return sourceHasSavedMatchUrl(getSourceMatchUrlState(match, name));
 }
 
-/** Real extracted streams only. Do not clone one m3u8 onto every AVAILABLE site. */
+/** Clone the extracted m3u8 per AVAILABLE source. Same URL + different source stays. */
 function expandStreamsForAvailableSources(match) {
-  return [...(match?.streams || [])].filter((s) => s && String(s.url || '').trim());
+  const list = [...(match?.streams || [])].filter((s) => s && String(s.url || '').trim());
+  const template = list[0];
+  if (!template) return list;
+  const have = new Set(list.map((s) => String(s.source || '').toLowerCase()));
+  for (const [name, state] of Object.entries(match?.streamSearch?.sources || {})) {
+    if (String(state?.status || '') !== 'AVAILABLE') continue;
+    if (!sourceAllowsPublishedStream(match, name)) continue;
+    const key = String(name || '').toLowerCase();
+    if (!key || have.has(key)) continue;
+    list.push({
+      ...template,
+      source: name,
+      name: template.name,
+      quality: template.quality || template.name || 'Link 1',
+    });
+    have.add(key);
+  }
+  return list;
 }
 
 /** Top-level streamUrl must appear in streams[] so the player feed is not empty. */
@@ -277,6 +294,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
 const PUBLIC_STREAM_KEYS = new Set([
   'type',
   'name',
+  'source',
   'url',
   'headers',
   'streamHeaders',
@@ -319,7 +337,9 @@ function toPublicStream(stream) {
     if (stream[key] !== undefined) out[key] = stream[key];
   }
   out.name = flutterStreamName(stream);
-  delete out.source;
+  const source = String(out.source || stream.source || '').trim();
+  if (source) out.source = source;
+  else delete out.source;
   delete out.quality;
   return out;
 }
@@ -346,6 +366,7 @@ function toPublicMatch(match) {
           source: match.matchUrlSource || match.source,
           quality: 'HD',
         }),
+        source: match.matchUrlSource || match.source || undefined,
         url: topUrl,
         headers: out.streamHeaders || null,
         streamHeaders: out.streamHeaders || null,
@@ -361,13 +382,15 @@ function toPublicMatch(match) {
 }
 
 function publicStreamIdentityKey(stream) {
-  return String(stream?.url || '')
+  const source = String(stream?.source || '').trim().toLowerCase() || 'unknown';
+  const url = String(stream?.url || '')
     .trim()
     .split('#')[0]
     .toLowerCase();
+  return `${source}::${url}`;
 }
 
-/** Same m3u8 is one Flutter button. Different URLs stay as separate buttons. */
+/** Same source + same m3u8 only. Different sources keep separate rows. */
 function dedupePublicStreams(streams) {
   const seen = new Set();
   const out = [];

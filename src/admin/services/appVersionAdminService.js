@@ -89,6 +89,20 @@ class AppVersionAdminService {
     return normalized;
   }
 
+  async preservedKey(incomingKey) {
+    const next = String(incomingKey || '').trim();
+    if (next) return next;
+    const localKey = String(this.readLocal()?.content?.key || '').trim();
+    if (localKey) return localKey;
+    try {
+      const remoteKey = String((await this.getRemote())?.content?.key || '').trim();
+      if (remoteKey) return remoteKey;
+    } catch {
+      // Keep save working when GitHub is down; writeLocal still tries local.
+    }
+    return '';
+  }
+
   async getRemote() {
     if (!this.enabled) return null;
     try {
@@ -127,7 +141,9 @@ class AppVersionAdminService {
   }
 
   async save(content, { message, actor } = {}) {
-    const normalized = this.writeLocal(content);
+    const incoming = content && typeof content === 'object' ? { ...content } : {};
+    incoming.key = await this.preservedKey(incoming.key);
+    const normalized = this.writeLocal(incoming);
 
     if (!this.enabled) {
       return {
