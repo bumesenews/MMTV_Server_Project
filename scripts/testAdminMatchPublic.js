@@ -166,7 +166,7 @@ console.log('\n=== TEST 7 public matches.json strip ===');
   check('no matchUrlSearch', !('matchUrlSearch' in m));
   check('no validationReason', !('validationReason' in m));
   check('no adminManual', !('adminManual' in m));
-  check('public stream has no source', m.streams.every((s) => !('source' in s)));
+  check('public stream keeps source', m.streams.every((s) => s.source === 'cakhia'));
   check('public stream has no quality', m.streams.every((s) => !('quality' in s)));
   check('toPublicMatchesPayload same strip', !('matchUrl' in toPublicMatchesPayload(payload).matches[0]));
 }
@@ -286,7 +286,7 @@ console.log('\n=== TEST 9 public matches.json keeps m3u8 when only streamUrl is 
   );
 }
 
-console.log('\n=== TEST 10 public stream names are quality-only (no source/quality keys) ===');
+console.log('\n=== TEST 10 public stream names use source label; quality key stripped ===');
 {
   check(
     'Cakhia + HD ROY',
@@ -320,30 +320,45 @@ console.log('\n=== TEST 10 public stream names are quality-only (no source/quali
   ]);
   const pubName = toPublicMatch(namedPayload.matches[0]);
   check(
-    'matches.json name field only',
-    pubName.streams[0].name === 'HD ROY' &&
-      !('quality' in pubName.streams[0]) &&
-      !('source' in pubName.streams[0])
+    'matches.json keeps source, drops quality key',
+    pubName.streams[0].source === 'cakhia' &&
+      pubName.streams[0].name === 'Cakhia' &&
+      !('quality' in pubName.streams[0])
   );
 }
 
-console.log('\n=== TEST 11 public matches.json dedupes identical stream URLs ===');
+console.log('\n=== TEST 11 public streams dedupe by source + URL only ===');
 {
+  const sameUrl = 'https://cdn.example/same.m3u8';
   const pubDup = toPublicMatch({
     matchId: 'dup_1',
     homeTeam: 'A',
     awayTeam: 'B',
     league: 'Serie A',
     status: 'PREPARING_STREAM',
-    streamUrl: 'https://cdn.example/same.m3u8',
+    streamUrl: sameUrl,
     streams: [
-      { name: 'NICK', url: 'https://cdn.example/same.m3u8', headers: { Referer: 'https://soco.example/' } },
-      { name: 'NICK', url: 'https://cdn.example/same.m3u8', headers: { Referer: 'https://ck.example/' } },
-      { name: 'NICK', url: 'https://cdn.example/same.m3u8', headers: { Referer: 'https://xl.example/' } },
+      { source: 'cakhia', name: 'NICK', url: sameUrl, headers: { Referer: 'https://ck.example/' } },
+      { source: 'xoilac', name: 'NICK', url: sameUrl, headers: { Referer: 'https://xl.example/' } },
+      { source: 'socolive', name: 'NICK', url: sameUrl, headers: { Referer: 'https://soco.example/' } },
+      { source: 'cakhia', name: 'NICK', url: sameUrl, headers: { Referer: 'https://ck.example/dup/' } },
     ],
   });
-  check('one unique url', pubDup.streams.length === 1 && pubDup.streamCount === 1);
-  check('keeps first name', pubDup.streams[0].name === 'NICK');
+  check('keeps one row per source even if URL matches', pubDup.streams.length === 3);
+  check('streamCount equals streams.length', pubDup.streamCount === pubDup.streams.length);
+  check(
+    'cakhia kept once',
+    pubDup.streams.filter((s) => s.source === 'cakhia').length === 1
+  );
+  check(
+    'xoilac kept',
+    pubDup.streams.some((s) => s.source === 'xoilac' && s.url === sameUrl)
+  );
+  check(
+    'socolive kept',
+    pubDup.streams.some((s) => s.source === 'socolive' && s.url === sameUrl)
+  );
+  check('cakhia keeps its referer', pubDup.streams.find((s) => s.source === 'cakhia').headers.Referer === 'https://ck.example/');
   check('hasStreams', pubDup.hasStreams === true);
 }
 

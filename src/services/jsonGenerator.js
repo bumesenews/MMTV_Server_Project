@@ -71,7 +71,7 @@ function sourceAllowsPublishedStream(match, sourceName) {
   return sourceHasSavedMatchUrl(getSourceMatchUrlState(match, name));
 }
 
-/** Already-extracted m3u8 is always published. Match URL is only required to clone a source tab. */
+/** Clone the extracted m3u8 per AVAILABLE source. Same URL + different source stays. */
 function expandStreamsForAvailableSources(match) {
   const list = [...(match?.streams || [])].filter((s) => s && String(s.url || '').trim());
   const template = list[0];
@@ -82,8 +82,6 @@ function expandStreamsForAvailableSources(match) {
     if (!sourceAllowsPublishedStream(match, name)) continue;
     const key = String(name || '').toLowerCase();
     if (!key || have.has(key)) continue;
-    const cloneUrl = String(template.url || '').trim();
-    if (list.some((s) => String(s.url || '').trim() === cloneUrl)) continue;
     list.push({
       ...template,
       source: name,
@@ -296,6 +294,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
 const PUBLIC_STREAM_KEYS = new Set([
   'type',
   'name',
+  'source',
   'url',
   'headers',
   'streamHeaders',
@@ -337,8 +336,9 @@ function toPublicStream(stream) {
   for (const key of PUBLIC_STREAM_KEYS) {
     if (stream[key] !== undefined) out[key] = stream[key];
   }
-  out.name = flutterStreamName(stream);
-  delete out.source;
+  const sourceLabel = streamSourceLabel(stream.source);
+  out.name = sourceLabel || flutterStreamName(stream);
+  if (!String(out.source || '').trim()) delete out.source;
   delete out.quality;
   return out;
 }
@@ -379,13 +379,23 @@ function toPublicMatch(match) {
   return out;
 }
 
+function publicStreamIdentityKey(stream) {
+  const source = String(stream?.source || '').trim().toLowerCase() || 'unknown';
+  const url = String(stream?.url || '')
+    .trim()
+    .split('#')[0]
+    .toLowerCase();
+  return `${source}::${url}`;
+}
+
+/** Same source + same m3u8 only. Cakhia/Xoilac/Socolive keep separate rows. */
 function dedupePublicStreams(streams) {
   const seen = new Set();
   const out = [];
   for (const stream of streams || []) {
     const url = String(stream?.url || '').trim();
     if (!url) continue;
-    const key = url.split('#')[0].toLowerCase();
+    const key = publicStreamIdentityKey(stream);
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(stream);
