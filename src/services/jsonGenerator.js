@@ -64,6 +64,22 @@ function flutterStreamName(stream) {
   return streamQualityLabel(stream, streamSourceLabel(stream?.source));
 }
 
+/** Player label: CAKHIA JOHAN / CAKHIA ROY — source + this match's button. */
+function publicStreamLabel(stream) {
+  const button = String(flutterStreamName(stream) || '').trim().toUpperCase();
+  const src = String(stream?.source || '').trim().toUpperCase();
+  if (!src || src === 'STREAM') return button || 'HD';
+  if (!button || button === 'HD' || button === src) return src;
+  if (button.startsWith(`${src} `) || button.startsWith(`${src} ·`)) return button;
+  return `${src} ${button}`;
+}
+
+function isGenericHdStream(stream) {
+  const src = String(stream?.source || '').trim().toLowerCase();
+  const label = String(stream?.name || stream?.quality || '').trim().toUpperCase();
+  return (!src || src === 'stream') && (label === 'HD' || label === 'WATCH NOW' || !label);
+}
+
 function sourceAllowsPublishedStream(match, sourceName) {
   const name = String(sourceName || '').trim();
   if (!name) return true;
@@ -71,26 +87,55 @@ function sourceAllowsPublishedStream(match, sourceName) {
   return sourceHasSavedMatchUrl(getSourceMatchUrlState(match, name));
 }
 
-/** Clone the extracted m3u8 per AVAILABLE source. Same URL + different source stays. */
+const PUBLIC_SOURCE_ORDER = ['cakhia', 'xoilac', 'phut', '90phut', 'socolive', 'mitom', 'mitomtm'];
+
+/** One row per AVAILABLE source. Cycle distinct button names: ROY, JOHAN, ROY, JOHAN. */
 function expandStreamsForAvailableSources(match) {
-  const list = [...(match?.streams || [])].filter((s) => s && String(s.url || '').trim());
-  const template = list[0];
-  if (!template) return list;
-  const have = new Set(list.map((s) => String(s.source || '').toLowerCase()));
+  const raw = [...(match?.streams || [])].filter(
+    (s) => s && String(s.url || '').trim() && !isGenericHdStream(s)
+  );
+  if (!raw.length) {
+    return [...(match?.streams || [])].filter((s) => s && String(s.url || '').trim());
+  }
+
+  const buttons = [
+    ...new Set(
+      raw
+        .map((s) => String(flutterStreamName(s) || '').trim().toUpperCase())
+        .filter((name) => name && name !== 'HD')
+    ),
+  ].sort((a, b) => b.localeCompare(a));
+
+  const sourceSet = new Set();
+  for (const stream of raw) {
+    const src = String(stream.source || '').trim().toLowerCase();
+    if (src && src !== 'stream') sourceSet.add(src);
+  }
   for (const [name, state] of Object.entries(match?.streamSearch?.sources || {})) {
     if (String(state?.status || '') !== 'AVAILABLE') continue;
     if (!sourceAllowsPublishedStream(match, name)) continue;
-    const key = String(name || '').toLowerCase();
-    if (!key || have.has(key)) continue;
-    list.push({
-      ...template,
-      source: name,
-      name: template.name,
-      quality: template.quality || template.name || 'Link 1',
-    });
-    have.add(key);
+    const key = String(name || '').trim().toLowerCase();
+    if (key) sourceSet.add(key);
   }
-  return list;
+  const sources = [
+    ...PUBLIC_SOURCE_ORDER.filter((name) => sourceSet.has(name)),
+    ...[...sourceSet].filter((name) => !PUBLIC_SOURCE_ORDER.includes(name)).sort(),
+  ];
+  if (!sources.length) return raw;
+
+  const names = buttons.length ? buttons : [flutterStreamName(raw[0]) || 'HD'];
+  return sources.map((source, index) => {
+    const button = names[index % names.length];
+    const donor =
+      raw.find((s) => String(flutterStreamName(s) || '').trim().toUpperCase() === button) ||
+      raw[0];
+    return {
+      ...donor,
+      source,
+      name: button,
+      quality: button,
+    };
+  });
 }
 
 function isEncryptedStreamUrl(value) {
@@ -351,7 +396,7 @@ function toPublicStream(stream) {
   for (const key of PUBLIC_STREAM_KEYS) {
     if (stream[key] !== undefined) out[key] = stream[key];
   }
-  out.name = flutterStreamName(stream);
+  out.name = publicStreamLabel(stream);
   const source = String(out.source || stream.source || '').trim();
   if (source) out.source = source;
   else delete out.source;
@@ -391,6 +436,8 @@ function toPublicMatch(match) {
       ...streams,
     ];
   }
+  const named = streams.filter((s) => !isGenericHdStream(s));
+  streams = named.length ? named : streams;
   out.streams = streams.map(toPublicStream).filter(Boolean);
   out.hasStreams = out.streams.length > 0;
   out.streamCount = out.streams.length;
@@ -445,6 +492,7 @@ module.exports = {
   generateFlutterJson,
   flutterPlaybackHeaders,
   flutterStreamName,
+  publicStreamLabel,
   toPublicMatch,
   toPublicMatchesPayload,
 };

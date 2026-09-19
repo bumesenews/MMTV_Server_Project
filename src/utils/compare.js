@@ -87,7 +87,10 @@ function normalizeStreamUrl(url) {
 /** One playable entry per source+URL (same CDN URL from Socolive vs Cakhia stays both). */
 function streamIdentityKey(stream) {
   const src = String(stream?.source || 'unknown').trim().toLowerCase() || 'unknown';
-  return `${src}::${normalizeStreamUrl(stream?.url)}`;
+  const label = String(stream?.quality || stream?.name || '')
+    .trim()
+    .toLowerCase() || 'hd';
+  return `${src}::${normalizeStreamUrl(stream?.url)}::${label}`;
 }
 
 function contentHash(text) {

@@ -322,7 +322,7 @@ console.log('\n=== TEST 10 public stream names use button/quality; quality key s
   check(
     'matches.json keeps source, name is button not site',
     pubName.streams[0].source === 'cakhia' &&
-      pubName.streams[0].name === 'HD ROY' &&
+      pubName.streams[0].name === 'CAKHIA HD ROY' &&
       !('quality' in pubName.streams[0])
   );
   const expanded = generateFlutterJson([
@@ -355,6 +355,39 @@ console.log('\n=== TEST 10 public stream names use button/quality; quality key s
     'public rows include source values',
     pubExp.streams.map((s) => s.source).sort().join(',') === 'cakhia,socolive,xoilac'
   );
+  const mixed = generateFlutterJson([
+    {
+      ...fixture,
+      kickoff: '2099-01-01T23:00:00.000+06:30',
+      status: 'LIVE',
+      streams: [
+        { source: 'cakhia', name: 'JOHAN', url: 'https://cdn.example/a.m3u8', active: true },
+        { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', active: true },
+      ],
+      matchUrlSearch: {
+        sources: {
+          cakhia: { matchUrl: 'https://ck.example/p', status: 'MATCH_URL_CONFIRMED' },
+          xoilac: { matchUrl: 'https://xl.example/p', status: 'MATCH_URL_CONFIRMED' },
+          phut: { matchUrl: 'https://phut.example/p', status: 'MATCH_URL_CONFIRMED' },
+          socolive: { matchUrl: 'https://soco.example/p', status: 'MATCH_URL_CONFIRMED' },
+        },
+      },
+      streamSearch: {
+        sources: {
+          cakhia: { status: 'AVAILABLE' },
+          xoilac: { status: 'AVAILABLE' },
+          phut: { status: 'AVAILABLE' },
+          socolive: { status: 'AVAILABLE' },
+        },
+      },
+    },
+  ]);
+  const pubMixed = toPublicMatch(mixed.matches[0]);
+  check(
+    'cycles ROY/JOHAN across sources',
+    pubMixed.streams.map((s) => s.name).join(',') ===
+      'CAKHIA ROY,XOILAC JOHAN,PHUT ROY,SOCOLIVE JOHAN'
+  );
 }
 
 console.log('\n=== TEST 11 public streams keep source and one row per source+URL ===');
@@ -385,13 +418,13 @@ console.log('\n=== TEST 11 public streams keep source and one row per source+URL
   );
   check(
     'xoilac kept with source',
-    pubDup.streams.some((s) => s.source === 'xoilac' && s.name === 'JOHAN')
+    pubDup.streams.some((s) => s.source === 'xoilac' && s.name === 'XOILAC JOHAN')
   );
   check(
     'socolive kept with source',
     pubDup.streams.some((s) => s.source === 'socolive' && s.url === sameUrl)
   );
-  check('second URL stays', pubDup.streams.some((s) => s.url === otherUrl && s.name === 'HD TOM'));
+  check('second URL stays', pubDup.streams.some((s) => s.url === otherUrl && s.name === 'CAKHIA HD TOM'));
   check('hasStreams', pubDup.hasStreams === true);
   const noHd = toPublicMatch({
     matchId: 'enc_top',
@@ -405,9 +438,30 @@ console.log('\n=== TEST 11 public streams keep source and one row per source+URL
   check(
     'encrypted streamUrl does not add a generic HD row',
     noHd.streams.length === 1 &&
-      noHd.streams[0].name === 'ROY' &&
+      noHd.streams[0].name === 'CAKHIA ROY' &&
       noHd.streams[0].source === 'cakhia'
   );
+  const roma = toPublicMatch({
+    matchId: 'as_roma_inter_milan_20260919',
+    streamUrl: 'ENC:v1:roma',
+    streams: [
+      { name: 'HD', url: 'ENC:v1:roma', active: true },
+      { source: 'cakhia', name: 'JOHAN', url: 'ENC:v1:roma', active: true },
+      { source: 'xoilac', name: 'JOHAN', url: 'ENC:v1:roma', active: true },
+    ],
+  });
+  const forest = toPublicMatch({
+    matchId: 'nottingham_forest_coventry_city_20260919',
+    streamUrl: 'ENC:v1:forest',
+    streams: [
+      { name: 'HD', url: 'ENC:v1:forest', active: true },
+      { source: 'cakhia', name: 'ROY', url: 'ENC:v1:forest', active: true },
+      { source: 'xoilac', name: 'ROY', url: 'ENC:v1:forest', active: true },
+    ],
+  });
+  check('drops generic HD row', roma.streams.every((s) => s.name !== 'HD') && roma.streamCount === 2);
+  check('roma labels use JOHAN', roma.streams.map((s) => s.name).sort().join(',') === 'CAKHIA JOHAN,XOILAC JOHAN');
+  check('forest labels use ROY', forest.streams.map((s) => s.name).sort().join(',') === 'CAKHIA ROY,XOILAC ROY');
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
