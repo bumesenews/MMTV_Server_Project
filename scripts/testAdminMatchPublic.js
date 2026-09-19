@@ -166,7 +166,7 @@ console.log('\n=== TEST 7 public matches.json strip ===');
   check('no matchUrlSearch', !('matchUrlSearch' in m));
   check('no validationReason', !('validationReason' in m));
   check('no adminManual', !('adminManual' in m));
-  check('public stream keeps source', m.streams.every((s) => s.source === 'cakhia'));
+  check('public stream has no source', m.streams.every((s) => !('source' in s)));
   check('public stream has no quality', m.streams.every((s) => !('quality' in s)));
   check('toPublicMatchesPayload same strip', !('matchUrl' in toPublicMatchesPayload(payload).matches[0]));
 }
@@ -286,7 +286,7 @@ console.log('\n=== TEST 9 public matches.json keeps m3u8 when only streamUrl is 
   );
 }
 
-console.log('\n=== TEST 10 public stream names use source label; quality key stripped ===');
+console.log('\n=== TEST 10 public stream names use button/quality; quality key stripped ===');
 {
   check(
     'Cakhia + HD ROY',
@@ -320,9 +320,9 @@ console.log('\n=== TEST 10 public stream names use source label; quality key str
   ]);
   const pubName = toPublicMatch(namedPayload.matches[0]);
   check(
-    'matches.json keeps source, drops quality key',
-    pubName.streams[0].source === 'cakhia' &&
-      pubName.streams[0].name === 'Cakhia' &&
+    'matches.json drops source, name is button not site',
+    !('source' in pubName.streams[0]) &&
+      pubName.streams[0].name === 'HD ROY' &&
       !('quality' in pubName.streams[0])
   );
 }
@@ -346,19 +346,23 @@ console.log('\n=== TEST 11 public streams dedupe by source + URL only ===');
   });
   check('keeps one row per source even if URL matches', pubDup.streams.length === 3);
   check('streamCount equals streams.length', pubDup.streamCount === pubDup.streams.length);
+  check('public streams have no source', pubDup.streams.every((s) => !('source' in s)));
   check(
-    'cakhia kept once',
-    pubDup.streams.filter((s) => s.source === 'cakhia').length === 1
+    'public name stays the button label',
+    pubDup.streams.every((s) => s.name === 'NICK')
   );
   check(
-    'xoilac kept',
-    pubDup.streams.some((s) => s.source === 'xoilac' && s.url === sameUrl)
+    'cakhia referer kept',
+    pubDup.streams.some((s) => s.headers.Referer === 'https://ck.example/')
   );
   check(
-    'socolive kept',
-    pubDup.streams.some((s) => s.source === 'socolive' && s.url === sameUrl)
+    'xoilac referer kept',
+    pubDup.streams.some((s) => s.headers.Referer === 'https://xl.example/')
   );
-  check('cakhia keeps its referer', pubDup.streams.find((s) => s.source === 'cakhia').headers.Referer === 'https://ck.example/');
+  check(
+    'socolive referer kept',
+    pubDup.streams.some((s) => s.headers.Referer === 'https://soco.example/')
+  );
   check('hasStreams', pubDup.hasStreams === true);
 }
 

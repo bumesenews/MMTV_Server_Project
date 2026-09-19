@@ -118,6 +118,13 @@
   async function boot() {
     $('#login-form').addEventListener('submit', onLogin);
     $('#btn-logout').addEventListener('click', () => logout(true));
+    $('#btn-change-password').addEventListener('click', () => {
+      $('#pw-error').textContent = '';
+      $('#change-pw-form').reset();
+      $('#pw-modal').classList.remove('hidden');
+    });
+    $('#pw-cancel').addEventListener('click', () => $('#pw-modal').classList.add('hidden'));
+    $('#change-pw-form').addEventListener('submit', onChangePassword);
     $('#btn-refresh').addEventListener('click', () => renderPage(true));
     $('#btn-run-pipeline').addEventListener('click', runPipeline);
     $('#btn-restore-matches')?.addEventListener('click', restoreMatchesFromGithub);
@@ -161,6 +168,30 @@
       renderPage();
     } catch (err) {
       $('#login-error').textContent = err.message;
+    }
+  }
+
+  async function onChangePassword(e) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const next = String(fd.get('newPassword') || '');
+    $('#pw-error').textContent = '';
+    if (next !== String(fd.get('confirmPassword') || '')) {
+      $('#pw-error').textContent = 'New passwords do not match';
+      return;
+    }
+    try {
+      await api('/auth/change-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          currentPassword: fd.get('currentPassword'),
+          newPassword: next,
+        }),
+      });
+      $('#pw-modal').classList.add('hidden');
+      toast('Password changed');
+    } catch (err) {
+      $('#pw-error').textContent = err.message;
     }
   }
 
@@ -1656,8 +1687,9 @@
       return;
     }
 
+    const canManage = state.user?.role === 'super_admin';
     pageEl.innerHTML = `
-      <div class="panel">
+      ${canManage ? `<div class="panel">
         <h3>Create user</h3>
         <form id="user-form" class="grid-2">
           <label>Username<input name="username" required /></label>
@@ -1673,24 +1705,25 @@
           </label>
           <div style="grid-column:1/-1"><button type="submit">Create</button></div>
         </form>
-      </div>
+      </div>` : ''}
       <div class="panel">
         <div class="table-wrap">
           <table>
-            <thead><tr><th>User</th><th>Role</th><th>Active</th></tr></thead>
+            <thead><tr><th>User</th><th>Role</th><th>Active</th>${canManage ? '<th></th>' : ''}</tr></thead>
             <tbody>
               ${users.map((u) => `
                 <tr>
                   <td>${esc(u.displayName || u.username)} <span class="muted">@${esc(u.username)}</span></td>
                   <td>${esc(u.role)}</td>
                   <td>${u.active ? 'Yes' : 'No'}</td>
+                  ${canManage ? `<td><button type="button" class="ghost" data-reset="${esc(u.id)}">Reset password</button></td>` : ''}
                 </tr>`).join('')}
             </tbody>
           </table>
         </div>
       </div>`;
 
-    $('#user-form').addEventListener('submit', async (e) => {
+    $('#user-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const fd = new FormData(e.target);
       try {
@@ -1708,6 +1741,22 @@
       } catch (err) {
         toast(err.message, 'error');
       }
+    });
+
+    pageEl.querySelectorAll('[data-reset]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const password = window.prompt('New password (min 6 characters)');
+        if (!password) return;
+        try {
+          await api(`/users/${encodeURIComponent(btn.dataset.reset)}/password`, {
+            method: 'POST',
+            body: JSON.stringify({ password }),
+          });
+          toast('Password reset');
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
     });
   }
 

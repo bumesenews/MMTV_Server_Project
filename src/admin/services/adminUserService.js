@@ -43,14 +43,16 @@ class AdminUserService {
       password: password || 'admin123',
       role: ROLES.SUPER_ADMIN,
       displayName: 'Administrator',
+      allowWeak: !isProd,
     });
     return user;
   }
 
-  async createUser({ username, password, role = ROLES.EDITOR, displayName = '' }) {
+  async createUser({ username, password, role = ROLES.EDITOR, displayName = '', allowWeak = false } = {}) {
     if (!username || !password) throw new Error('username and password required');
     if (this.findByUsername(username)) throw new Error('Username already exists');
     if (!Object.values(ROLES).includes(role)) throw new Error('Invalid role');
+    if (!allowWeak) this._assertNewPassword(password);
 
     const user = {
       id: newId(),
@@ -92,10 +94,32 @@ class AdminUserService {
     return sanitizeUser(updated);
   }
 
-  async setPassword(id, password) {
-    if (!password || String(password).length < 6) {
+  _assertNewPassword(password, currentPassword = '') {
+    const next = String(password || '');
+    if (next.length < 6) {
       throw new Error('Password must be at least 6 characters');
     }
+    const weak = new Set(['admin123', 'password', 'YOUR_ADMIN_PASSWORD', 'secret']);
+    if (weak.has(next) || weak.has(next.toLowerCase())) {
+      throw new Error('Choose a stronger password');
+    }
+    if (currentPassword && next === String(currentPassword)) {
+      throw new Error('New password must be different from the current password');
+    }
+  }
+
+  async changeOwnPassword(userId, { currentPassword, newPassword } = {}) {
+    const user = this.findById(userId);
+    if (!user || !user.active) throw new Error('User not found');
+    const ok = await bcrypt.compare(String(currentPassword || ''), user.passwordHash);
+    if (!ok) throw new Error('Current password is incorrect');
+    this._assertNewPassword(newPassword, currentPassword);
+    await this.setPassword(userId, newPassword);
+    return true;
+  }
+
+  async setPassword(id, password) {
+    this._assertNewPassword(password);
     const hash = await bcrypt.hash(String(password), 10);
     this.store.update((doc) => {
       const users = doc.users || [];

@@ -41,6 +41,7 @@
       </nav>
       <div class="sidebar-foot">
         <div id="whoami" class="muted"></div>
+        <button id="btn-change-password" class="ghost">Change password</button>
         <button id="btn-logout" class="ghost">Logout</button>
       </div>
     </aside>
@@ -58,6 +59,19 @@
       <div id="toast" class="toast hidden"></div>
       <section id="page" class="page"></section>
     </main>
+  </div>
+
+  <div id="pw-modal" class="modal-wrap hidden">
+    <form id="change-pw-form" class="login-card">
+      <h2>Change password</h2>
+      <p class="muted">Updates the stored admin login. Changing .env ADMIN_PASSWORD does not change this.</p>
+      <label>Current password<input name="currentPassword" type="password" autocomplete="current-password" required /></label>
+      <label>New password<input name="newPassword" type="password" autocomplete="new-password" required minlength="6" /></label>
+      <label>Confirm new password<input name="confirmPassword" type="password" autocomplete="new-password" required minlength="6" /></label>
+      <button type="submit">Save password</button>
+      <button type="button" id="pw-cancel" class="ghost">Cancel</button>
+      <p id="pw-error" class="error"></p>
+    </form>
   </div>
 
   <script src="/admin/app.js"></script>

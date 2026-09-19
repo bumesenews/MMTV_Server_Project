@@ -45,6 +45,24 @@ function createAdminRouter(ctx) {
     }
   });
 
+  router.post('/auth/change-password', auth, async (req, res) => {
+    try {
+      await ctx.users.changeOwnPassword(req.admin.sub, {
+        currentPassword: req.body?.currentPassword,
+        newPassword: req.body?.newPassword,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'password_change',
+        message: `Changed password for ${req.admin.username}`,
+        actor: req.admin.username,
+      });
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
   router.get('/auth/me', auth, (req, res) => {
     const user = ctx.users.findById(req.admin.sub);
     if (!user) return res.status(401).json({ ok: false, error: 'User not found' });
@@ -1429,6 +1447,21 @@ function createAdminRouter(ctx) {
     try {
       const user = await ctx.users.updateUser(req.params.id, req.body || {});
       res.json({ ok: true, user });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.post('/users/:id/password', auth, requireRole(ROLES.SUPER_ADMIN), async (req, res) => {
+    try {
+      await ctx.users.setPassword(req.params.id, req.body?.password || req.body?.newPassword);
+      ctx.logService.add({
+        category: 'admin',
+        action: 'password_reset',
+        message: `Reset password for user ${req.params.id}`,
+        actor: req.admin.username,
+      });
+      res.json({ ok: true });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
     }

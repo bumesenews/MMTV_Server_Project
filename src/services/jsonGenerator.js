@@ -294,7 +294,6 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
 const PUBLIC_STREAM_KEYS = new Set([
   'type',
   'name',
-  'source',
   'url',
   'headers',
   'streamHeaders',
@@ -336,9 +335,8 @@ function toPublicStream(stream) {
   for (const key of PUBLIC_STREAM_KEYS) {
     if (stream[key] !== undefined) out[key] = stream[key];
   }
-  const sourceLabel = streamSourceLabel(stream.source);
-  out.name = sourceLabel || flutterStreamName(stream);
-  if (!String(out.source || '').trim()) delete out.source;
+  out.name = flutterStreamName(stream);
+  delete out.source;
   delete out.quality;
   return out;
 }
@@ -346,7 +344,7 @@ function toPublicStream(stream) {
 /** Flutter GitHub matches.json — fixture + stream only (no Match URL / admin / debug). */
 function toPublicMatch(match) {
   if (!match) return match;
-  let streams = (match.streams || []).map(toPublicStream).filter(Boolean);
+  let streams = dedupePublicStreams(match.streams || []);
   const out = {};
   for (const key of PUBLIC_MATCH_KEYS) {
     if (key === 'streams') continue;
@@ -373,7 +371,7 @@ function toPublicMatch(match) {
       ...streams,
     ];
   }
-  out.streams = dedupePublicStreams(streams);
+  out.streams = streams.map(toPublicStream).filter(Boolean);
   out.hasStreams = out.streams.length > 0;
   out.streamCount = out.streams.length;
   return out;
