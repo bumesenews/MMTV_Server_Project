@@ -71,26 +71,9 @@ function sourceAllowsPublishedStream(match, sourceName) {
   return sourceHasSavedMatchUrl(getSourceMatchUrlState(match, name));
 }
 
-/** Clone the extracted m3u8 per AVAILABLE source. Same URL + different source stays. */
+/** Real extracted streams only. Do not clone one m3u8 onto every AVAILABLE site. */
 function expandStreamsForAvailableSources(match) {
-  const list = [...(match?.streams || [])].filter((s) => s && String(s.url || '').trim());
-  const template = list[0];
-  if (!template) return list;
-  const have = new Set(list.map((s) => String(s.source || '').toLowerCase()));
-  for (const [name, state] of Object.entries(match?.streamSearch?.sources || {})) {
-    if (String(state?.status || '') !== 'AVAILABLE') continue;
-    if (!sourceAllowsPublishedStream(match, name)) continue;
-    const key = String(name || '').toLowerCase();
-    if (!key || have.has(key)) continue;
-    list.push({
-      ...template,
-      source: name,
-      name: undefined,
-      quality: template.quality || template.name || 'Link 1',
-    });
-    have.add(key);
-  }
-  return list;
+  return [...(match?.streams || [])].filter((s) => s && String(s.url || '').trim());
 }
 
 /** Top-level streamUrl must appear in streams[] so the player feed is not empty. */
@@ -378,15 +361,13 @@ function toPublicMatch(match) {
 }
 
 function publicStreamIdentityKey(stream) {
-  const source = String(stream?.source || '').trim().toLowerCase() || 'unknown';
-  const url = String(stream?.url || '')
+  return String(stream?.url || '')
     .trim()
     .split('#')[0]
     .toLowerCase();
-  return `${source}::${url}`;
 }
 
-/** Same source + same m3u8 only. Cakhia/Xoilac/Socolive keep separate rows. */
+/** Same m3u8 is one Flutter button. Different URLs stay as separate buttons. */
 function dedupePublicStreams(streams) {
   const seen = new Set();
   const out = [];

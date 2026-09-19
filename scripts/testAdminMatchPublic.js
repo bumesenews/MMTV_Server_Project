@@ -327,9 +327,10 @@ console.log('\n=== TEST 10 public stream names use button/quality; quality key s
   );
 }
 
-console.log('\n=== TEST 11 public streams dedupe by source + URL only ===');
+console.log('\n=== TEST 11 public streams dedupe by URL; keep distinct m3u8 buttons ===');
 {
   const sameUrl = 'https://cdn.example/same.m3u8';
+  const otherUrl = 'https://cdn.example/other.m3u8';
   const pubDup = toPublicMatch({
     matchId: 'dup_1',
     homeTeam: 'A',
@@ -338,31 +339,17 @@ console.log('\n=== TEST 11 public streams dedupe by source + URL only ===');
     status: 'PREPARING_STREAM',
     streamUrl: sameUrl,
     streams: [
-      { source: 'cakhia', name: 'NICK', url: sameUrl, headers: { Referer: 'https://ck.example/' } },
-      { source: 'xoilac', name: 'NICK', url: sameUrl, headers: { Referer: 'https://xl.example/' } },
-      { source: 'socolive', name: 'NICK', url: sameUrl, headers: { Referer: 'https://soco.example/' } },
-      { source: 'cakhia', name: 'NICK', url: sameUrl, headers: { Referer: 'https://ck.example/dup/' } },
+      { source: 'cakhia', name: 'JOHAN', url: sameUrl, headers: { Referer: 'https://ck.example/' } },
+      { source: 'xoilac', name: 'HD', url: sameUrl, headers: { Referer: 'https://xl.example/' } },
+      { source: 'socolive', name: 'HD', url: sameUrl, headers: { Referer: 'https://soco.example/' } },
+      { source: 'cakhia', name: 'HD TOM', url: otherUrl, headers: { Referer: 'https://ck.example/' } },
     ],
   });
-  check('keeps one row per source even if URL matches', pubDup.streams.length === 3);
+  check('same m3u8 is one public button', pubDup.streams.length === 2);
   check('streamCount equals streams.length', pubDup.streamCount === pubDup.streams.length);
   check('public streams have no source', pubDup.streams.every((s) => !('source' in s)));
-  check(
-    'public name stays the button label',
-    pubDup.streams.every((s) => s.name === 'NICK')
-  );
-  check(
-    'cakhia referer kept',
-    pubDup.streams.some((s) => s.headers.Referer === 'https://ck.example/')
-  );
-  check(
-    'xoilac referer kept',
-    pubDup.streams.some((s) => s.headers.Referer === 'https://xl.example/')
-  );
-  check(
-    'socolive referer kept',
-    pubDup.streams.some((s) => s.headers.Referer === 'https://soco.example/')
-  );
+  check('first button keeps extracted name', pubDup.streams[0].name === 'JOHAN');
+  check('second URL stays as its own button', pubDup.streams[1].name === 'HD TOM' && pubDup.streams[1].url === otherUrl);
   check('hasStreams', pubDup.hasStreams === true);
 }
 
