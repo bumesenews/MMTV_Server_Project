@@ -382,11 +382,10 @@ console.log('\n=== TEST 10 public stream names use button/quality; quality key s
     },
   ]);
   const pubMixed = toPublicMatch(mixed.matches[0]);
-  check('keeps every discovered source+url', pubMixed.streamCount === 6);
+  check('unique names and one stream per website', pubMixed.streamCount === 2);
   check(
-    'each stream keeps its own name',
-    pubMixed.streams.map((s) => s.name).join(',') ===
-      'CAKHIA ROY,CAKHIA ROY HD,XOILAC JOHAN,PHUT ROY,PHUT JOHAN,SOCOLIVE JOHAN'
+    'keeps first unique names only',
+    pubMixed.streams.map((s) => s.name).join(',') === 'CAKHIA ROY,XOILAC JOHAN'
   );
 }
 
@@ -409,7 +408,7 @@ console.log('\n=== TEST 11 public streams keep source and one row per source+URL
       { source: 'cakhia', name: 'HD TOM', url: otherUrl, headers: { Referer: 'https://ck.example/' } },
     ],
   });
-  check('keeps one row per source+url', pubDup.streams.length === 4);
+  check('unique server names, one per website', pubDup.streams.length === 1);
   check('streamCount equals streams.length', pubDup.streamCount === pubDup.streams.length);
   check('public streams keep source', pubDup.streams.every((s) => String(s.source || '').trim()));
   check(
@@ -417,14 +416,14 @@ console.log('\n=== TEST 11 public streams keep source and one row per source+URL
     pubDup.streams.filter((s) => s.source === 'cakhia' && s.url === sameUrl).length === 1
   );
   check(
-    'xoilac kept with source',
-    pubDup.streams.some((s) => s.source === 'xoilac' && s.name === 'XOILAC JOHAN')
+    'duplicate JOHAN from other sites dropped',
+    !pubDup.streams.some((s) => s.source === 'xoilac')
   );
   check(
-    'socolive kept with source',
-    pubDup.streams.some((s) => s.source === 'socolive' && s.url === sameUrl)
+    'socolive JOHAN dropped as duplicate name',
+    !pubDup.streams.some((s) => s.source === 'socolive' && s.url === sameUrl)
   );
-  check('second URL stays', pubDup.streams.some((s) => s.url === otherUrl && s.name === 'CAKHIA HD TOM'));
+  check('second cakhia URL dropped because source already used', !pubDup.streams.some((s) => s.url === otherUrl));
   check('hasStreams', pubDup.hasStreams === true);
   const noHd = toPublicMatch({
     matchId: 'enc_top',
@@ -459,9 +458,9 @@ console.log('\n=== TEST 11 public streams keep source and one row per source+URL
       { source: 'xoilac', name: 'ROY', url: 'ENC:v1:forest', active: true },
     ],
   });
-  check('drops generic HD row', roma.streams.every((s) => s.name !== 'HD') && roma.streamCount === 2);
-  check('roma labels use JOHAN', roma.streams.map((s) => s.name).sort().join(',') === 'CAKHIA JOHAN,XOILAC JOHAN');
-  check('forest labels use ROY', forest.streams.map((s) => s.name).sort().join(',') === 'CAKHIA ROY,XOILAC ROY');
+  check('drops generic HD row', roma.streams.every((s) => s.name !== 'HD') && roma.streamCount === 1);
+  check('roma keeps first JOHAN only', roma.streams.map((s) => s.name).join(',') === 'CAKHIA JOHAN');
+  check('forest keeps first ROY only', forest.streams.map((s) => s.name).join(',') === 'CAKHIA ROY');
 }
 
 console.log('\n=== TEST 12 public stream aggregation (count, clone, manual, multi) ===');
@@ -490,9 +489,9 @@ console.log('\n=== TEST 12 public stream aggregation (count, clone, manual, mult
       { source: 'socolive', name: 'JOHAN HD', url: 'https://cdn.example/f.m3u8', headers: headersSoco },
     ],
   });
-  check('Test 1: seven legitimate streams', seven.streamCount === 7 && seven.streams.length === 7);
+  check('Test 1: unique names, one per website, max 4', seven.streamCount === 4 && seven.streams.length === 4);
   check(
-    'Test 9: streamCount equals streams.length (7)',
+    'Test 9: streamCount equals streams.length (4)',
     seven.streamCount === seven.streams.length
   );
 
@@ -518,7 +517,7 @@ console.log('\n=== TEST 12 public stream aggregation (count, clone, manual, mult
       { source: 'phut', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersPhut },
     ],
   });
-  check('Test 4: different source + same URL → 2', crossSource.streamCount === 2);
+  check('Test 4: duplicate server name across sources → 1', crossSource.streamCount === 1);
 
   const sameName = toPublicMatch({
     matchId: 'agg_name',
@@ -527,7 +526,7 @@ console.log('\n=== TEST 12 public stream aggregation (count, clone, manual, mult
       { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/b.m3u8', headers: headersCakhia },
     ],
   });
-  check('Test 5: same name + different URL → 2', sameName.streamCount === 2);
+  check('Test 5: same name + different URL same website → 1', sameName.streamCount === 1);
 
   const multiCakhia = toPublicMatch({
     matchId: 'agg_multi',
@@ -536,7 +535,7 @@ console.log('\n=== TEST 12 public stream aggregation (count, clone, manual, mult
       { source: 'cakhia', name: 'ROY HD', url: 'https://cdn.example/b.m3u8', headers: headersCakhia },
     ],
   });
-  check('Test 6: one source multiple streams', multiCakhia.streamCount === 2);
+  check('Test 6: one website contributes at most 1 stream', multiCakhia.streamCount === 1);
 
   const withManual = toPublicMatch({
     matchId: 'agg_manual',
@@ -570,8 +569,8 @@ console.log('\n=== TEST 12 public stream aggregation (count, clone, manual, mult
     mergedClones.streams.length === 1
   );
   check(
-    'Test 8c: legitimate 2-source same URL with different referers kept',
-    crossSource.streamCount === 2
+    'Test 8c: duplicate names across sources are not kept just to fill 4 slots',
+    crossSource.streamCount === 1
   );
 
   const key = Buffer.alloc(32, 7);
@@ -594,7 +593,7 @@ console.log('\n=== TEST 12 public stream aggregation (count, clone, manual, mult
         status: 'LIVE',
         streams: [
           { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersCakhia },
-          { source: 'cakhia', name: 'ROY HD', url: 'https://cdn.example/b.m3u8', headers: headersCakhia },
+          { source: 'xoilac', name: 'JOHAN', url: 'https://cdn.example/b.m3u8', headers: headersXoilac },
         ],
       },
     ],

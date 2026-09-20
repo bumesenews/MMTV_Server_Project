@@ -238,6 +238,8 @@ class GenericStreamingSource extends BaseStreamingSource {
           getM3u8Patterns: () => this.getM3u8Patterns(),
           validateStreams: options.validateStreams,
           shouldAbort: options.shouldAbort,
+          skipServerNames: options.skipServerNames || [],
+          nameFirst: Boolean(options.nameFirst),
         }),
       'extractStreams'
     );

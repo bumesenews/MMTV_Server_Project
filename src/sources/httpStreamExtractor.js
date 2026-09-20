@@ -15,6 +15,10 @@ const { sleep, DEFAULT_M3U8_PATTERNS, resolvePlayerWait } = require('./baseStrea
 const { cleanText } = require('../utils/normalize');
 const { isBrowserProtocolError } = require('../utils/streamExtractPolicy');
 const { maxPlayerStreams } = require('../utils/scraperConfig');
+const {
+  normalizeServerName,
+  sortServerCandidates,
+} = require('../utils/streamServerName');
 
 const AXIOS_TIMEOUT_MS = Number(process.env.HTTP_STREAM_TIMEOUT_MS || 25000);
 const HTML_FETCH_RETRIES = Math.max(1, Number(process.env.HTTP_HTML_RETRIES || 5));
@@ -256,6 +260,34 @@ function parseStreamButtons(html, config = {}) {
   return buttons;
 }
 
+function collectServerCandidates(html, matchPageUrl, config = {}) {
+  const tabs = parsePlayerTabs(html, matchPageUrl, config);
+  const buttons = parseStreamButtons(html, config);
+  const byName = new Map();
+  const add = (name, pageUrl, index) => {
+    const key = normalizeServerName(name);
+    if (!key || byName.has(key)) return;
+    byName.set(key, {
+      name: String(name || '').replace(/\s+/g, ' ').trim() || key,
+      pageUrl: pageUrl || matchPageUrl,
+      index: Number.isFinite(index) ? index : null,
+    });
+  };
+  for (const tab of tabs) add(tab.name, tab.url, null);
+  for (const button of buttons) {
+    let pageUrl = matchPageUrl;
+    if (button.href) {
+      try {
+        pageUrl = new URL(button.href, matchPageUrl).href;
+      } catch {
+        pageUrl = matchPageUrl;
+      }
+    }
+    add(button.name, pageUrl, button.index);
+  }
+  return sortServerCandidates([...byName.values()]);
+}
+
 function parsePlayerTabs(html, matchPageUrl, config = {}) {
   const $ = load(html);
   const tabs = [];
@@ -333,8 +365,10 @@ async function extractStreamsViaAxios({
   matchPageUrl,
   sourceName,
   config = {},
+  skipServerNames = [],
+  nameFirst = false,
 }) {
-  const maxEmbeds = maxPlayerStreams();
+  const maxEmbeds = nameFirst ? 1 : maxPlayerStreams();
   const firstHtml = await axiosGetHtml(matchPageUrl, { referer: matchPageUrl });
   if (isJsShellHtml(firstHtml)) {
     logger.info(`${sourceName} match page is a JS shell — skip axios extract`, {
@@ -343,13 +377,9 @@ async function extractStreamsViaAxios({
     });
     return [];
   }
-  const tabs = parsePlayerTabs(firstHtml, matchPageUrl, config);
-  const firstTabName =
-    tabs.find(
-      (t) => String(t.url).replace(/\/$/, '').toLowerCase() === String(matchPageUrl).replace(/\/$/, '').toLowerCase()
-    )?.name ||
-    tabs[0]?.name ||
-    'HD';
+  const takenNames = new Set(
+    [...(skipServerNames || [])].map((n) => normalizeServerName(n)).filter(Boolean)
+  );
   const streams = [];
   const sourcePriority = Number(config.priority || 0);
   const htmlByUrl = new Map([[matchPageUrl, firstHtml]]);
@@ -380,13 +410,17 @@ async function extractStreamsViaAxios({
     });
   };
 
-  const extractFromHtml = async (html, pageUrl, tabName) => {
+  const extractFromHtml = async (html, pageUrl, tabName, { onlyName = null } = {}) => {
     const before = streams.length;
     const streamGroups = parseListStreamGroups(html);
     const buttons = parseStreamButtons(html, config);
+    const want = onlyName ? normalizeServerName(onlyName) : null;
 
     const tryEmbed = async (embedUrl, name, via = 'axios-list_stream') => {
       if (!embedUrl || !/^https?:\/\//i.test(embedUrl)) return;
+      if (want && name && normalizeServerName(name) !== want && normalizeServerName(tabName) !== want) {
+        return;
+      }
       try {
         const url = await extractUrlFromEmbed(embedUrl, pageUrl);
         if (url) push(url, name || tabName || 'HD', via, pageUrl, embedUrl);
@@ -400,26 +434,50 @@ async function extractStreamsViaAxios({
     };
 
     const groupCount = Array.isArray(streamGroups) ? streamGroups.length : 0;
-    for (let i = 0; i < Math.min(groupCount, maxEmbeds); i += 1) {
-      const group = Array.isArray(streamGroups[i]) ? streamGroups[i] : [];
-      const embed = group.find((u) => typeof u === 'string' && /^https?:\/\//i.test(u));
-      const button = buttons.find((b) => b.index === i);
-      await tryEmbed(embed, button?.name || tabName || `Link ${i + 1}`);
+    const indexes = [];
+    if (want) {
+      for (const button of buttons) {
+        if (normalizeServerName(button.name) === want) indexes.push(button.index);
+      }
+    }
+    if (want && indexes.length) {
+      for (const i of indexes) {
+        if (streams.length > before) return;
+        const group = Array.isArray(streamGroups[i]) ? streamGroups[i] : [];
+        const embed = group.find((u) => typeof u === 'string' && /^https?:\/\//i.test(u));
+        const button = buttons.find((b) => b.index === i);
+        await tryEmbed(embed, button?.name || tabName || `Link ${i + 1}`);
+      }
+    } else {
+      for (let i = 0; i < Math.min(groupCount, maxEmbeds); i += 1) {
+        if (streams.length > before) return;
+        const group = Array.isArray(streamGroups[i]) ? streamGroups[i] : [];
+        const embed = group.find((u) => typeof u === 'string' && /^https?:\/\//i.test(u));
+        const button = buttons.find((b) => b.index === i);
+        const label = button?.name || tabName || `Link ${i + 1}`;
+        if (want && normalizeServerName(label) !== want && normalizeServerName(tabName) !== want) {
+          continue;
+        }
+        await tryEmbed(embed, label);
+      }
     }
 
-    if (streams.length === before && streamGroups.length) {
+    if (streams.length === before && streamGroups.length && !want) {
       const embeds = [
         ...new Set(
           streamGroups.flat().filter((u) => typeof u === 'string' && /^https?:\/\//i.test(u))
         ),
       ].slice(0, maxEmbeds);
       for (const [i, embedUrl] of embeds.entries()) {
+        if (streams.length > before) return;
         await tryEmbed(embedUrl, buttons[i]?.name || tabName || `Link ${i + 1}`);
       }
     }
 
     if (streams.length === before) {
-      for (const embedUrl of extractIframeSrcs(html, pageUrl).slice(0, maxEmbeds)) {
+      const iframes = extractIframeSrcs(html, pageUrl).slice(0, maxEmbeds);
+      for (const embedUrl of iframes) {
+        if (streams.length > before) return;
         await tryEmbed(embedUrl, tabName, 'axios-iframe');
       }
     }
@@ -430,6 +488,51 @@ async function extractStreamsViaAxios({
     }
   };
 
+  if (nameFirst) {
+    const candidates = collectServerCandidates(firstHtml, matchPageUrl, config);
+    for (const candidate of candidates) {
+      const key = normalizeServerName(candidate.name);
+      if (takenNames.has(key)) {
+        logger.info(`${sourceName} skip duplicate server name`, {
+          source: sourceName,
+          name: candidate.name,
+        });
+        continue;
+      }
+      let html = htmlByUrl.get(candidate.pageUrl);
+      if (!html) {
+        try {
+          html = await axiosGetHtml(candidate.pageUrl, { referer: matchPageUrl });
+          htmlByUrl.set(candidate.pageUrl, html);
+        } catch (err) {
+          logger.debug('player tab fetch failed', {
+            source: sourceName,
+            url: candidate.pageUrl,
+            error: err.message,
+          });
+          continue;
+        }
+      }
+      const before = streams.length;
+      await extractFromHtml(html, candidate.pageUrl, candidate.name, {
+        onlyName: candidate.name,
+      });
+      if (streams.length > before) {
+        return dedupeStreams(streams).slice(0, 1);
+      }
+    }
+    return dedupeStreams(streams).slice(0, 1);
+  }
+
+  const tabs = parsePlayerTabs(firstHtml, matchPageUrl, config);
+  const firstTabName =
+    tabs.find(
+      (t) =>
+        String(t.url).replace(/\/$/, '').toLowerCase() ===
+        String(matchPageUrl).replace(/\/$/, '').toLowerCase()
+    )?.name ||
+    tabs[0]?.name ||
+    'HD';
   const matchKey = String(matchPageUrl).replace(/\/$/, '').toLowerCase();
   const extraTabs = tabs.filter(
     (t) => String(t.url).replace(/\/$/, '').toLowerCase() !== matchKey
@@ -575,6 +678,8 @@ async function extractStreamsAxiosThenPuppeteer({
   getM3u8Patterns,
   validateStreams,
   shouldAbort,
+  skipServerNames = [],
+  nameFirst = false,
 }) {
   logEvent(events.SCRAPER_START, `${sourceName} stream extract start`, {
     source: sourceName,
@@ -592,8 +697,10 @@ async function extractStreamsAxiosThenPuppeteer({
         matchPageUrl,
         sourceName,
         config,
+        skipServerNames,
+        nameFirst,
       });
-      if (!axiosStreams.length) {
+      if (!axiosStreams.length && !nameFirst) {
         logger.info(`${sourceName} axios found no streams — falling back to puppeteer`, {
           source: sourceName,
           url: matchPageUrl,
@@ -601,7 +708,9 @@ async function extractStreamsAxiosThenPuppeteer({
       }
       return axiosStreams;
     },
-    puppeteerExtract: browser
+    puppeteerExtract: nameFirst
+      ? null
+      : browser
       ? async () =>
           runExclusivePuppeteerTask(async () => {
           logger.info(`${sourceName} axios found no valid streams — falling back to puppeteer`, {
@@ -755,4 +864,5 @@ module.exports = {
   extractIframeSrcs,
   parsePlayerTabs,
   parseStreamButtons,
+  collectServerCandidates,
 };

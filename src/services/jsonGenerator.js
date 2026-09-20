@@ -16,6 +16,7 @@ const {
   sanitizeSourcePages,
 } = require('../utils/matchUrlDiscovery');
 const { finalizeStreamList, isManualStream } = require('../utils/streamCloneCleanup');
+const { selectUniqueNamedStreams } = require('../utils/streamServerName');
 
 const STREAM_SOURCE_LABELS = {
   cakhia: 'Cakhia',
@@ -100,7 +101,7 @@ function expandStreamsForAvailableSources(match) {
   const real = [...(match?.streams || [])].filter(
     (s) => s && String(s.url || '').trim() && !isGenericHdStream(s)
   );
-  return finalizeStreamList(real, match);
+  return selectUniqueNamedStreams(finalizeStreamList(real, match));
 }
 
 function isEncryptedStreamUrl(value) {
@@ -375,7 +376,9 @@ function toPublicStream(stream) {
 /** Flutter GitHub matches.json — fixture + stream only (no Match URL / admin / debug). */
 function toPublicMatch(match) {
   if (!match) return match;
-  let streams = dedupePublicStreams(finalizeStreamList(match.streams || [], match));
+  let streams = selectUniqueNamedStreams(
+    dedupePublicStreams(finalizeStreamList(match.streams || [], match))
+  );
   const out = {};
   for (const key of PUBLIC_MATCH_KEYS) {
     if (key === 'streams') continue;
@@ -406,7 +409,9 @@ function toPublicMatch(match) {
   }
   const named = streams.filter((s) => !isGenericHdStream(s));
   streams = named.length ? named : streams;
-  out.streams = finalizeStreamList(streams.map(toPublicStream).filter(Boolean));
+  out.streams = selectUniqueNamedStreams(
+    finalizeStreamList(streams.map(toPublicStream).filter(Boolean))
+  );
   out.hasStreams = out.streams.length > 0;
   out.streamCount = out.streams.length;
   return out;

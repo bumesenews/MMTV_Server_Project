@@ -47,9 +47,10 @@ class JobQueue {
    * Run jobs with a concurrency cap. Duplicate keys are skipped.
    * Jobs cancelled by matchId before start resolve as { skipped, reason: 'stopped' }.
    */
-  async run(jobs, worker) {
+  async run(jobs, worker, { concurrency } = {}) {
     this.cancelledMatches = new Set();
     this.maxActiveSeen = 0;
+    const limit = Math.max(1, Number(concurrency != null ? concurrency : this.concurrency) || 1);
     const results = [];
     const unique = [];
     const seen = new Set();
@@ -78,7 +79,7 @@ class JobQueue {
       };
 
       const pump = () => {
-        while (this.active < this.concurrency && this.pending.length) {
+        while (this.active < limit && this.pending.length) {
           const job = this.pending.shift();
           this.pendingKeys.delete(job.key);
 

@@ -25,7 +25,7 @@ const {
   isTransientDiscoverError,
   classifySourceError,
 } = require('../utils/matchUrlDiscovery');
-const { JobQueue, scraperConcurrency } = require('../utils/jobQueue');
+const { selectedServerNameSet } = require('../utils/streamServerName');
 const {
   STREAM_SOURCE_STATUS,
   MAX_POST_KICKOFF_ATTEMPTS,
@@ -553,12 +553,20 @@ class StreamEngine {
     if (jobs.length) {
       logger.info('Stream extract queue start', {
         jobs: jobs.length,
-        concurrency: this.extractQueue.concurrency,
+        concurrency: 1,
         matches: resultsById.size,
       });
-      const extractResults = await this.extractQueue.run(jobs, (job) =>
-        this.runExtractJob(job, resultsById)
-      );
+      const extractResults = [];
+      for (const matchId of order) {
+        const batch = jobs.filter((job) => job.matchId === matchId);
+        if (!batch.length) continue;
+        const batchResults = await this.extractQueue.run(
+          batch,
+          (job) => this.runExtractJob(job, resultsById),
+          { concurrency: 1 }
+        );
+        extractResults.push(...(batchResults || []));
+      }
       this.lastExtractAt = new Date().toISOString();
       this.lastExtractSummary = {
         queued: jobs.length,
@@ -741,6 +749,8 @@ class StreamEngine {
           if (latest.streamSearch?.stopped) return true;
           return isStreamSearchStopped(latest.kickoff, latest.streamSearch);
         },
+        skipServerNames: [...selectedServerNameSet(current.streams)],
+        nameFirst: true,
       });
       if (
         streams?.length &&
