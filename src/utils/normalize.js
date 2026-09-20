@@ -21,7 +21,7 @@ function stripClubAffixes(value) {
   let s = cleanText(value);
   if (!s) return '';
   const affix =
-    /^(fc|fk|sc|cf|ac|afc|cfc|ifc|sk|nk|bk|ifk|sd)\s+|\s+(fc|fk|sc|cf|ac|afc|cfc|ifc|sk|nk|bk|ifk|sd|football club|sporting club)$/i;
+    /^(fc|fk|sc|cd|cf|ac|afc|cfc|ifc|sk|nk|bk|ifk|sd)\s+|\s+(fc|fk|sc|cd|cf|ac|afc|cfc|ifc|sk|nk|bk|ifk|sd|football club|sporting club)$/i;
   let prev = null;
   while (s && s !== prev) {
     prev = s;

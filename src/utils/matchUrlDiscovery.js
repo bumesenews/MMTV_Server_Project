@@ -9,6 +9,7 @@ const {
   STREAM_SEARCH_INTERVAL_MINUTES,
   MATCH_URL_SEARCH_INTERVAL_MINUTES,
   MATCH_LIVE_DURATION_MIN,
+  MATCH_URL_LEAD_MIN,
 } = require('./time');
 const { MATCH_URL_STATUS } = require('./streamUrlHelper');
 
@@ -238,8 +239,10 @@ function getSourceMatchUrlState(fixture, sourceName) {
   const raw = search.sources?.[sourceName] || {};
   const pageUrl = fixture?.sourcePages?.[sourceName] || null;
   const discovered = discoveredMatchUrl(raw);
-  // Legacy rows had a page URL and no per-source search status.
-  const url = discovered || (!raw.status ? pageUrl : null);
+  // Confirmed/search rows must still extract from sourcePages if search.matchUrl is empty.
+  const blockedPage =
+    raw.status === MATCH_URL_STATUS.NOT_FOUND || isFailedMatchUrlStatus(raw.status);
+  const url = discovered || (blockedPage ? null : pageUrl);
   let status = raw.status || null;
   if (!status) {
     status = url ? MATCH_URL_STATUS.FOUND : MATCH_URL_STATUS.PENDING;
@@ -277,6 +280,35 @@ function sourceHasSavedMatchUrl(state) {
   return isSavedMatchUrlStatus(state.status);
 }
 
+function inMatchUrlHuntWindow(kickoff, nowSec) {
+  const mins = minutesUntilKickoff(kickoff, nowSec);
+  if (mins == null) return false;
+  if (mins > MATCH_URL_LEAD_MIN) return false;
+  if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+  return true;
+}
+
+function neverSearchedMatchUrl(state) {
+  if (sourceHasSavedMatchUrl(state) || state?.manual) return false;
+  return (Number(state?.attempts) || 0) === 0 && !state?.lastAttemptAt;
+}
+
+/** Used when a fixture is already PREPARING/LIVE but no discrete −60/−50/−40/−30 slot resolved. */
+function matchUrlHuntCatchupSlot(kickoff, nowSec) {
+  if (resolveAnyMatchUrlSlot(kickoff, nowSec)) return resolveAnyMatchUrlSlot(kickoff, nowSec);
+  if (!inMatchUrlHuntWindow(kickoff, nowSec)) return null;
+  const mins = minutesUntilKickoff(kickoff, nowSec);
+  if (mins > 0) {
+    return {
+      id: 'tHunt',
+      attempt: 1,
+      minExclusive: 0,
+      maxInclusive: MATCH_URL_LEAD_MIN,
+    };
+  }
+  return resolveMatchUrlLiveSlot(kickoff, nowSec);
+}
+
 function lastAttemptAgeSec(lastAttemptAt, nowSec) {
   if (!lastAttemptAt) return Number.POSITIVE_INFINITY;
   const ms = Date.parse(lastAttemptAt);
@@ -300,7 +332,13 @@ function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
   }
 
   const slot = resolveMatchUrlSearchSlot(fixture?.kickoff, nowSec);
-  if (!slot) return false;
+  if (!slot) {
+    // Newly added PREPARING fixtures (or a slot gap) must still hunt Today pages.
+    if (!inMatchUrlHuntWindow(fixture?.kickoff, nowSec)) return false;
+    if (neverSearchedMatchUrl(st)) return true;
+    if ((Number(st.attempts) || 0) >= MATCH_URL_MAX_ATTEMPTS) return false;
+    return lastAttemptAgeSec(st.lastAttemptAt, nowSec) >= cooldownSec;
+  }
 
   // Listings often appear after the −30 miss. Keep hunting in the last
   // pre-kickoff window even after MATCH_URL_FAILED, with the same cooldown.
@@ -619,6 +657,8 @@ module.exports = {
   ensureMatchUrlSearch,
   getSourceMatchUrlState,
   sourceHasSavedMatchUrl,
+  neverSearchedMatchUrl,
+  matchUrlHuntCatchupSlot,
   needsMatchUrlDiscovery,
   applySourceDiscoveryResult,
   applyAdminMatchUrl,

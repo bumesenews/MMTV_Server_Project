@@ -21,11 +21,14 @@ const {
   finalizeMatchUrlStatus,
   getSourceMatchUrlState,
   sourceHasSavedMatchUrl,
+  matchUrlHuntCatchupSlot,
   matchUrlJobKey,
   isTransientDiscoverError,
   classifySourceError,
 } = require('../utils/matchUrlDiscovery');
+const { MATCH_URL_STATUS } = require('../utils/streamUrlHelper');
 const { selectedServerNameSet } = require('../utils/streamServerName');
+const { JobQueue, scraperConcurrency } = require('../utils/jobQueue');
 const {
   STREAM_SOURCE_STATUS,
   MAX_POST_KICKOFF_ATTEMPTS,
@@ -168,8 +171,8 @@ class StreamEngine {
     const mins = minutesUntilKickoff(fixture?.kickoff);
     if (mins == null) return false;
     if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
-    if (mins > -STREAM_SEARCH_STOP_AFTER_MIN) return false;
-    return mins > -MATCH_LIVE_DURATION_MIN;
+    if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+    return true;
   }
 
   /**
@@ -251,11 +254,12 @@ class StreamEngine {
 
     if (force) return true;
 
-    const slot = resolveStreamSearchSlot(fixture.kickoff) || (catchup ? this.catchupSlot() : null);
-    if (!slot) return false;
+    const slot =
+      resolveStreamSearchSlot(fixture.kickoff) || (catchup ? this.catchupSlot() : null);
+    if (!slot) return catchup;
 
     const search = this.ensureStreamSearch(fixture);
-    return this.sources.some((s) => {
+    const anyDue = this.sources.some((s) => {
       const decision = decideSourceExtract({
         sourceName: s.name,
         streamSearch: search,
@@ -267,6 +271,7 @@ class StreamEngine {
       });
       return !decision.skip;
     });
+    return anyDue || catchup;
   }
 
   markSlotDone(streamSearch, slotId) {
@@ -319,7 +324,7 @@ class StreamEngine {
    * Process fixtures match-by-match (sequential). Sources checked independently.
    */
   async collectForFixtures(fixtures, { force = false } = {}) {
-    const list = fixtures || [];
+    const list = [...(fixtures || [])];
     if (!list.length) return [];
 
     // Discover per source and persist Match URLs as soon as a site succeeds.
@@ -347,7 +352,12 @@ class StreamEngine {
         const matchUrlSaved = Object.keys(afterPages).some(
           (name) => afterPages[name] && afterPages[name] !== beforePages[name]
         );
-        if (matchUrlSaved) {
+        const huntStarted =
+          (Number(next.matchUrlAttempts) || 0) >
+            (Number(current.matchUrlAttempts) || 0) ||
+          Object.keys(next.matchUrlSearch?.sources || {}).length >
+            Object.keys(current.matchUrlSearch?.sources || {}).length;
+        if (matchUrlSaved || huntStarted) {
           await this.persistProgress(next);
         }
       }
@@ -360,6 +370,25 @@ class StreamEngine {
       },
     });
     await applyKnownDiscovery();
+
+    list.sort((a, b) => {
+      const ma = workingById.get(a.matchId) || a;
+      const mb = workingById.get(b.matchId) || b;
+      const aHas = (ma.streams || []).some((s) => isValidatedStream(s));
+      const bHas = (mb.streams || []).some((s) => isValidatedStream(s));
+      if (aHas !== bHas) return aHas ? 1 : -1;
+      const aUrl = this.sources.some((s) =>
+        sourceHasSavedMatchUrl(getSourceMatchUrlState(ma, s.name))
+      );
+      const bUrl = this.sources.some((s) =>
+        sourceHasSavedMatchUrl(getSourceMatchUrlState(mb, s.name))
+      );
+      if (aUrl !== bUrl) return aUrl ? -1 : 1;
+      return (
+        (minutesUntilKickoff(ma.kickoff) ?? 9999) -
+        (minutesUntilKickoff(mb.kickoff) ?? 9999)
+      );
+    });
 
     const resultsById = new Map();
     const jobs = [];
@@ -479,13 +508,20 @@ class StreamEngine {
         for (const source of this.sources) {
           const urlState = getSourceMatchUrlState(base, source.name);
           const found = urlBySourceMatch[source.name]?.get(base.matchId);
-          const matchUrl = urlState.matchUrl || found?.matchUrl || null;
+          const matchUrl =
+            urlState.matchUrl ||
+            found?.matchUrl ||
+            String(base.sourcePages?.[source.name] || '').trim() ||
+            null;
           const decision = decideSourceExtract({
             sourceName: source.name,
             streamSearch,
             matchUrlState: {
               ...urlState,
               matchUrl,
+              status: matchUrl
+                ? urlState.status || MATCH_URL_STATUS.CONFIRMED
+                : urlState.status,
             },
             slot,
             stopped: false,
@@ -557,9 +593,35 @@ class StreamEngine {
         matches: resultsById.size,
       });
       const extractResults = [];
-      for (const matchId of order) {
-        const batch = jobs.filter((job) => job.matchId === matchId);
-        if (!batch.length) continue;
+      const pendingByMatch = new Map();
+      for (const job of jobs) {
+        if (!pendingByMatch.has(job.matchId)) pendingByMatch.set(job.matchId, []);
+        pendingByMatch.get(job.matchId).push(job);
+      }
+      const extractOrder = [...order].sort((a, b) => {
+        const ja = pendingByMatch.get(a);
+        const jb = pendingByMatch.get(b);
+        if (ja && !jb) return -1;
+        if (!ja && jb) return 1;
+        const ma = resultsById.get(a);
+        const mb = resultsById.get(b);
+        const aReady =
+          ja && !(ma?.streams || []).some((s) => isValidatedStream(s)) ? 0 : 1;
+        const bReady =
+          jb && !(mb?.streams || []).some((s) => isValidatedStream(s)) ? 0 : 1;
+        if (aReady !== bReady) return aReady - bReady;
+        const da = minutesUntilKickoff(ma?.kickoff);
+        const db = minutesUntilKickoff(mb?.kickoff);
+        return (da ?? 9999) - (db ?? 9999);
+      });
+      const queuedIds = [...new Set(jobs.map((j) => j.matchId))];
+      for (const matchId of queuedIds) {
+        const queued = resultsById.get(matchId);
+        if (queued) await this.persistProgress(queued);
+      }
+      for (const matchId of extractOrder) {
+        const batch = pendingByMatch.get(matchId);
+        if (!batch?.length) continue;
         const batchResults = await this.extractQueue.run(
           batch,
           (job) => this.runExtractJob(job, resultsById),
@@ -842,10 +904,7 @@ class StreamEngine {
 
       next = this.stampStreamFields(enrichMatchState(next), mins);
       resultsById.set(matchId, next);
-
-      if (streams.length) {
-        await this.persistProgress(next);
-      }
+      await this.persistProgress(next);
     });
 
     logger.info('Stream extract finished', {
@@ -866,7 +925,9 @@ class StreamEngine {
   applyDiscoveryToFixture(fixture, urlBySourceMatch = {}) {
     const nowIso = new Date().toISOString();
     const nowSec = nowUtcUnixSeconds();
-    const slot = resolveAnyMatchUrlSlot(fixture.kickoff, nowSec);
+    const slot =
+      resolveAnyMatchUrlSlot(fixture.kickoff, nowSec) ||
+      matchUrlHuntCatchupSlot(fixture.kickoff, nowSec);
     let next = fixture;
 
     const completed = new Set([

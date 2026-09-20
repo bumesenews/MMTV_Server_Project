@@ -488,8 +488,14 @@ async function extractStreamsViaAxios({
     }
   };
 
-  if (nameFirst) {
+    if (nameFirst) {
     const candidates = collectServerCandidates(firstHtml, matchPageUrl, config);
+    if (!candidates.length) {
+      const tabs = parsePlayerTabs(firstHtml, matchPageUrl, config);
+      const fallbackName = tabs[0]?.name || 'HD';
+      await extractFromHtml(firstHtml, matchPageUrl, fallbackName);
+      return dedupeStreams(streams).slice(0, 1);
+    }
     for (const candidate of candidates) {
       const key = normalizeServerName(candidate.name);
       if (takenNames.has(key)) {

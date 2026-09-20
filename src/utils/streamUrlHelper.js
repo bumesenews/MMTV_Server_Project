@@ -37,6 +37,7 @@ const TEAM_NOISE_WORDS = new Set([
   'fc',
   'cf',
   'sc',
+  'cd',
   'ac',
   'afc',
   'united',

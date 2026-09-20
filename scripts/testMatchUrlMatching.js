@@ -1040,5 +1040,63 @@ console.log('\n=== Canonicalize escaped / double-slash Match URLs ===');
   );
 }
 
+console.log('\n=== Never-searched PREPARING fixture still hunts Match URLs ===');
+{
+  const kick = yangonKickoff('2026-09-20T23:30:00');
+  const kickSec = toUtcUnixSeconds(kick.toISO());
+  const santaClara = {
+    matchId: 'santa_clara_braga_20260920',
+    homeTeam: 'Santa Clara',
+    awayTeam: 'Braga',
+    kickoff: kick.toISO(),
+    date: kick.toFormat('yyyy-MM-dd'),
+    time: kick.toFormat('HH:mm'),
+    league: 'Liga Portugal (PRO D1)',
+    sourcePages: {},
+    matchUrl: null,
+    matchUrlStatus: MATCH_URL_STATUS.PENDING,
+    matchUrlAttempts: 0,
+    originalNames: {
+      fotmob: { homeTeam: 'Santa Clara', awayTeam: 'Braga', league: 'Liga Portugal' },
+    },
+  };
+  assert(
+    '20a. −15m never-searched Santa Clara is due for Today-page hunt',
+    needsMatchUrlDiscovery(santaClara, 'cakhia', kickSec - 15 * 60) === true
+  );
+  const stamped = applySourceDiscoveryResult(
+    santaClara,
+    'cakhia',
+    null,
+    { id: 't30', attempt: 1 },
+    't1'
+  );
+  assert(
+    '20b. a miss still records matchUrlAttempts so hunt is not lost',
+    Number(stamped.matchUrlAttempts) >= 1 &&
+      stamped.matchUrlSearch?.sources?.cakhia?.attempts >= 1,
+    JSON.stringify({
+      attempts: stamped.matchUrlAttempts,
+      source: stamped.matchUrlSearch?.sources?.cakhia,
+    })
+  );
+
+  const url =
+    'https://cakhiazaa.tv/truc-tiep/santa-clara-vs-braga-luc-0000-ngay-21-09-2026/';
+  const r = scoreUrl(santaClara, url);
+  assert(
+    '20c. Santa Clara vs Braga ICT 00:00 listing matches Yangon 23:30 kickoff',
+    r.accepted === true,
+    JSON.stringify({ reason: r.reason, score: r.score, home: r.home, away: r.away })
+  );
+
+  const cd = compareTeamIdentity('Santa Clara', 'CD Santa Clara', normalizer);
+  assert(
+    '20d. CD Santa Clara matches Santa Clara',
+    cd.score > 0,
+    JSON.stringify(cd)
+  );
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

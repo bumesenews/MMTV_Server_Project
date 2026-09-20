@@ -32,6 +32,7 @@ const { gotoMatchPage } = require('../src/browser/puppeteerManager');
 const { StreamEngine } = require('../src/services/streamEngine');
 const { generateFlutterJson } = require('../src/services/jsonGenerator');
 const { isStreamSearchStopped } = require('../src/utils/time');
+const { getSourceMatchUrlState, sourceHasSavedMatchUrl } = require('../src/utils/matchUrlDiscovery');
 
 const ZONE = 'Asia/Yangon';
 let passed = 0;
@@ -323,6 +324,73 @@ console.log('\n=== Source skip / retry policy ===');
     assert('Engine does not extract 3h before kickoff', engine.shouldExtractStreams(morning) === false);
   }
 
+  {
+    const names = ['cakhia', 'xoilac', 'phut', 'socolive'];
+    const pages = {
+      cakhia: 'https://cakhiazaa.tv/truc-tiep/estoril-vs-casa-pia-ac/',
+      xoilac: 'https://xoilacxbg.tv/truc-tiep/estoril-vs-casa-pia-ac/',
+      phut: 'https://90phutzba.tv/truc-tiep/estoril-vs-casa-pia-ac/',
+      socolive: 'https://socoliveza.tv/truc-tiep/estoril-vs-casa-pia-ac/',
+    };
+    const estoril = {
+      matchId: 'estoril_casa_pia_ac_20260920',
+      homeTeam: 'Estoril',
+      awayTeam: 'Casa Pia AC',
+      kickoff: kickoffIso(15),
+      status: 'PREPARING_STREAM',
+      streams: [],
+      streamAttempts: {},
+      lastAttemptAt: null,
+      sourcePages: { ...pages },
+      matchUrl: pages.cakhia,
+      matchUrlStatus: MATCH_URL_STATUS.CONFIRMED,
+      matchUrlSearch: {
+        slotsDone: { t60: true },
+        sources: Object.fromEntries(
+          names.map((name) => [
+            name,
+            {
+              matchUrl: pages[name],
+              status: MATCH_URL_STATUS.CONFIRMED,
+              attempts: 1,
+              liveAttempts: 0,
+              slotsDone: { t60: true },
+              confidence: 100,
+            },
+          ])
+        ),
+      },
+    };
+    const engine = engineWith(names.map((name) => mockSource(name, async () => [])));
+    assert(
+      'Estoril-shaped −15m confirmed URLs still extract',
+      engine.shouldExtractStreams(estoril) === true
+    );
+    const cakhiaState = getSourceMatchUrlState(estoril, 'cakhia');
+    assert(
+      'Estoril Cakhia Match URL is saved',
+      sourceHasSavedMatchUrl(cakhiaState) && cakhiaState.matchUrl === pages.cakhia
+    );
+
+    const pageOnly = {
+      ...estoril,
+      matchUrlSearch: {
+        ...estoril.matchUrlSearch,
+        sources: {
+          ...estoril.matchUrlSearch.sources,
+          cakhia: {
+            ...estoril.matchUrlSearch.sources.cakhia,
+            matchUrl: '',
+          },
+        },
+      },
+    };
+    assert(
+      'confirmed row still uses sourcePages when search.matchUrl is empty',
+      getSourceMatchUrlState(pageOnly, 'cakhia').matchUrl === pages.cakhia
+    );
+  }
+
   const after1 = nextSourceStateAfterAttempt({
     previous: { attempts: 0, postKickoffAttempts: 0, slotsDone: {} },
     slot: { id: 't0', postKickoff: true },
@@ -478,6 +546,66 @@ console.log('\n=== +15m stop ===');
 }
 
 async function runAsyncTests() {
+  console.log('\n=== Extract empty confirmed URL before matches that already have streams ===');
+  {
+    const pages = {
+      cakhia: 'https://cakhiazaa.tv/truc-tiep/estoril-vs-casa-pia-ac/',
+    };
+    const extracted = [];
+    const liveHas = fixture({ id: 'already_has', offsetMin: -8, sources: ['cakhia'] });
+    liveHas.streams = [
+      {
+        source: 'cakhia',
+        url: 'https://cdn.example/old.m3u8',
+        type: 'm3u8',
+        active: true,
+        validation: { ok: true },
+      },
+    ];
+    const emptyReady = {
+      matchId: 'estoril_casa_pia_ac_20260920',
+      homeTeam: 'Estoril',
+      awayTeam: 'Casa Pia AC',
+      kickoff: kickoffIso(15),
+      status: 'PREPARING_STREAM',
+      streams: [],
+      sourcePages: { cakhia: pages.cakhia },
+      matchUrl: pages.cakhia,
+      matchUrlStatus: MATCH_URL_STATUS.CONFIRMED,
+      matchUrlSearch: {
+        slotsDone: { t60: true },
+        sources: {
+          cakhia: {
+            matchUrl: pages.cakhia,
+            status: MATCH_URL_STATUS.CONFIRMED,
+            attempts: 1,
+            slotsDone: { t60: true },
+            confidence: 100,
+          },
+        },
+      },
+    };
+    const orderEngine = engineWith([
+      mockSource('cakhia', async (url) => {
+        extracted.push(url);
+        return [
+          {
+            source: 'cakhia',
+            url: `https://cdn.example/${extracted.length}.m3u8`,
+            type: 'm3u8',
+            active: true,
+          },
+        ];
+      }),
+    ]);
+    await orderEngine.collectForFixtures([liveHas, emptyReady], { force: true });
+    assert(
+      'empty confirmed match is extracted before a match that already has a stream',
+      extracted[0] === pages.cakhia,
+      JSON.stringify(extracted)
+    );
+  }
+
   console.log('\n=== Player wait (networkidle2 after DOM) ===');
   {
     const calls = [];
@@ -775,9 +903,21 @@ async function runAsyncTests() {
     });
     const engine = engineWith([cakhia]);
     const match = fixture({ id: 'stop15', offsetMin: -16, sources: ['cakhia'] });
+    match.streamSearch = {
+      started: true,
+      stopped: false,
+      sources: {
+        cakhia: {
+          status: STREAM_SOURCE_STATUS.FAILED,
+          attempts: 3,
+          postKickoffAttempts: MAX_POST_KICKOFF_ATTEMPTS,
+          slotsDone: { t0: true, tP5: true, tP10: true },
+        },
+      },
+    };
     const out = await engine.collectForFixtures([match], { force: true });
     assert(
-      '+15m stops stream search',
+      '+15m stops stream search after extract attempts are exhausted',
       Boolean(out[0].streamSearch?.stopped) && (out[0].streams || []).length === 0
     );
   }
