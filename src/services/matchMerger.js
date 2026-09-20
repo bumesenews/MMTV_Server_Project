@@ -1,6 +1,7 @@
 const { logEvent, events } = require('../utils/logger');
 const { StreamValidator } = require('./streamValidator');
 const { enrichMatchState } = require('./statusService');
+const { finalizeStreamList } = require('../utils/streamCloneCleanup');
 
 class MatchMerger {
   constructor(validator = new StreamValidator()) {
@@ -36,7 +37,7 @@ class MatchMerger {
       }
     }
 
-    streams = this.validator.dedupeAndRank(streams);
+    streams = finalizeStreamList(this.validator.dedupeAndRank(streams), fixture);
 
     if (streamGroups.length > 1) {
       logEvent(events.DUPLICATE_MERGED, 'Merged multi-source streams', {

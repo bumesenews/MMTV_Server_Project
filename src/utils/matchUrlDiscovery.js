@@ -221,7 +221,7 @@ function sanitizeSourcePages(fixture) {
       continue;
     }
     // Keep last known page while still pending/searching (or legacy page-only rows)
-    if (prev[name] && !isFailedMatchUrlStatus(raw.status)) {
+    if (prev[name] && !isFailedMatchUrlStatus(raw.status) && raw.status !== MATCH_URL_STATUS.NOT_FOUND) {
       next[name] = prev[name];
     }
   }

@@ -1,6 +1,7 @@
 const { logger } = require('../utils/logger');
 const { toUtcUnixSeconds, MATCH_LIVE_DURATION_MIN } = require('../utils/time');
 const { hasDataChanged, streamIdentityKey } = require('../utils/compare');
+const { finalizeStreamList } = require('../utils/streamCloneCleanup');
 const { enrichMatchState } = require('./statusService');
 const { decryptMatchesList } = require('../utils/streamUrlCrypto');
 const { isFalseEnglishPremierLabel } = require('../utils/normalize');
@@ -46,7 +47,7 @@ function filterExpiredMatches(matches, nowSec = Math.floor(Date.now() / 1000)) {
 /**
  * Merge stream lists: keep existing, append new valid URLs, refresh metadata.
  */
-function mergeStreamLists(existingStreams = [], incomingStreams = []) {
+function mergeStreamLists(existingStreams = [], incomingStreams = [], match = null) {
   const byKey = new Map();
   for (const s of existingStreams || []) {
     if (!s?.url) continue;
@@ -86,7 +87,7 @@ function mergeStreamLists(existingStreams = [], incomingStreams = []) {
   }
 
   return {
-    streams: [...byKey.values()],
+    streams: finalizeStreamList([...byKey.values()], match),
     added,
     updated,
   };
@@ -169,6 +170,7 @@ function mergeSourceSearchEntry(prev, incoming) {
     confidence: Math.max(Number(n.confidence) || 0, Number(p.confidence) || 0),
     lastAttemptAt: n.lastAttemptAt || p.lastAttemptAt || null,
     slotsDone: { ...(p.slotsDone || {}), ...(n.slotsDone || {}) },
+    extractPassComplete: Boolean(p.extractPassComplete || n.extractPassComplete),
     // Keep stronger status when incoming has no URL of its own
     status: nextUrl || !prevUrl ? n.status || p.status : p.status || n.status,
     // Admin-stamped URLs must survive empty FotMob / discovery shells
@@ -208,7 +210,10 @@ function mergeSearchState(prev, incoming) {
 }
 
 function combineMatchRecords(prev, incoming) {
-  const mergedStreams = mergeStreamLists(prev.streams || [], incoming.streams || []);
+  const mergedStreams = mergeStreamLists(prev.streams || [], incoming.streams || [], {
+    ...prev,
+    ...incoming,
+  });
   const matchUrl = incoming.matchUrl || prev.matchUrl || null;
   const streamUrl =
     incoming.streamUrl ||

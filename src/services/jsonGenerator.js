@@ -15,6 +15,7 @@ const {
   sourceHasSavedMatchUrl,
   sanitizeSourcePages,
 } = require('../utils/matchUrlDiscovery');
+const { finalizeStreamList, isManualStream } = require('../utils/streamCloneCleanup');
 
 const STREAM_SOURCE_LABELS = {
   cakhia: 'Cakhia',
@@ -94,11 +95,12 @@ function sourceAllowsPublishedStream(match, sourceName) {
   return sourceHasSavedMatchUrl(getSourceMatchUrlState(match, name));
 }
 
-/** Keep every discovered stream. Do not clone one result onto other sources. */
+/** Keep real streams only. Never copy streams[0] onto other AVAILABLE sources. */
 function expandStreamsForAvailableSources(match) {
-  return [...(match?.streams || [])].filter(
+  const real = [...(match?.streams || [])].filter(
     (s) => s && String(s.url || '').trim() && !isGenericHdStream(s)
   );
+  return finalizeStreamList(real, match);
 }
 
 function isEncryptedStreamUrl(value) {
@@ -176,11 +178,12 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
             validationReason: m.validationReason || null,
           }
         : aggregateValidationFields(m, streamStatus);
-    const flutterStreams = ensureStreamUrlInList(
-      m,
-      expandStreamsForAvailableSources(m)
-        .filter((s) => s && s.url)
-        .map((s) => ({
+    const flutterStreams = dedupePublicStreams(
+      ensureStreamUrlInList(
+        m,
+        expandStreamsForAvailableSources(m)
+          .filter((s) => s && s.url)
+          .map((s) => ({
           source: s.source,
           type: s.type || 'm3u8',
           quality: streamButtonName(s),
@@ -201,6 +204,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
             : {}),
           ...(s.manualId ? { manualId: s.manualId } : {}),
         }))
+      )
     );
     return {
     matchId: m.matchId,
@@ -351,6 +355,7 @@ const PUBLIC_MATCH_KEYS = [
   'streamUrl',
   'streamHeaders',
   'streamStatus',
+  'originalNames',
 ];
 
 function toPublicStream(stream) {
@@ -370,7 +375,7 @@ function toPublicStream(stream) {
 /** Flutter GitHub matches.json — fixture + stream only (no Match URL / admin / debug). */
 function toPublicMatch(match) {
   if (!match) return match;
-  let streams = dedupePublicStreams(match.streams || []);
+  let streams = dedupePublicStreams(finalizeStreamList(match.streams || [], match));
   const out = {};
   for (const key of PUBLIC_MATCH_KEYS) {
     if (key === 'streams') continue;
@@ -401,7 +406,7 @@ function toPublicMatch(match) {
   }
   const named = streams.filter((s) => !isGenericHdStream(s));
   streams = named.length ? named : streams;
-  out.streams = streams.map(toPublicStream).filter(Boolean);
+  out.streams = finalizeStreamList(streams.map(toPublicStream).filter(Boolean));
   out.hasStreams = out.streams.length > 0;
   out.streamCount = out.streams.length;
   return out;
@@ -458,4 +463,7 @@ module.exports = {
   publicStreamLabel,
   toPublicMatch,
   toPublicMatchesPayload,
+  expandStreamsForAvailableSources,
+  dedupePublicStreams,
+  isManualStream,
 };

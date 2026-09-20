@@ -106,11 +106,17 @@ function uniqueSourceStreamUrls(match, sourceName) {
   return urls;
 }
 
-function sourceNeedsMorePlayerStreams(match, sourceName) {
+function sourceNeedsMorePlayerStreams(match, sourceName, streamSearch = match?.streamSearch) {
   if (!match) return false;
   const urls = uniqueSourceStreamUrls(match, sourceName);
   if (!urls.size) return false;
-  return urls.size < maxPlayerStreams();
+  if (urls.size >= maxPlayerStreams()) return false;
+  const st = readSourceExtractState(streamSearch, sourceName);
+  // Extra qualities are collected in one extract pass (up to maxPlayerStreams).
+  // Do not spend more Chrome slots just because unique URL count is below the cap.
+  if (st.extractPassComplete) return false;
+  if (st.status === STREAM_SOURCE_STATUS.AVAILABLE) return false;
+  return true;
 }
 
 function normalizeSourceStatus(status) {
@@ -129,6 +135,7 @@ function readSourceExtractState(streamSearch, sourceName) {
     updatedAt: raw.updatedAt || null,
     slotsDone: { ...(raw.slotsDone || {}) },
     extractionMethod: raw.extractionMethod || null,
+    extractPassComplete: Boolean(raw.extractPassComplete),
   };
 }
 
@@ -149,7 +156,7 @@ function decideSourceExtract({
   const st = readSourceExtractState(streamSearch, sourceName);
   const missingOwnStream =
     match != null && !sourceHasValidatedStream(match, sourceName);
-  const needsMorePlayers = sourceNeedsMorePlayerStreams(match, sourceName);
+  const needsMorePlayers = sourceNeedsMorePlayerStreams(match, sourceName, streamSearch);
 
   if (stopped && !needsMorePlayers) {
     return { skip: true, reason: 'stopped', status: st.status };
@@ -215,6 +222,7 @@ function nextSourceStateAfterAttempt({
       updatedAt: nowIso,
       slotsDone,
       extractionMethod: extractionMethod || previous.extractionMethod || null,
+      extractPassComplete: true,
     };
   }
 
@@ -230,6 +238,7 @@ function nextSourceStateAfterAttempt({
     updatedAt: nowIso,
     slotsDone,
     extractionMethod: extractionMethod || previous.extractionMethod || null,
+    extractPassComplete: Boolean(previous.extractPassComplete),
   };
 }
 

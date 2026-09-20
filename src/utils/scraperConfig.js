@@ -12,17 +12,17 @@ function parsePositiveInt(value, fallback) {
 }
 
 /**
- * How many player tabs / embed pages to fetch per source (TOM, HDTOM, …).
- * Extra tabs are axios HTML — cheap vs Chrome — but still multiply work.
- * 1GB default: 2 (TOM + HDTOM). Set HTTP_STREAM_MAX_EMBEDS=4 for all tabs.
+ * How many player tabs / embed pages to fetch per source in one extract pass.
+ * Axios HTML is cheap vs Chrome; still cap work on 1GB hosts.
+ * Default 4 (TOM, HD TOM, plus extra qualities). Override with HTTP_STREAM_MAX_EMBEDS (max 8).
  */
 function maxPlayerStreams(env = process.env) {
   const raw = env.HTTP_STREAM_MAX_EMBEDS;
   if (raw != null && String(raw).trim() !== '') {
-    return Math.min(8, parsePositiveInt(raw, 2));
+    return Math.min(8, parsePositiveInt(raw, 4));
   }
   if (String(env.LOW_MEMORY_MODE || '').toLowerCase() === 'false') return 6;
-  return 2;
+  return 4;
 }
 
 function parseMinutesList(value, fallbackList) {

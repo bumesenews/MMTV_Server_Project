@@ -464,5 +464,159 @@ console.log('\n=== TEST 11 public streams keep source and one row per source+URL
   check('forest labels use ROY', forest.streams.map((s) => s.name).sort().join(',') === 'CAKHIA ROY,XOILAC ROY');
 }
 
+console.log('\n=== TEST 12 public stream aggregation (count, clone, manual, multi) ===');
+{
+  const { mergeStreamLists } = require('../src/services/matchesSyncService');
+  const { encryptStreamUrl } = require('../src/utils/streamUrlCrypto');
+  const headersA = { Referer: 'https://xl365.domainkqt.cc/', 'User-Agent': 'UA' };
+  const headersCakhia = { Referer: 'https://ck.example/', 'User-Agent': 'UA' };
+  const headersXoilac = { Referer: 'https://xl.example/', 'User-Agent': 'UA' };
+  const headersPhut = { Referer: 'https://phut.example/', 'User-Agent': 'UA' };
+  const headersSoco = { Referer: 'https://soco.example/', 'User-Agent': 'UA' };
+
+  const seven = toPublicMatch({
+    matchId: 'agg_seven',
+    homeTeam: 'A',
+    awayTeam: 'B',
+    league: 'EPL',
+    status: 'LIVE',
+    streams: [
+      { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersCakhia },
+      { source: 'cakhia', name: 'ROY HD', url: 'https://cdn.example/b.m3u8', headers: headersCakhia },
+      { source: 'xoilac', name: 'JOHAN', url: 'https://cdn.example/c.m3u8', headers: headersXoilac },
+      { source: 'phut', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersPhut },
+      { source: 'phut', name: 'ROY HD', url: 'https://cdn.example/d.m3u8', headers: headersPhut },
+      { source: 'phut', name: 'ROY 1080P', url: 'https://cdn.example/e.m3u8', headers: headersPhut },
+      { source: 'socolive', name: 'JOHAN HD', url: 'https://cdn.example/f.m3u8', headers: headersSoco },
+    ],
+  });
+  check('Test 1: seven legitimate streams', seven.streamCount === 7 && seven.streams.length === 7);
+  check(
+    'Test 9: streamCount equals streams.length (7)',
+    seven.streamCount === seven.streams.length
+  );
+
+  const one = toPublicMatch({
+    matchId: 'agg_one',
+    streams: [{ source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersCakhia }],
+  });
+  check('Test 2: one stream', one.streamCount === 1);
+
+  const sameSourceDup = toPublicMatch({
+    matchId: 'agg_dup',
+    streams: [
+      { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersCakhia },
+      { source: 'cakhia', name: 'ROY COPY', url: 'https://cdn.example/a.m3u8', headers: headersCakhia },
+    ],
+  });
+  check('Test 3: same source + same URL → 1', sameSourceDup.streamCount === 1);
+
+  const crossSource = toPublicMatch({
+    matchId: 'agg_cross',
+    streams: [
+      { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersCakhia },
+      { source: 'phut', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersPhut },
+    ],
+  });
+  check('Test 4: different source + same URL → 2', crossSource.streamCount === 2);
+
+  const sameName = toPublicMatch({
+    matchId: 'agg_name',
+    streams: [
+      { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersCakhia },
+      { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/b.m3u8', headers: headersCakhia },
+    ],
+  });
+  check('Test 5: same name + different URL → 2', sameName.streamCount === 2);
+
+  const multiCakhia = toPublicMatch({
+    matchId: 'agg_multi',
+    streams: [
+      { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersCakhia },
+      { source: 'cakhia', name: 'ROY HD', url: 'https://cdn.example/b.m3u8', headers: headersCakhia },
+    ],
+  });
+  check('Test 6: one source multiple streams', multiCakhia.streamCount === 2);
+
+  const withManual = toPublicMatch({
+    matchId: 'agg_manual',
+    streams: [
+      { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersCakhia },
+      { source: 'manual', name: 'ENG HD', url: 'https://cdn.example/manual.m3u8', headers: {}, manualId: 'm1' },
+      { source: 'xoilac', name: 'JOHAN', url: 'https://cdn.example/c.m3u8', headers: headersXoilac },
+    ],
+  });
+  check(
+    'Test 7: manual remains first',
+    withManual.streams[0].source === 'manual' &&
+      withManual.streamCount === 3 &&
+      withManual.streams.some((s) => s.source === 'cakhia')
+  );
+
+  const clonePattern = [
+    { source: 'cakhia', name: 'LOGAN', url: 'https://cdn.example/a.m3u8', headers: headersA },
+    { source: 'xoilac', name: 'LOGAN', url: 'https://cdn.example/a.m3u8', headers: headersA },
+    { source: 'phut', name: 'LOGAN', url: 'https://cdn.example/a.m3u8', headers: headersA },
+    { source: 'socolive', name: 'LOGAN', url: 'https://cdn.example/a.m3u8', headers: headersA },
+  ];
+  const cleaned = toPublicMatch({ matchId: 'agg_clone', streams: clonePattern });
+  check(
+    'Test 8: historical clone cluster reduced, not kept as 4 copies',
+    cleaned.streamCount === 1 && cleaned.streams[0].url.includes('a.m3u8')
+  );
+  const mergedClones = mergeStreamLists([], clonePattern);
+  check(
+    'Test 8b: persisted merge also strips expand clones',
+    mergedClones.streams.length === 1
+  );
+  check(
+    'Test 8c: legitimate 2-source same URL with different referers kept',
+    crossSource.streamCount === 2
+  );
+
+  const key = Buffer.alloc(32, 7);
+  const encA = encryptStreamUrl('https://cdn.example/a.m3u8', key);
+  const encB = encryptStreamUrl('https://cdn.example/b.m3u8', key);
+  const encA2 = encryptStreamUrl('https://cdn.example/a.m3u8', key);
+  check('Test 10: ENC:v1 prefix', String(encA).startsWith('ENC:v1:'));
+  check('Test 10: same plaintext → same ciphertext', encA === encA2);
+  check('Test 10: different plaintext → different ciphertext', encA !== encB);
+
+  const prevKey = process.env.STREAM_URL_ENCRYPTION_KEY;
+  process.env.STREAM_URL_ENCRYPTION_KEY = key.toString('hex');
+  const delivery = formatMatchesDelivery({
+    matches: [
+      {
+        matchId: 'enc_match',
+        homeTeam: 'Home',
+        awayTeam: 'Away',
+        league: 'EPL',
+        status: 'LIVE',
+        streams: [
+          { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', headers: headersCakhia },
+          { source: 'cakhia', name: 'ROY HD', url: 'https://cdn.example/b.m3u8', headers: headersCakhia },
+        ],
+      },
+    ],
+  });
+  if (prevKey == null) delete process.env.STREAM_URL_ENCRYPTION_KEY;
+  else process.env.STREAM_URL_ENCRYPTION_KEY = prevKey;
+  check(
+    'Test 10: delivery encrypts each stream independently',
+    delivery.matches[0].streams.length === 2 &&
+      delivery.matches[0].streams.every((s) => String(s.url).startsWith('ENC:v1:')) &&
+      delivery.matches[0].streams[0].url !== delivery.matches[0].streams[1].url &&
+      delivery.matches[0].streamCount === 2
+  );
+  check(
+    'Flutter fields kept on public match',
+    seven.league === 'EPL' &&
+      seven.homeTeam === 'A' &&
+      seven.awayTeam === 'B' &&
+      seven.streams[0].headers &&
+      seven.streams[0].source
+  );
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

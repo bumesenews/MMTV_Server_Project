@@ -161,7 +161,7 @@ console.log('\n=== Socolive TOM / HDTOM player tabs ===');
 
 {
   const { maxPlayerStreams } = require('../src/utils/scraperConfig');
-  assert('1GB cap is TOM+HDTOM (2)', maxPlayerStreams({}) === 2);
+  assert('1GB default player tabs is 4', maxPlayerStreams({}) === 4);
   assert(
     'HTTP_STREAM_MAX_EMBEDS overrides 1GB cap',
     maxPlayerStreams({ HTTP_STREAM_MAX_EMBEDS: '4' }) === 4
@@ -233,14 +233,15 @@ console.log('\n=== Source skip / retry policy ===');
     },
   });
   assert(
-    'AVAILABLE with only TOM still extracts HDTOM',
-    availableOneLink.skip === false,
+    'AVAILABLE after a completed extract pass does not re-open Chrome for more tabs',
+    availableOneLink.skip === true && availableOneLink.reason === 'already_available',
     availableOneLink.reason
   );
   assert(
-    'one unique URL needs a second player',
+    'one unique URL after AVAILABLE does not schedule extra extract slots',
     sourceNeedsMorePlayerStreams(
       {
+        streamSearch: { sources: { socolive: { status: 'AVAILABLE', extractPassComplete: true } } },
         streams: [
           {
             source: 'socolive',
@@ -249,7 +250,7 @@ console.log('\n=== Source skip / retry policy ===');
         ],
       },
       'socolive'
-    )
+    ) === false
   );
 
   const availableMissing = decideSourceExtract({

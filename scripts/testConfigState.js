@@ -165,7 +165,7 @@ async function run() {
     assert('STREAM_MAX_ATTEMPTS=3', cfg.streamMaxAttempts === 3);
     assert('STREAM_POST_KICKOFF_MAX_MINUTES=15', cfg.streamPostKickoffMaxMinutes === 15);
     assert('SCRAPER_CONCURRENCY=2', cfg.scraperConcurrency === 2);
-    assert('1GB default player tabs = TOM+HDTOM (2)', cfg.httpStreamMaxEmbeds === 2);
+    assert('1GB default player tabs = 4', cfg.httpStreamMaxEmbeds === 4);
     assert(
       'HTTP_STREAM_MAX_EMBEDS=4 keeps all tabs',
       loadScraperConfig({ HTTP_STREAM_MAX_EMBEDS: '4' }).httpStreamMaxEmbeds === 4
