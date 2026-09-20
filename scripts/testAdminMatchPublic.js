@@ -4,7 +4,7 @@
  */
 const { applyAdminEntryToFixture, upsertAdminEntry, emptyAdminMatchDoc } = require('../src/utils/adminMatch');
 const { needsMatchUrlDiscovery, applySourceDiscoveryResult, MATCH_URL_STATUS } = require('../src/utils/matchUrlDiscovery');
-const { generateFlutterJson, toPublicMatch, toPublicMatchesPayload, flutterStreamName } = require('../src/services/jsonGenerator');
+const { generateFlutterJson, toPublicMatch, toPublicMatchesPayload, flutterStreamName, publicStreamLabel } = require('../src/services/jsonGenerator');
 const { formatMatchesDelivery } = require('../src/services/deliveryFormats');
 
 let passed = 0;
@@ -304,6 +304,20 @@ console.log('\n=== TEST 10 public stream names use button/quality; quality key s
     'manual ENG HD',
     flutterStreamName({ source: 'manual', quality: 'ENG HD' }) === 'ENG HD'
   );
+  check(
+    'strips accumulated source tokens from republished names',
+    publicStreamLabel({
+      source: 'cakhia',
+      name: 'CAKHIA XOILAC SOCOLIVE CAKHIA XOILAC SOCOLIVE PHUT LOGAN',
+    }) === 'CAKHIA LOGAN'
+  );
+  check(
+    'xoilac row from polluted name keeps JOHAN',
+    publicStreamLabel({
+      source: 'xoilac',
+      name: 'XOILAC SOCOLIVE CAKHIA XOILAC SOCOLIVE PHUT JOHAN',
+    }) === 'XOILAC JOHAN'
+  );
   const namedPayload = generateFlutterJson([
     {
       ...fixture,
@@ -350,43 +364,29 @@ console.log('\n=== TEST 10 public stream names use button/quality; quality key s
     },
   ]);
   const pubExp = toPublicMatch(expanded.matches[0]);
-  check('AVAILABLE sources each get a public stream', pubExp.streamCount === 3);
-  check(
-    'public rows include source values',
-    pubExp.streams.map((s) => s.source).sort().join(',') === 'cakhia,socolive,xoilac'
-  );
+  check('does not clone cakhia onto other AVAILABLE sources', pubExp.streamCount === 1);
+  check('keeps the discovered source only', pubExp.streams[0].source === 'cakhia' && pubExp.streams[0].name === 'CAKHIA JOHAN');
   const mixed = generateFlutterJson([
     {
       ...fixture,
       kickoff: '2099-01-01T23:00:00.000+06:30',
       status: 'LIVE',
       streams: [
-        { source: 'cakhia', name: 'JOHAN', url: 'https://cdn.example/a.m3u8', active: true },
         { source: 'cakhia', name: 'ROY', url: 'https://cdn.example/a.m3u8', active: true },
+        { source: 'cakhia', name: 'ROY HD', url: 'https://cdn.example/b.m3u8', active: true },
+        { source: 'xoilac', name: 'JOHAN', url: 'https://cdn.example/c.m3u8', active: true },
+        { source: 'phut', name: 'ROY', url: 'https://cdn.example/a.m3u8', active: true },
+        { source: 'phut', name: 'JOHAN', url: 'https://cdn.example/d.m3u8', active: true },
+        { source: 'socolive', name: 'JOHAN', url: 'https://cdn.example/c.m3u8', active: true },
       ],
-      matchUrlSearch: {
-        sources: {
-          cakhia: { matchUrl: 'https://ck.example/p', status: 'MATCH_URL_CONFIRMED' },
-          xoilac: { matchUrl: 'https://xl.example/p', status: 'MATCH_URL_CONFIRMED' },
-          phut: { matchUrl: 'https://phut.example/p', status: 'MATCH_URL_CONFIRMED' },
-          socolive: { matchUrl: 'https://soco.example/p', status: 'MATCH_URL_CONFIRMED' },
-        },
-      },
-      streamSearch: {
-        sources: {
-          cakhia: { status: 'AVAILABLE' },
-          xoilac: { status: 'AVAILABLE' },
-          phut: { status: 'AVAILABLE' },
-          socolive: { status: 'AVAILABLE' },
-        },
-      },
     },
   ]);
   const pubMixed = toPublicMatch(mixed.matches[0]);
+  check('keeps every discovered source+url', pubMixed.streamCount === 6);
   check(
-    'cycles ROY/JOHAN across sources',
+    'each stream keeps its own name',
     pubMixed.streams.map((s) => s.name).join(',') ===
-      'CAKHIA ROY,XOILAC JOHAN,PHUT ROY,SOCOLIVE JOHAN'
+      'CAKHIA ROY,CAKHIA ROY HD,XOILAC JOHAN,PHUT ROY,PHUT JOHAN,SOCOLIVE JOHAN'
   );
 }
 

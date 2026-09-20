@@ -27,6 +27,15 @@ const STREAM_SOURCE_LABELS = {
   manual: 'Manual',
 };
 
+const SOURCE_NAME_TOKENS = new Set(
+  [
+    ...Object.keys(STREAM_SOURCE_LABELS),
+    ...Object.values(STREAM_SOURCE_LABELS),
+    'stream',
+    '90phut',
+  ].map((s) => String(s).toLowerCase())
+);
+
 function looksLikeDomain(value) {
   const s = String(value || '').trim();
   if (!s) return false;
@@ -41,36 +50,34 @@ function streamSourceLabel(source) {
   return key.charAt(0).toUpperCase() + key.slice(1);
 }
 
-function streamQualityLabel(stream, pretty) {
-  let quality = String(stream?.quality || '').trim();
-  let name = String(stream?.name || '').trim();
-  if (looksLikeDomain(quality)) quality = '';
-  if (looksLikeDomain(name)) name = '';
-  const raw = quality || name;
+function streamButtonName(stream) {
+  const quality = String(stream?.quality || '').trim();
+  const name = String(stream?.name || '').trim();
+  const raw = looksLikeDomain(quality)
+    ? looksLikeDomain(name)
+      ? ''
+      : name
+    : quality || (looksLikeDomain(name) ? '' : name);
   if (!raw) return 'HD';
-  let q = raw;
-  const labels = [pretty, streamSourceLabel(stream?.source)].filter(Boolean);
-  for (const label of labels) {
-    const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    q = q.replace(new RegExp(`^${escaped}\\s*[·.]\\s*`, 'i'), '').trim();
-    if (q.toLowerCase() === label.toLowerCase()) q = '';
-  }
-  q = q.replace(/^[\s·.]+/, '').trim();
-  return q || 'HD';
+  const kept = raw
+    .split(/[\s·./]+/)
+    .map((part) => part.trim())
+    .filter((part) => part && !SOURCE_NAME_TOKENS.has(part.toLowerCase()));
+  const button = kept.join(' ').trim();
+  return (button || 'HD').toUpperCase();
 }
 
-/** Public stream title: quality only (HD ROY), never a domain or source host. */
+/** Public stream title: button only (HD ROY / LOGAN), never a domain or source host. */
 function flutterStreamName(stream) {
-  return streamQualityLabel(stream, streamSourceLabel(stream?.source));
+  return streamButtonName(stream);
 }
 
-/** Player label: CAKHIA JOHAN / CAKHIA ROY — source + this match's button. */
+/** Player label: CAKHIA JOHAN / CAKHIA ROY — source + this stream's button, once. */
 function publicStreamLabel(stream) {
-  const button = String(flutterStreamName(stream) || '').trim().toUpperCase();
+  const button = streamButtonName(stream);
   const src = String(stream?.source || '').trim().toUpperCase();
-  if (!src || src === 'STREAM') return button || 'HD';
-  if (!button || button === 'HD' || button === src) return src;
-  if (button.startsWith(`${src} `) || button.startsWith(`${src} ·`)) return button;
+  if (!src || src === 'STREAM') return button;
+  if (button === src) return src;
   return `${src} ${button}`;
 }
 
@@ -87,55 +94,11 @@ function sourceAllowsPublishedStream(match, sourceName) {
   return sourceHasSavedMatchUrl(getSourceMatchUrlState(match, name));
 }
 
-const PUBLIC_SOURCE_ORDER = ['cakhia', 'xoilac', 'phut', '90phut', 'socolive', 'mitom', 'mitomtm'];
-
-/** One row per AVAILABLE source. Cycle distinct button names: ROY, JOHAN, ROY, JOHAN. */
+/** Keep every discovered stream. Do not clone one result onto other sources. */
 function expandStreamsForAvailableSources(match) {
-  const raw = [...(match?.streams || [])].filter(
+  return [...(match?.streams || [])].filter(
     (s) => s && String(s.url || '').trim() && !isGenericHdStream(s)
   );
-  if (!raw.length) {
-    return [...(match?.streams || [])].filter((s) => s && String(s.url || '').trim());
-  }
-
-  const buttons = [
-    ...new Set(
-      raw
-        .map((s) => String(flutterStreamName(s) || '').trim().toUpperCase())
-        .filter((name) => name && name !== 'HD')
-    ),
-  ].sort((a, b) => b.localeCompare(a));
-
-  const sourceSet = new Set();
-  for (const stream of raw) {
-    const src = String(stream.source || '').trim().toLowerCase();
-    if (src && src !== 'stream') sourceSet.add(src);
-  }
-  for (const [name, state] of Object.entries(match?.streamSearch?.sources || {})) {
-    if (String(state?.status || '') !== 'AVAILABLE') continue;
-    if (!sourceAllowsPublishedStream(match, name)) continue;
-    const key = String(name || '').trim().toLowerCase();
-    if (key) sourceSet.add(key);
-  }
-  const sources = [
-    ...PUBLIC_SOURCE_ORDER.filter((name) => sourceSet.has(name)),
-    ...[...sourceSet].filter((name) => !PUBLIC_SOURCE_ORDER.includes(name)).sort(),
-  ];
-  if (!sources.length) return raw;
-
-  const names = buttons.length ? buttons : [flutterStreamName(raw[0]) || 'HD'];
-  return sources.map((source, index) => {
-    const button = names[index % names.length];
-    const donor =
-      raw.find((s) => String(flutterStreamName(s) || '').trim().toUpperCase() === button) ||
-      raw[0];
-    return {
-      ...donor,
-      source,
-      name: button,
-      quality: button,
-    };
-  });
 }
 
 function isEncryptedStreamUrl(value) {
@@ -164,7 +127,7 @@ function ensureStreamUrlInList(match, flutterStreams) {
     {
       source: source || undefined,
       type: 'm3u8',
-      quality: streamQualityLabel(extracted, streamSourceLabel(extracted.source)),
+      quality: streamButtonName(extracted),
       name: flutterStreamName(extracted),
       url,
       headers,
@@ -220,7 +183,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
         .map((s) => ({
           source: s.source,
           type: s.type || 'm3u8',
-          quality: streamQualityLabel(s, streamSourceLabel(s.source)),
+          quality: streamButtonName(s),
           name: flutterStreamName(s),
           url: s.url,
           headers: flutterPlaybackHeaders(s.streamHeaders || s.headers),
