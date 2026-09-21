@@ -9,6 +9,8 @@ const {
   headersEqual,
   inferPlayerReferer,
   originReferer,
+  originFromUrl,
+  GENERIC_PLAYER_REFERERS,
   PLAYBACK_UA_MOBILE,
 } = require('../utils/streamHeaders');
 
@@ -192,36 +194,38 @@ class StreamValidator {
       out.push(headers);
     };
     push(retryHeaders);
-    const withReferer = (referer) => ({
-      Accept: '*/*',
-      'User-Agent': retryHeaders?.['User-Agent'] || PLAYBACK_UA_MOBILE,
-      Referer: referer,
-    });
+    const withReferer = (referer) => {
+      const origin = originFromUrl(referer);
+      return {
+        Accept: '*/*',
+        'User-Agent': retryHeaders?.['User-Agent'] || PLAYBACK_UA_MOBILE,
+        Referer: referer,
+        ...(origin ? { Origin: origin } : {}),
+      };
+    };
     const inferred = inferPlayerReferer(streamUrl);
     if (inferred) push(withReferer(inferred));
     const embedRef = originReferer(stream?.embedUrl);
     if (embedRef) push(withReferer(embedRef));
-    try {
-      const host = new URL(streamUrl).hostname;
-      if (/livefeedtextbox\.com$/i.test(host)) {
-        push(withReferer('https://soco.textliveupdaterz.com/'));
-      }
-    } catch {
-      // ignore bad stream URL
-    }
+    for (const referer of GENERIC_PLAYER_REFERERS) push(withReferer(referer));
     for (const cfg of Object.values(this.sourceConfigs || {})) {
       if (!cfg || cfg === sourceConfig) continue;
       if (cfg.type && cfg.type !== 'streaming') continue;
       push(sourceOnlyPlaybackHeaders(cfg, matchPageUrl));
     }
-    return out.slice(0, 5);
+    return out.slice(0, 8);
   }
 
   async fetchPlaylist(url, headers) {
+    const reqHeaders = { ...(headers || {}) };
+    if (reqHeaders.Referer && !reqHeaders.Origin) {
+      const origin = originFromUrl(reqHeaders.Referer);
+      if (origin) reqHeaders.Origin = origin;
+    }
     try {
       const response = await this.http.get(url, {
         timeout: this.timeout,
-        headers,
+        headers: reqHeaders,
         responseType: 'text',
         maxRedirects: 5,
         validateStatus: () => true,

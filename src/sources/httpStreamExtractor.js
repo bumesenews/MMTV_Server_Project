@@ -367,6 +367,7 @@ async function extractStreamsViaAxios({
   config = {},
   skipServerNames = [],
   nameFirst = false,
+  validateStreams,
 }) {
   const maxEmbeds = nameFirst ? 1 : maxPlayerStreams();
   const firstHtml = await axiosGetHtml(matchPageUrl, { referer: matchPageUrl });
@@ -488,13 +489,23 @@ async function extractStreamsViaAxios({
     }
   };
 
-    if (nameFirst) {
+  const acceptResolved = async (batch) => {
+    const unique = dedupeStreams(batch);
+    if (!unique.length) return [];
+    if (typeof validateStreams !== 'function') return unique.slice(0, 1);
+    const checked = await validateStreams(unique);
+    return (checked || []).filter(
+      (s) => s && s.url && s.validation && s.validation.ok === true
+    );
+  };
+
+  if (nameFirst) {
     const candidates = collectServerCandidates(firstHtml, matchPageUrl, config);
     if (!candidates.length) {
       const tabs = parsePlayerTabs(firstHtml, matchPageUrl, config);
       const fallbackName = tabs[0]?.name || 'HD';
       await extractFromHtml(firstHtml, matchPageUrl, fallbackName);
-      return dedupeStreams(streams).slice(0, 1);
+      return acceptResolved(streams);
     }
     for (const candidate of candidates) {
       const key = normalizeServerName(candidate.name);
@@ -523,11 +534,17 @@ async function extractStreamsViaAxios({
       await extractFromHtml(html, candidate.pageUrl, candidate.name, {
         onlyName: candidate.name,
       });
-      if (streams.length > before) {
-        return dedupeStreams(streams).slice(0, 1);
-      }
+      const newest = streams.slice(before);
+      if (!newest.length) continue;
+      const ok = await acceptResolved(newest);
+      if (ok.length) return ok.slice(0, 1);
+      streams.length = before;
+      logger.info(`${sourceName} skip server after HTTP/auth deny`, {
+        source: sourceName,
+        name: candidate.name,
+      });
     }
-    return dedupeStreams(streams).slice(0, 1);
+    return acceptResolved(streams);
   }
 
   const tabs = parsePlayerTabs(firstHtml, matchPageUrl, config);
@@ -705,6 +722,7 @@ async function extractStreamsAxiosThenPuppeteer({
         config,
         skipServerNames,
         nameFirst,
+        validateStreams,
       });
       if (!axiosStreams.length && !nameFirst) {
         logger.info(`${sourceName} axios found no streams — falling back to puppeteer`, {

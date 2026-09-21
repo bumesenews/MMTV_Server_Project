@@ -59,10 +59,18 @@ function originReferer(url) {
  * Cakhia/Xoilac list_stream players sit on hexvaridstreamnode; the HLS CDN
  * (domaincdn / domainkqt) 403s when Referer is the public site homepage.
  */
+const CAKHIA_PLAYER_REFERER = 'https://ck.hexvaridstreamnode.com/';
+const SOCO_PLAYER_REFERER = 'https://soco.textliveupdaterz.com/';
+
 const CDN_PLAYER_REFERERS = [
-  { host: /(?:^|\.)(?:domaincdn|domainkqt)\.cc$/i, referer: 'https://ck.hexvaridstreamnode.com/' },
-  { host: /livefeedtextbox\.com$/i, referer: 'https://soco.textliveupdaterz.com/' },
+  { host: /(?:^|\.)(?:domaincdn|domainkqt)\.cc$/i, referer: CAKHIA_PLAYER_REFERER },
+  { host: /(?:^|\.)xl365\./i, referer: CAKHIA_PLAYER_REFERER },
+  { host: /livecdn\.tv$/i, referer: CAKHIA_PLAYER_REFERER },
+  { host: /livefeedtextbox\.com$/i, referer: SOCO_PLAYER_REFERER },
+  { host: /edgevaultmedia\.com$/i, referer: SOCO_PLAYER_REFERER },
 ];
+
+const GENERIC_PLAYER_REFERERS = [CAKHIA_PLAYER_REFERER, SOCO_PLAYER_REFERER];
 
 function inferPlayerReferer(streamUrl) {
   try {
@@ -72,6 +80,39 @@ function inferPlayerReferer(streamUrl) {
   } catch {
     return '';
   }
+}
+
+function sourcePublicHosts(sourceConfig = {}, matchPageUrl = '') {
+  const hosts = new Set();
+  const add = (value) => {
+    try {
+      const host = new URL(value).hostname;
+      if (host) hosts.add(host.toLowerCase());
+    } catch {
+      // ignore
+    }
+  };
+  for (const domain of [].concat(sourceConfig.domains || [], sourceConfig.mirrorDomains || [])) {
+    add(domain);
+  }
+  if (matchPageUrl) add(matchPageUrl);
+  return hosts;
+}
+
+function isPublicHomepageReferer(value, sourceConfig = {}, matchPageUrl = '') {
+  const raw = String(value || '').trim();
+  if (!raw) return false;
+  try {
+    return sourcePublicHosts(sourceConfig, matchPageUrl).has(new URL(raw).hostname.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+function defaultPlayerReferer(sourceConfig = {}) {
+  const name = String(sourceConfig.name || '').toLowerCase();
+  if (/soco/.test(name)) return SOCO_PLAYER_REFERER;
+  return CAKHIA_PLAYER_REFERER;
 }
 
 function sourceSiteHosts(sourceConfig = {}) {
@@ -172,6 +213,24 @@ function mergePlaybackHeaders({
     merged[name] = value;
   }
 
+  // Off-site HLS 403s when Referer is the public homepage (cakhiazaa.tv / xoilac…).
+  if (streamUrl && isPublicHomepageReferer(merged.Referer, sourceConfig, matchPageUrl)) {
+    let streamHost = '';
+    try {
+      streamHost = new URL(streamUrl).hostname.toLowerCase();
+    } catch {
+      streamHost = '';
+    }
+    if (streamHost && !sourcePublicHosts(sourceConfig, matchPageUrl).has(streamHost)) {
+      merged.Referer = inferred || defaultPlayerReferer(sourceConfig);
+    }
+  }
+
+  if (merged.Referer && isBlank(merged.Origin)) {
+    const origin = originFromUrl(merged.Referer);
+    if (origin) merged.Origin = origin;
+  }
+
   return merged;
 }
 
@@ -239,6 +298,7 @@ module.exports = {
   originFromUrl,
   originReferer,
   inferPlayerReferer,
+  GENERIC_PLAYER_REFERERS,
   isSiteReferer,
   containsSensitive,
   canonicalizeHeaderName,

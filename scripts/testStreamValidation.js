@@ -591,6 +591,51 @@ async function run() {
     assert('site homepage Referer is not used first', referers[0] !== 'https://cakhiazaa.tv/');
   }
 
+  console.log('\n=== Unknown CDN 403 retries player Referer ===');
+  {
+    const cakhiaCfg = {
+      name: 'cakhia',
+      type: 'streaming',
+      domains: ['https://cakhiazaa.tv'],
+      playbackHeaders: {
+        'User-Agent': PLAYBACK_UA_MOBILE,
+        Referer: 'https://cakhiazaa.tv/',
+      },
+    };
+    const referers = [];
+    const validator = new StreamValidator({
+      sourceConfigs: { cakhia: cakhiaCfg },
+      http: {
+        get: async (_url, opts) => {
+          referers.push(opts.headers.Referer);
+          if (opts.headers.Referer === 'https://ck.hexvaridstreamnode.com/') {
+            return {
+              status: 200,
+              headers: { 'content-type': 'application/vnd.apple.mpegurl' },
+              data: mediaPlaylist(),
+            };
+          }
+          return { status: 403, headers: {}, data: 'denied' };
+        },
+      },
+    });
+    const result = await validator.validate(
+      {
+        url: 'https://live.unknown-hls.net/ch1.m3u8',
+        source: 'cakhia',
+        matchPageUrl: 'https://cakhiazaa.tv/truc-tiep/new-caledonia-vs-solomon-islands/',
+        headers: { Referer: 'https://cakhiazaa.tv/' },
+      },
+      { sourceConfig: cakhiaCfg }
+    );
+    assert('unknown CDN validates with player Referer', result.validation.ok === true);
+    assert(
+      'homepage is not kept for off-site HLS',
+      result.headers.Referer === 'https://ck.hexvaridstreamnode.com/'
+    );
+    assert('Origin is sent with player Referer', Boolean(referers.length));
+  }
+
   console.log('\n=== Keep one stream per source even when CDN URL matches ===');
   {
     const validator = new StreamValidator();
