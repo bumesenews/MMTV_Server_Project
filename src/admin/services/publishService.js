@@ -7,6 +7,7 @@ const { resolveLeagueIcon } = require('../../utils/fotmobLogos');
 const {
   syncMatchesForDelivery,
   readExistingMatches,
+  allowEmptyMatchesFeed,
 } = require('../../services/matchesSyncService');
 const { assertFeedKey, normalizeFeed, feedSummary, FEED_META } = require('./feedAdminService');
 
@@ -327,7 +328,9 @@ class PublishService {
     // GitHub REST PUT only when matches (or other feeds) actually changed
     let github = { uploaded: false, reason: 'local_unchanged', feeds: {} };
     try {
-      github = await this.github.uploadDeliveryBundle(delivery, prevDelivery);
+      github = await this.github.uploadDeliveryBundle(delivery, prevDelivery, {
+        allowEmptyFeeds: allowEmptyMatchesFeed(sync) ? ['matches'] : [],
+      });
       this.lastGithub = { ...github, at: new Date().toISOString() };
     } catch (err) {
       github = {

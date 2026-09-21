@@ -26,6 +26,8 @@ const { getTelegramService } = require('./telegram.service');
 const {
   syncMatchesForDelivery,
   readExistingMatches,
+  filterExpiredMatches,
+  allowEmptyMatchesFeed,
 } = require('./matchesSyncService');
 const { adminMatchFileName } = require('../utils/adminMatch');
 const { decryptMatchesList } = require('../utils/streamUrlCrypto');
@@ -286,8 +288,13 @@ class Pipeline {
       restoreSource === 'matches.json'
         ? decryptMatchesList(remoteMatchesRaw)
         : remoteMatchesRaw;
-    if (!remoteMatches.length) {
-      return { ok: false, reason: 'remote_empty', restored: 0 };
+    const { matches: liveRemote, removed: expiredRemote } = filterExpiredMatches(remoteMatches);
+    if (!liveRemote.length) {
+      return {
+        ok: false,
+        reason: expiredRemote > 0 ? 'remote_expired' : 'remote_empty',
+        restored: 0,
+      };
     }
 
     const extras = {
@@ -302,11 +309,11 @@ class Pipeline {
     const existing = readExistingMatches(this.cache);
     let mergedMatches;
     if (existing.length) {
-      mergedMatches = syncMatchesForDelivery(existing, remoteMatches, {
+      mergedMatches = syncMatchesForDelivery(existing, liveRemote, {
         normalizer: this.normalizer,
       }).matches;
     } else {
-      mergedMatches = remoteMatches.map((m) => enrichMatchState(m));
+      mergedMatches = liveRemote.map((m) => enrichMatchState(m));
     }
     if (this.admin?.overrides) {
       mergedMatches = this.admin.overrides.applyToMatches(mergedMatches);
@@ -334,7 +341,7 @@ class Pipeline {
     });
     this.cache.saveDeliveryBundle(delivery);
     logger.info('Restored matches from GitHub', {
-      restored: remoteMatches.length,
+      restored: liveRemote.length,
       restoreSource,
       localBaseline: existing.length,
       finalCount: cached.matches?.length || mergedMatches.length,
@@ -342,7 +349,7 @@ class Pipeline {
     });
     return {
       ok: true,
-      restored: remoteMatches.length,
+      restored: liveRemote.length,
       matchCount: cached.matches?.length || mergedMatches.length,
       payload: cached,
     };
@@ -456,7 +463,8 @@ class Pipeline {
       const previousCache = this.cache.getCurrent();
       if (
         this.cache.isEmptyPayload(payload) &&
-        previousCache?.matches?.length
+        previousCache?.matches?.length &&
+        !allowEmptyMatchesFeed(sync)
       ) {
         return { ok: false, reason: 'empty_payload', removed: sync.removedExpired };
       }
@@ -470,7 +478,9 @@ class Pipeline {
       const { previous: prevDelivery } = this.cache.saveDeliveryBundle(delivery);
       let github = { uploaded: false, reason: 'local_unchanged', feeds: {} };
       try {
-        github = await this.github.uploadDeliveryBundle(delivery, prevDelivery);
+        github = await this.github.uploadDeliveryBundle(delivery, prevDelivery, {
+          allowEmptyFeeds: allowEmptyMatchesFeed(sync) ? ['matches'] : [],
+        });
       } catch (err) {
         github = {
           uploaded: false,
@@ -729,7 +739,8 @@ class Pipeline {
       const previousCache = this.cache.getCurrent();
       if (
         this.cache.isEmptyPayload(payload) &&
-        previousCache?.matches?.length
+        previousCache?.matches?.length &&
+        !allowEmptyMatchesFeed(sync)
       ) {
         logger.warn('Generated empty payload — keeping previous valid data');
         logEvent(events.GITHUB_SKIPPED, 'Skip upload — empty generation');
@@ -750,7 +761,9 @@ class Pipeline {
       const { previous: prevDelivery } = this.cache.saveDeliveryBundle(delivery);
       let githubResult = { uploaded: false, reason: 'local_unchanged', feeds: {} };
       try {
-        githubResult = await this.github.uploadDeliveryBundle(delivery, prevDelivery);
+        githubResult = await this.github.uploadDeliveryBundle(delivery, prevDelivery, {
+          allowEmptyFeeds: allowEmptyMatchesFeed(sync) ? ['matches'] : [],
+        });
       } catch (err) {
         githubResult = {
           uploaded: false,

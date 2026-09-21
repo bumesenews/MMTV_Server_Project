@@ -516,6 +516,16 @@ function readExistingMatches(cache) {
   return Array.isArray(current?.matches) ? current.matches : [];
 }
 
+/** True when an empty matches.json is the result of kickoff+2h cleanup, not a failed scrape. */
+function allowEmptyMatchesFeed(sync) {
+  return Boolean(
+    sync &&
+      Number(sync.removedExpired) > 0 &&
+      Array.isArray(sync.matches) &&
+      sync.matches.length === 0
+  );
+}
+
 module.exports = {
   MATCH_EXPIRE_AFTER_SEC,
   kickoffUnixSeconds,
@@ -530,4 +540,5 @@ module.exports = {
   matchAllowedOnCurrentList,
   syncMatchesForDelivery,
   readExistingMatches,
+  allowEmptyMatchesFeed,
 };

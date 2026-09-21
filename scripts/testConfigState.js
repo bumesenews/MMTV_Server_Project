@@ -818,6 +818,7 @@ async function run() {
       isMatchExpired,
       filterExpiredMatches,
       syncMatchesForDelivery,
+      allowEmptyMatchesFeed,
     } = require('../src/services/matchesSyncService');
     const kickoff = '2026-08-16T21:00:00.000+06:30';
     const match = {
@@ -852,6 +853,11 @@ async function run() {
     assert(
       'sync removes expired even if scrape still returns it',
       sync.matches.length === 0
+    );
+    assert('empty feed after expiry is allowed to publish', allowEmptyMatchesFeed(sync) === true);
+    assert(
+      'empty scrape with no expiry is not allowed',
+      allowEmptyMatchesFeed({ removedExpired: 0, matches: [] }) === false
     );
 
     const preparingKick = '2026-08-16T23:30:00.000+06:30';
