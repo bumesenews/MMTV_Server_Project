@@ -636,6 +636,48 @@ async function run() {
     assert('Origin is sent with player Referer', Boolean(referers.length));
   }
 
+  console.log('\n=== quickscoreboardz uses its own origin as Referer ===');
+  {
+    const cakhiaCfg = {
+      name: 'cakhia',
+      type: 'streaming',
+      domains: ['https://cakhiazaa.tv'],
+      playbackHeaders: {
+        'User-Agent': PLAYBACK_UA_MOBILE,
+        Referer: 'https://cakhiazaa.tv/',
+      },
+    };
+    const validator = new StreamValidator({
+      sourceConfigs: { cakhia: cakhiaCfg },
+      http: {
+        get: async (_url, opts) => {
+          if (opts.headers.Referer === 'https://live1.quickscoreboardz.com/') {
+            return {
+              status: 200,
+              headers: { 'content-type': 'application/vnd.apple.mpegurl' },
+              data: mediaPlaylist(),
+            };
+          }
+          return { status: 403, headers: {}, data: 'denied' };
+        },
+      },
+    });
+    const result = await validator.validate(
+      {
+        url: 'https://live1.quickscoreboardz.com/live/channel29.m3u8?wsSecret=abc',
+        source: 'cakhia',
+        matchPageUrl: 'https://cakhiazaa.tv/truc-tiep/new-caledonia-vs-solomon-islands/',
+        headers: { Referer: 'https://cakhiazaa.tv/' },
+      },
+      { sourceConfig: cakhiaCfg }
+    );
+    assert('quickscoreboardz validates with CDN origin Referer', result.validation.ok === true);
+    assert(
+      'Flutter Referer is the CDN origin',
+      result.headers.Referer === 'https://live1.quickscoreboardz.com/'
+    );
+  }
+
   console.log('\n=== Keep one stream per source even when CDN URL matches ===');
   {
     const validator = new StreamValidator();

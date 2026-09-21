@@ -205,6 +205,8 @@ class StreamValidator {
     };
     const inferred = inferPlayerReferer(streamUrl);
     if (inferred) push(withReferer(inferred));
+    const streamOrigin = originReferer(streamUrl);
+    if (streamOrigin) push(withReferer(streamOrigin));
     const embedRef = originReferer(stream?.embedUrl);
     if (embedRef) push(withReferer(embedRef));
     for (const referer of GENERIC_PLAYER_REFERERS) push(withReferer(referer));
@@ -213,7 +215,7 @@ class StreamValidator {
       if (cfg.type && cfg.type !== 'streaming') continue;
       push(sourceOnlyPlaybackHeaders(cfg, matchPageUrl));
     }
-    return out.slice(0, 8);
+    return out.slice(0, 5);
   }
 
   async fetchPlaylist(url, headers) {

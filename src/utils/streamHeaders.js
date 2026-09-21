@@ -68,15 +68,20 @@ const CDN_PLAYER_REFERERS = [
   { host: /livecdn\.tv$/i, referer: CAKHIA_PLAYER_REFERER },
   { host: /livefeedtextbox\.com$/i, referer: SOCO_PLAYER_REFERER },
   { host: /edgevaultmedia\.com$/i, referer: SOCO_PLAYER_REFERER },
+  // EC2 logs: channel m3u8 on this host 403s unless Referer/Origin are the CDN itself.
+  { host: /quickscoreboardz\.com$/i, referer: 'SELF' },
 ];
 
 const GENERIC_PLAYER_REFERERS = [CAKHIA_PLAYER_REFERER, SOCO_PLAYER_REFERER];
 
 function inferPlayerReferer(streamUrl) {
   try {
-    const host = new URL(String(streamUrl || '')).hostname;
+    const url = String(streamUrl || '');
+    const host = new URL(url).hostname;
     const hit = CDN_PLAYER_REFERERS.find((row) => row.host.test(host));
-    return hit ? hit.referer : '';
+    if (!hit) return '';
+    if (hit.referer === 'SELF') return originReferer(url);
+    return hit.referer;
   } catch {
     return '';
   }

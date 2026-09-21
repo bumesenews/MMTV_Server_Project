@@ -22,6 +22,7 @@ const {
 
 const AXIOS_TIMEOUT_MS = Number(process.env.HTTP_STREAM_TIMEOUT_MS || 25000);
 const HTML_FETCH_RETRIES = Math.max(1, Number(process.env.HTTP_HTML_RETRIES || 5));
+const MAX_HTML_CHARS = Math.max(200000, Number(process.env.HTTP_HTML_MAX_CHARS || 1200000));
 
 // Dead keep-alive + broken IPv6 on EC2 → "socket hang up". Prefer IPv4, no reuse.
 function createScraperAgents() {
@@ -81,6 +82,8 @@ async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries 
         validateStatus: (s) => s >= 200 && s < 400,
         httpAgent: scraperHttpAgent,
         httpsAgent: scraperHttpsAgent,
+        maxContentLength: MAX_HTML_CHARS * 2,
+        maxBodyLength: MAX_HTML_CHARS * 2,
         headers: {
           'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
           Accept:
@@ -101,7 +104,8 @@ async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries 
           ...(origin ? { Origin: origin } : {}),
         },
       });
-      return typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+      const html = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+      return html.length > MAX_HTML_CHARS ? html.slice(0, MAX_HTML_CHARS) : html;
     } catch (err) {
       lastErr = err;
       if (!isRetryableHttpError(err) || attempt >= maxTries) throw err;
