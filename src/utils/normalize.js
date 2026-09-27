@@ -106,6 +106,37 @@ function isYouthCompetition(value) {
   );
 }
 
+/**
+ * Women's / female comps must never map onto men's Serie A / UCL / etc.
+ * Covers EN + common FotMob locales (ITA Femminile, ESP Femenina, …).
+ */
+function isWomensCompetition(value) {
+  const key = foldKey(value);
+  if (!key) return false;
+  return (
+    /\bwom[e]?n'?s?\b/.test(key) ||
+    /\bfemale\b/.test(key) ||
+    /\bladies\b/.test(key) ||
+    /\bfemminile\b/.test(key) ||
+    /\bfemenin[ao]\b/.test(key) ||
+    /\bfemenil\b/.test(key) ||
+    /\bdamen\b/.test(key) ||
+    /\bwanita\b/.test(key) ||
+    /\bn[uữ]\b/.test(key)
+  );
+}
+
+/**
+ * National-team friendlies (FotMob "INT Friendlies") are not Club Friendlies.
+ * Bare "Friendlies" / "Friendly" must not collapse into the club pre-season bucket.
+ */
+function isNationalFriendlies(value) {
+  const key = foldKey(value);
+  if (!key || !/\bfriendl/.test(key)) return false;
+  if (/\bclub\b|\bclb\b|\bpre-?season\b|\bgiao\b/.test(key)) return false;
+  return true;
+}
+
 function isItalyCountry(countryFold) {
   return Boolean(
     countryFold && (countryFold.includes('ital') || countryFold === 'ita')
@@ -254,6 +285,9 @@ class Normalizer {
     if (!cleaned) return null;
 
     if (isYouthCompetition(cleaned)) return null;
+    if (isWomensCompetition(cleaned)) return null;
+    // INT Friendlies / national friendlies — do not map to Club Friendlies
+    if (isNationalFriendlies(cleaned)) return null;
 
     const countryClean = cleanText(country);
     const countryFold = foldKey(countryClean);
@@ -321,7 +355,7 @@ class Normalizer {
     }
 
     // Reject women's competitions unless the alias/standard is explicitly women's
-    const isWomensRaw = /\bwom[e]?n'?s?\b|\bfemale\b|\bladies\b/i.test(key);
+    const isWomensRaw = isWomensCompetition(key);
 
     // Fuzzy: longest alias where the raw name STARTS with the alias
     // (optionally after a known competition prefix). No mid-string includes.
@@ -340,7 +374,11 @@ class Normalizer {
       ) {
         continue;
       }
-      const isWomensAlias = /\bwom[e]?n'?s?\b|\bfemale\b|\bladies\b/i.test(aliasKey);
+      // Do not map national friendlies onto Club Friendlies via short aliases
+      if (/friendl/.test(aliasKey) && isNationalFriendlies(key)) {
+        continue;
+      }
+      const isWomensAlias = isWomensCompetition(aliasKey);
       if (isWomensRaw && !isWomensAlias) continue;
 
       let hit = false;
@@ -515,5 +553,7 @@ module.exports = {
   countryPremierLeagueLabel,
   isFalseEnglishPremierLabel,
   isYouthCompetition,
+  isWomensCompetition,
+  isNationalFriendlies,
   COUNTRY_PREMIER_LEAGUE_LABELS,
 };
