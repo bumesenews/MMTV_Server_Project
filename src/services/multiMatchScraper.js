@@ -1,6 +1,6 @@
 const { load } = require('cheerio');
 const { logger, logEvent, events } = require('../utils/logger');
-const { axiosGetHtml } = require('../sources/httpStreamExtractor');
+const { axiosGetPage } = require('../sources/httpStreamExtractor');
 const { sleep } = require('../sources/baseStreamingSource');
 const { runExclusivePuppeteerTask } = require('../browser/puppeteerManager');
 const {
@@ -177,18 +177,18 @@ class MultiMatchScraper {
       try {
         // eslint-disable-next-line no-await-in-loop
         const siteOrigin = (config.domains && config.domains[0]) || listUrl;
-        const html = unwrapListPayload(
-          await axiosGetHtml(listUrl, { referer: siteOrigin }),
-          siteOrigin
-        );
+        const page = await axiosGetPage(listUrl, { referer: siteOrigin });
+        const finalBase = page.finalUrl || listUrl;
+        const html = unwrapListPayload(page.html, finalBase);
         if (this.looksBlockedOrEmpty(html)) {
           logger.warn(`${this.sourceName} list page empty or blocked — skip`, {
             url: listUrl,
+            finalUrl: finalBase,
           });
           lastError = lastError || new Error('antibot_or_empty_html');
           continue;
         }
-        all.push(...this.extractMatchEntries(html, siteOrigin, config));
+        all.push(...this.extractMatchEntries(html, finalBase, config));
       } catch (err) {
         lastError = err;
         logger.warn(`${this.sourceName} list Axios page failed — skip`, {
@@ -232,7 +232,8 @@ class MultiMatchScraper {
           }
 
           // eslint-disable-next-line no-await-in-loop
-          const siteOrigin = (config.domains && config.domains[0]) || listUrl;
+          const liveUrl = typeof page.url === 'function' ? page.url() : '';
+          const siteOrigin = liveUrl || (config.domains && config.domains[0]) || listUrl;
           const html = unwrapListPayload(await page.content(), siteOrigin);
           if (this.looksBlockedOrEmpty(html)) {
             logger.warn(`${this.sourceName} Puppeteer list still blocked/empty`, {

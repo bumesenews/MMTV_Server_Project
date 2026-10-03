@@ -130,7 +130,7 @@ All crons use timezone **`Asia/Yangon`**. Module: `src/services/scheduler.js`.
 | Main pipeline | `PIPELINE_CRON` | `*/5 * * * *` | `matches.json` (fixtures + Match URL + extract + status + publish) |
 | Highlights | `HIGHLIGHT_CRON` | `0 */6 * * *` | `highlight1.json` + `highlight2.json` |
 | MyanmarTV | `MYANMARTV_CRON` | `*/8 * * * *` | `myanmartv.json` |
-| Tips | `TIPS_CRON` | `7 8,20 * * *` | `tips.json` (08:07 & 20:07) |
+| Tips | `TIPS_CRON` | `0 8 * * *` | `tips.json` (08:00) |
 | Domain check | `DOMAIN_CHECK_CRON` | `0 * * * *` | Telegram only |
 
 Each pipeline tick also calls `expireStaleMatches()` (remove matches past kickoff+2h) before scrape.
@@ -397,7 +397,7 @@ Helper script to verify sites vs today’s fixtures: `node scripts/checkTodayMat
 
 ### Tips — `Pipeline.runTips`
 
-- Cron: **08:07** and **20:07** Yangon
+- Cron: **08:00** Yangon, once a day
 - PredictZ today + tomorrow → `tips.json`
 - Axios first, Puppeteer if blocked
 - Queued if pipeline / highlights / TV busy

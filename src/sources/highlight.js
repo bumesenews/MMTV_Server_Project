@@ -13,6 +13,14 @@ const {
 
 const HOOFOOT_URL = 'https://hoofoot.com/';
 const SOCOLIVE_LIST_URL = 'https://socolivepp.tv/video-highlight/';
+const SOCOLIVE_HIGHLIGHT1_FALLBACK_BASE = 'https://socoliveza.tv/';
+const SOCOLIVE_HIGHLIGHT1_FALLBACK_LIST = 'https://socoliveza.tv/video-highlight/';
+const SOCOLIVE_HIGHLIGHT1_FALLBACK_PAGE = '/video-highlight/page/{page}/';
+
+function isHighlightListDead(err) {
+  const msg = `${err?.code || ''} ${err?.message || ''} ${err?.cause?.code || ''}`;
+  return /ENOTFOUND|ERR_NAME_NOT_RESOLVED|EAI_AGAIN|getaddrinfo|ENODATA|ENEEDAUTH/i.test(msg);
+}
 const MATCH_DATE_RE = /_(\d{4})_(\d{2})_(\d{2})(?:[/?]|$)/;
 const RECENT_DAYS = 7;
 const TIMEZONE = 'Asia/Yangon';
@@ -174,6 +182,41 @@ class HighlightSource {
     return items;
   }
 
+  /**
+   * hoofoot.com no longer resolves (EC2 ENOTFOUND). Keep highlight1.json moving
+   * by listing Socolive video-highlight the same way highlight2 does.
+   */
+  applySocoliveHighlightFallback() {
+    this.parser = 'socolive';
+    this.baseUrl = SOCOLIVE_HIGHLIGHT1_FALLBACK_BASE;
+    this.listUrl = SOCOLIVE_HIGHLIGHT1_FALLBACK_LIST;
+    this.pagePath = SOCOLIVE_HIGHLIGHT1_FALLBACK_PAGE;
+    this.maxPages = Math.max(1, Number(this.config.fallbackMaxPages || 2));
+    const cap = Number(process.env.HIGHLIGHT2_MAX_ITEMS_CAP || 40);
+    const requested = Number(this.config.fallbackMaxItems || 12);
+    this.maxItems = Math.max(1, Math.min(requested, cap));
+    this.recentDays = Number(this.config.fallbackRecentDays || 5);
+    this.dateHelper = new HighlightManager({ retentionDays: this.recentDays });
+    this.selectors = {
+      card: ['.highlight__item', '.splide__slide'],
+      link: ["a[href*='video-highlight']", 'a'],
+      title: ['p', '.highlight__item__content p', 'img[alt]'],
+      image: ['[style*="background-image"]', 'img'],
+      player: ['#player iframe', "iframe[src*='embed']", 'iframe'],
+      jwplayerFile: ['file'],
+    };
+    this.attrs = {
+      href: ['href', 'data-href', 'data-url'],
+      src: ['src', 'data-src', 'data-lazy-src'],
+    };
+    logger.warn('Hoofoot list unavailable — highlight1 using Socolive video-highlight', {
+      source: this.name,
+      listUrl: this.listUrl,
+      recentDays: this.recentDays,
+      maxPages: this.maxPages,
+    });
+  }
+
   attrFrom($el, names) {
     for (const name of names || []) {
       const v = $el.attr(name);
@@ -301,9 +344,12 @@ class HighlightSource {
           url,
           referer: attempt.referer,
         });
-        // Hang-ups will not be fixed by a different Referer — fall through to Chromium.
-        if (isTransientHttpError(err)) break;
+        if (isHighlightListDead(err) || isTransientHttpError(err)) break;
       }
+    }
+
+    if (isHighlightListDead(lastListError)) {
+      throw lastListError;
     }
 
     if (!allowPuppeteer || !this.browser) {
@@ -382,16 +428,39 @@ class HighlightSource {
 
   async collect({ extractM3u8 = true, skipEnrichIds = null, knownIds = null } = {}) {
     logEvent(events.SCRAPER_START, 'Highlight scrape start', { source: this.name });
-    const allowed = this.getAllowedDates();
     const skipIds = new Set(
       [...(skipEnrichIds instanceof Set ? skipEnrichIds : skipEnrichIds || [])].map(String)
     );
     void knownIds;
 
     let highlights = [];
+    if (this.parser === 'hoofoot') {
+      try {
+        const html = await this.fetchListHtml(this.listUrl, { allowPuppeteer: true });
+        const allowedHoofoot = this.getAllowedDates();
+        highlights = this.parseHighlights(html)
+          .map((h) => ({
+            ...h,
+            matchDate: this.dateHelper.normalizeDate(h.matchDate || h.url) || h.matchDate,
+          }))
+          .filter((h) => h.matchDate && allowedHoofoot.has(h.matchDate));
+        if (this.maxItems > 0) highlights = highlights.slice(0, this.maxItems);
+      } catch (err) {
+        logger.warn('Hoofoot list fetch failed', {
+          source: this.name,
+          url: this.listUrl,
+          error: err.message,
+          dns: isHighlightListDead(err),
+        });
+        highlights = [];
+      }
+      if (!highlights.length) this.applySocoliveHighlightFallback();
+    }
+
+    const allowed = this.getAllowedDates();
     if (this.parser === 'socolive' && this.maxPages > 1) {
       highlights = await this.collectPagedList(allowed);
-    } else {
+    } else if (this.parser === 'socolive') {
       const html = await this.fetchListHtml(this.listUrl, { allowPuppeteer: true });
       highlights = this.parseHighlights(html)
         .map((h) => ({
@@ -641,4 +710,5 @@ module.exports = {
   HighlightSource,
   parseDayMonthDate,
   MAX_ITEMS_CAP,
+  isHighlightListDead,
 };

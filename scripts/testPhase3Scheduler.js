@@ -38,7 +38,7 @@ console.log('\n=== Phase 3: default crons ===');
 assert('Matches cron every 5 min', DEFAULT_CRONS.PIPELINE_CRON === '*/5 * * * *');
 assert('MyanmarTV once daily 03:00', DEFAULT_CRONS.MYANMARTV_CRON === '0 3 * * *');
 assert('Highlights once daily 06:00', DEFAULT_CRONS.HIGHLIGHT_CRON === '0 6 * * *');
-assert('Tips once daily 08:07', DEFAULT_CRONS.TIPS_CRON === '7 8 * * *');
+assert('Tips once daily 08:00', DEFAULT_CRONS.TIPS_CRON === '0 8 * * *');
 assert('Timezone Asia/Yangon', ZONE === 'Asia/Yangon');
 
 console.log('\n=== Phase 3: peak window 17:00–03:00 ===');
@@ -48,7 +48,7 @@ assert('22:00 is peak', isFootballPeakWindow(yangonAt(22, 0)) === true);
 assert('00:00 is peak', isFootballPeakWindow(yangonAt(0, 0)) === true);
 assert('02:59 is peak', isFootballPeakWindow(yangonAt(2, 59)) === true);
 assert('03:00 not peak', isFootballPeakWindow(yangonAt(3, 0)) === false);
-assert('08:07 not peak', isFootballPeakWindow(yangonAt(8, 7)) === false);
+assert('08:00 not peak', isFootballPeakWindow(yangonAt(8, 0)) === false);
 
 console.log('\n=== Phase 3: low-priority exclusion during peak ===');
 for (const [label, hour] of [
@@ -135,8 +135,8 @@ assert(
     HEAVY_JOBS.HIGHLIGHTS
 );
 assert(
-  '08:07 selects Tips alone',
-  selectNextHeavyJob([HEAVY_JOBS.TIPS], { when: yangonAt(8, 7) }) ===
+  '08:00 selects Tips alone',
+  selectNextHeavyJob([HEAVY_JOBS.TIPS], { when: yangonAt(8, 0) }) ===
     HEAVY_JOBS.TIPS
 );
 

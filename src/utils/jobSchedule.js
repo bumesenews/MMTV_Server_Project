@@ -29,7 +29,7 @@ const DEFAULT_CRONS = Object.freeze({
   PIPELINE_CRON: '*/5 * * * *',
   MYANMARTV_CRON: '0 3 * * *',
   HIGHLIGHT_CRON: '0 6 * * *',
-  TIPS_CRON: '7 8 * * *',
+  TIPS_CRON: '0 8 * * *',
 });
 
 /**

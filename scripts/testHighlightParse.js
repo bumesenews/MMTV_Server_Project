@@ -85,6 +85,23 @@ assert('day-month helper', parseDayMonthDate('20', '08', '2026') === '2026-08-20
   );
 }
 
+{
+  const { isHighlightListDead } = require('../src/sources/highlight');
+  const dead = new HighlightSource({
+    config: { name: 'highlight1', parser: 'hoofoot', domains: ['https://hoofoot.com/'] },
+  });
+  assert('empty hoofoot gallery', dead.parseHoofootHighlights('<html></html>').length === 0);
+  dead.applySocoliveHighlightFallback();
+  assert('fallback parser is socolive', dead.parser === 'socolive');
+  assert('fallback list is socoliveza', /socoliveza\.tv\/video-highlight/.test(dead.listUrl));
+  const fb = dead.parseHighlights(html);
+  assert('fallback parses socolive cards', fb.length === 1);
+  assert(
+    'ENOTFOUND is a dead list',
+    isHighlightListDead({ message: 'getaddrinfo ENOTFOUND hoofoot.com', code: 'ENOTFOUND' })
+  );
+}
+
 if (process.exitCode) {
   console.error('highlight parse tests failed');
   process.exit(1);

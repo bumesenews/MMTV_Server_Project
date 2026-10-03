@@ -17,7 +17,7 @@ const { enrichMatchState } = require('./statusService');
 const { hasDataChanged } = require('../utils/compare');
 const { HighlightSource } = require('../sources/highlight');
 const { MyanmarTvSource } = require('../sources/myanmartv');
-const { TipsSource } = require('../sources/tips');
+const { TipsSource, resolveTipsDay } = require('../sources/tips');
 const { buildEngineStreamingSources } = require('../sources/registry');
 const { HighlightManager } = require('./highlightManager');
 const { getScraperMonitor, isTimeoutError } = require('../monitor/scraper.monitor');
@@ -1846,7 +1846,51 @@ class Pipeline {
         };
       }
 
-      const nextDelivery = formatTipsDelivery(scraped);
+      const formatted = formatTipsDelivery(scraped);
+      const expectedToday = todayYangon().toFormat('yyyy-MM-dd');
+      const expectedTomorrow = todayYangon().plus({ days: 1 }).toFormat('yyyy-MM-dd');
+      const today = resolveTipsDay({
+        scraped: formatted.today,
+        previousSame: previousDelivery?.today,
+        previousOther: previousDelivery?.tomorrow,
+        expectedDate: expectedToday,
+        day: 'today',
+      });
+      const tomorrow =
+        resolveTipsDay({
+          scraped: formatted.tomorrow,
+          previousSame: previousDelivery?.tomorrow,
+          expectedDate: expectedTomorrow,
+          day: 'tomorrow',
+        }) || previousDelivery?.tomorrow || formatted.tomorrow;
+      if (!today) {
+        logger.warn('Tips today page was not the predictions table — keep previous tips.json', {
+          label: formatted.today?.label || null,
+          date: formatted.today?.date || null,
+        });
+        logEvent(events.GITHUB_SKIPPED, 'Tips today page unavailable. GitHub upload skipped.', {
+          feed: 'tips',
+          label: formatted.today?.label || null,
+        });
+        this.lastTipsRun = {
+          ok: false,
+          reason: 'today_page_unavailable',
+          today: 0,
+          tomorrow: formatted.tomorrow?.count || 0,
+          at: new Date().toISOString(),
+        };
+        return {
+          ok: false,
+          reason: 'today_page_unavailable',
+          kept: previousDelivery,
+        };
+      }
+      const nextDelivery = {
+        ...formatted,
+        today,
+        tomorrow,
+        count: (today.tips?.length || 0) + (tomorrow?.tips?.length || 0),
+      };
       if (!nextDelivery.count && previousDelivery?.count) {
         logger.warn('Tips scrape returned empty — keep previous tips.json');
         logEvent(events.GITHUB_SKIPPED, 'No tips changes detected. GitHub upload skipped.', {

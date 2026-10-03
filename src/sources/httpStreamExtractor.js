@@ -62,7 +62,26 @@ function isRetryableHttpError(err) {
 /**
  * Shared axios HTML client for stream discovery.
  */
-async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries = HTML_FETCH_RETRIES } = {}) {
+function responseFinalUrl(res, fallback) {
+  const raw =
+    res?.request?.res?.responseUrl ||
+    res?.request?.responseURL ||
+    res?.request?._redirectable?._currentUrl ||
+    '';
+  const value = String(raw || '').trim();
+  if (!value) return fallback;
+  try {
+    return new URL(value).href;
+  } catch {
+    return fallback;
+  }
+}
+
+/**
+ * Fetch HTML and the URL after redirects. Match links must be resolved
+ * against this final host, not the configured domain that 301s away.
+ */
+async function axiosGetPage(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries = HTML_FETCH_RETRIES } = {}) {
   const origin = (() => {
     try {
       return new URL(url).origin;
@@ -104,8 +123,9 @@ async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries 
           ...(origin ? { Origin: origin } : {}),
         },
       });
-      const html = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
-      return html.length > MAX_HTML_CHARS ? html.slice(0, MAX_HTML_CHARS) : html;
+      const htmlRaw = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
+      const html = htmlRaw.length > MAX_HTML_CHARS ? htmlRaw.slice(0, MAX_HTML_CHARS) : htmlRaw;
+      return { html, finalUrl: responseFinalUrl(res, url), status: res.status };
     } catch (err) {
       lastErr = err;
       if (!isRetryableHttpError(err) || attempt >= maxTries) throw err;
@@ -119,6 +139,11 @@ async function axiosGetHtml(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries 
     }
   }
   throw lastErr;
+}
+
+async function axiosGetHtml(url, options) {
+  const page = await axiosGetPage(url, options);
+  return page.html;
 }
 
 function parseListStreamGroups(html) {
@@ -366,7 +391,7 @@ async function extractUrlFromEmbed(embedUrl, referer) {
  * match HTML → list_stream / iframes / patterns → embed pages → m3u8 (incl. flv→m3u8).
  */
 async function extractStreamsViaAxios({
-  matchPageUrl,
+  matchPageUrl: requestedMatchPageUrl,
   sourceName,
   config = {},
   skipServerNames = [],
@@ -374,7 +399,10 @@ async function extractStreamsViaAxios({
   validateStreams,
 }) {
   const maxEmbeds = nameFirst ? 1 : maxPlayerStreams();
-  const firstHtml = await axiosGetHtml(matchPageUrl, { referer: matchPageUrl });
+  const loaded = await axiosGetPage(requestedMatchPageUrl, { referer: requestedMatchPageUrl });
+  const firstHtml = loaded.html;
+  // Relative player/embed URLs belong to the host that actually served the page.
+  const matchPageUrl = loaded.finalUrl || requestedMatchPageUrl;
   if (isJsShellHtml(firstHtml)) {
     logger.info(`${sourceName} match page is a JS shell — skip axios extract`, {
       source: sourceName,
@@ -694,6 +722,7 @@ async function puppeteerFallback({
  * Prefer axios HTML scrape; fall back to puppeteer-core network interception.
  * If axios returns candidates that fail validateStreams, Puppeteer is used next.
  * Never launches Puppeteer when Axios already returned a validated stream.
+ * Fixture extracts (nameFirst) follow the same rule as MainLive.
  */
 async function extractStreamsAxiosThenPuppeteer({
   matchPageUrl,
@@ -728,7 +757,7 @@ async function extractStreamsAxiosThenPuppeteer({
         nameFirst,
         validateStreams,
       });
-      if (!axiosStreams.length && !nameFirst) {
+      if (!axiosStreams.length) {
         logger.info(`${sourceName} axios found no streams — falling back to puppeteer`, {
           source: sourceName,
           url: matchPageUrl,
@@ -736,9 +765,7 @@ async function extractStreamsAxiosThenPuppeteer({
       }
       return axiosStreams;
     },
-    puppeteerExtract: nameFirst
-      ? null
-      : browser
+    puppeteerExtract: browser
       ? async () =>
           runExclusivePuppeteerTask(async () => {
           logger.info(`${sourceName} axios found no valid streams — falling back to puppeteer`, {
@@ -775,15 +802,17 @@ async function extractStreamsAxiosThenPuppeteer({
               playerWaitTimeoutMs: playerWait.playerWaitTimeoutMs,
             });
             if (puppeteerSettleMs > 0) await sleep(puppeteerSettleMs);
+            const liveMatchUrl = (typeof page.url === 'function' && page.url()) || matchPageUrl;
             return extractStreamsFromPage({
               page,
               sourceName,
               config: extractConfig,
-              matchPageUrl,
+              matchPageUrl: liveMatchUrl,
               browserManager: browser,
             });
           } catch (err) {
-            const captured = streamsFromCapture(page, sourceName, config, matchPageUrl);
+            const capturedPage = (page && typeof page.url === 'function' && page.url()) || matchPageUrl;
+            const captured = streamsFromCapture(page, sourceName, config, capturedPage);
             if (isBrowserProtocolError(err)) {
               logger.warn(`${sourceName} puppeteer frame detached — using captured streams`, {
                 source: sourceName,
@@ -874,6 +903,7 @@ function streamsFromCapture(page, sourceName, config, matchPageUrl) {
 
 module.exports = {
   axiosGetHtml,
+  axiosGetPage,
   isJsShellHtml,
   isTransientHttpError,
   isRetryableHttpError,

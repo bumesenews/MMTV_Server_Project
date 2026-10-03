@@ -39,7 +39,7 @@ module.exports = {
         PIPELINE_CRON: '*/5 * * * *',
         HIGHLIGHT_CRON: '0 6 * * *',
         MYANMARTV_CRON: '0 3 * * *',
-        TIPS_CRON: '7 8 * * *',
+        TIPS_CRON: '0 8 * * *',
         DOMAIN_CHECK_ENABLED: 'true',
         DOMAIN_CHECK_CRON: '0 * * * *',
       },

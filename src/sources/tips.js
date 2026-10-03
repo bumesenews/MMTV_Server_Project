@@ -34,6 +34,64 @@ function yangonDateOffset(days) {
   return nowYangon().plus({ days }).toFormat('yyyy-MM-dd');
 }
 
+/** PredictZ tips heading, not the site logo (`www.predictz.com`). */
+function tipsPageHeading($) {
+  const texts = $('h1, h2')
+    .toArray()
+    .map((el) => clean($(el).text()))
+    .filter(Boolean);
+  const dated = texts.find((text) => /tips/i.test(text) && parseHeadingDate(text));
+  if (dated) return dated;
+  const tips = texts.find((text) => /tips/i.test(text));
+  return tips || texts[0] || '';
+}
+
+function htmlHasTipRows(html) {
+  return /ptmobh/i.test(html || '') && /ptpredboxsml/i.test(html || '');
+}
+
+function htmlHasDatedTipsHeading(html) {
+  if (!html) return false;
+  const $ = load(html);
+  return Boolean(parseHeadingDate(tipsPageHeading($)));
+}
+
+/**
+ * A day is usable when it has tips, or the heading is a real PredictZ date
+ * (a legitimate empty list). A logo/shell page such as "www.predictz.com" is not.
+ */
+function isUsableTipsDay(day) {
+  if ((day?.tips?.length || 0) > 0) return true;
+  return Boolean(parseHeadingDate(day?.label));
+}
+
+/**
+ * Keep a failed day from wiping tips.json.
+ * Same-date backup may be the previous "tomorrow" block (that date is now today).
+ * Returns null when the scrape missed the predictions page and nothing same-date can fill it.
+ */
+function resolveTipsDay({
+  scraped,
+  previousSame = null,
+  previousOther = null,
+  expectedDate = null,
+  day = 'today',
+} = {}) {
+  if (isUsableTipsDay(scraped)) {
+    return { ...scraped, day: day || scraped?.day };
+  }
+  for (const prev of [previousSame, previousOther]) {
+    if (prev && prev.date === expectedDate && (prev.tips?.length || 0) > 0) {
+      return {
+        ...prev,
+        day: day || prev.day,
+        count: prev.tips.length,
+      };
+    }
+  }
+  return null;
+}
+
 function tipIdFromUrl(url) {
   const match = String(url || '').match(/\/(\d+)\/?$/);
   return match ? match[1] : null;
@@ -73,7 +131,7 @@ function parseOdds($, row) {
  */
 function parseTipsHtml(html, { day = 'today', date = null, pageUrl = '' } = {}) {
   const $ = load(html || '');
-  const heading = clean($('h1').first().text());
+  const heading = tipsPageHeading($);
   const resolvedDate = date || parseHeadingDate(heading) || yangonDateOffset(day === 'tomorrow' ? 1 : 0);
 
   let league = '';
@@ -146,29 +204,35 @@ class TipsSource {
   }
 
   async fetchHtml(url) {
+    let axiosHtml = '';
     try {
-      const html = await axiosGetHtml(url, { referer: this.baseUrl, timeout: 25000, retries: 5 });
-      if (html && html.includes('pttable')) return html;
-      logger.debug('PredictZ axios HTML missing pttable, trying browser', { url });
+      axiosHtml = (await axiosGetHtml(url, { referer: this.baseUrl, timeout: 25000, retries: 5 })) || '';
+      if (htmlHasTipRows(axiosHtml)) return axiosHtml;
+      logger.debug('PredictZ axios HTML has no tip rows, trying browser', { url });
     } catch (err) {
       logger.debug('PredictZ axios blocked, trying browser', { url, error: err.message });
     }
 
     if (!this.browser) {
+      if (htmlHasDatedTipsHeading(axiosHtml)) return axiosHtml;
       throw new Error('PredictZ HTML fetch failed and no browser is available');
     }
 
-    return runExclusivePuppeteerTask(async () => {
+    const browserHtml = await runExclusivePuppeteerTask(async () => {
       const page = await this.browser.newPage();
       try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: this.browser.timeout || 25000 });
-        await page.waitForSelector('.pttable', { timeout: 12000 }).catch(() => {});
+        await page.waitForSelector('.pttr.ptcnt', { timeout: 20000 }).catch(() => {});
         await sleep(800);
         return await page.content();
       } finally {
         await this.browser.safeClosePage(page);
       }
     });
+
+    if (htmlHasTipRows(browserHtml) || htmlHasDatedTipsHeading(browserHtml)) return browserHtml;
+    if (htmlHasDatedTipsHeading(axiosHtml)) return axiosHtml;
+    return browserHtml || axiosHtml;
   }
 
   async scrapeDay(day) {
@@ -203,6 +267,11 @@ module.exports = {
   TipsSource,
   parseTipsHtml,
   parseHeadingDate,
+  tipsPageHeading,
+  htmlHasTipRows,
+  htmlHasDatedTipsHeading,
+  isUsableTipsDay,
+  resolveTipsDay,
   TODAY_URL,
   TOMORROW_URL,
   BASE_URL,
