@@ -1358,6 +1358,8 @@ class Pipeline {
         bundle[feedKey] = nextDelivery;
         if (feedKey === 'highlight1') {
           lastHighlights = highlights;
+          // App Highlight 1 plays highlight.json, not highlight1.json.
+          bundle.highlight = nextDelivery;
         }
 
         let github = { uploaded: false, reason: 'unchanged' };
@@ -1366,6 +1368,25 @@ class Pipeline {
             previousLocal: previousDelivery,
             feedKey,
           });
+          if (feedKey === 'highlight1') {
+            try {
+              githubFeeds.highlight = await this.github.uploadJsonIfChanged(
+                this.github.paths.highlight,
+                nextDelivery,
+                {
+                  previousLocal: this.cache.getDelivery('highlight'),
+                  feedKey: 'highlight',
+                }
+              );
+              if (githubFeeds.highlight?.uploaded) anyUploaded = true;
+            } catch (legacyErr) {
+              githubFeeds.highlight = {
+                uploaded: false,
+                reason: 'github_error',
+                error: legacyErr.message,
+              };
+            }
+          }
           if (github.uploaded) {
             anyUploaded = true;
             logEvent(events.GITHUB_UPLOAD, `${feedKey} updated successfully.`, {

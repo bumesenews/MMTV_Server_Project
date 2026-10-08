@@ -87,6 +87,31 @@ function normalizeFeed(feedKey, raw) {
   throw new Error(`Unsupported feed: ${key}`);
 }
 
+function feedStamp(data) {
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return 0;
+  const t = Date.parse(data.scraped_at || data.generatedAt || '');
+  return Number.isFinite(t) ? t : 0;
+}
+
+/**
+ * Published GitHub copy should replace the local admin cache when it is newer,
+ * or when a timestamp-less feed (Myanmar TV) simply differs.
+ */
+function isPublishedNewer(local, published) {
+  if (published == null) return false;
+  if (local == null) return true;
+  const localAt = feedStamp(local);
+  const publishedAt = feedStamp(published);
+  if (publishedAt && localAt) return publishedAt > localAt;
+  if (publishedAt && !localAt) return true;
+  if (localAt && !publishedAt) return false;
+  try {
+    return JSON.stringify(local) !== JSON.stringify(published);
+  } catch {
+    return false;
+  }
+}
+
 function feedSummary(feedKey, data) {
   const key = assertFeedKey(feedKey);
   if (!data) return { feedKey: key, empty: true, count: 0 };
@@ -130,4 +155,6 @@ module.exports = {
   assertFeedKey,
   normalizeFeed,
   feedSummary,
+  feedStamp,
+  isPublishedNewer,
 };

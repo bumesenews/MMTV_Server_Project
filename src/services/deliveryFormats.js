@@ -138,12 +138,23 @@ function formatTipsDelivery(payload = {}) {
  * Build scraper delivery files from pipeline outputs.
  * mainlive.json is admin-owned and omitted here so publish does not overwrite it.
  */
-function buildDeliveryBundle({ matchesPayload, highlights, channels }) {
-  return {
+function buildDeliveryBundle({
+  matchesPayload,
+  highlights,
+  channels,
+  // Match publish must not rebuild highlight.json / myanmartv.json.
+  // Those files are owned by their own jobs and GitHub is often newer
+  // than this server's data/delivery cache.
+  includeSideFeeds = false,
+}) {
+  const bundle = {
     matches: formatMatchesDelivery(matchesPayload),
-    highlight: formatHighlightsDelivery(highlights || []),
-    myanmartv: formatChannelsDelivery(channels || []),
   };
+  if (includeSideFeeds) {
+    bundle.highlight = formatHighlightsDelivery(highlights || []);
+    bundle.myanmartv = formatChannelsDelivery(channels || []);
+  }
+  return bundle;
 }
 
 module.exports = {

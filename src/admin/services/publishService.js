@@ -9,7 +9,14 @@ const {
   readExistingMatches,
   allowEmptyMatchesFeed,
 } = require('../../services/matchesSyncService');
-const { assertFeedKey, normalizeFeed, feedSummary, FEED_META } = require('./feedAdminService');
+const { logger } = require('../../utils/logger');
+const {
+  assertFeedKey,
+  normalizeFeed,
+  feedSummary,
+  FEED_META,
+  isPublishedNewer,
+} = require('./feedAdminService');
 
 /**
  * Applies admin overrides + league filters, writes local cache, uploads GitHub if changed.
@@ -104,6 +111,73 @@ class PublishService {
       github,
       warning: github.reason === 'github_error' ? github.error : null,
     };
+  }
+
+  /**
+   * Admin Delivery Feeds screen. Prefer the published GitHub file when it is
+   * newer than data/delivery, and refresh the local cache so the editor
+   * matches what the app plays.
+   */
+  async readFeed(feedKey) {
+    const key = assertFeedKey(feedKey);
+    const local = this._localFeed(key);
+    let published = null;
+    let githubPath = null;
+
+    try {
+      const remote = await this._fetchPublishedFeed(key);
+      published = remote?.content ?? null;
+      githubPath = remote?.path || null;
+    } catch (err) {
+      logger.warn('Published feed fetch failed', { feed: key, error: err.message });
+    }
+
+    const refreshed = published != null && isPublishedNewer(local, published);
+    const data = refreshed ? published : local ?? published;
+    if (refreshed) {
+      const bundle = { [key]: published };
+      if (key === 'highlight1') bundle.highlight = published;
+      this.cache.saveDeliveryBundle(bundle);
+    }
+
+    return {
+      feedKey: key,
+      data,
+      summary: {
+        ...feedSummary(key, data),
+        origin: refreshed ? 'github' : 'local',
+        githubPath,
+        refreshedFromGithub: refreshed,
+      },
+    };
+  }
+
+  _localFeed(key) {
+    const local = this.cache.getDelivery(key);
+    if (key !== 'highlight1') return local;
+    const legacy = this.cache.getDelivery('highlight');
+    if (isPublishedNewer(local, legacy)) return legacy;
+    return local ?? legacy;
+  }
+
+  async _fetchPublishedFeed(key) {
+    if (!this.github?.enabled || typeof this.github.getFileSha !== 'function') {
+      return null;
+    }
+    const paths =
+      key === 'highlight1'
+        ? [this.github.paths.highlight, this.github.paths.highlight1]
+        : [this.github.paths[key]];
+    let best = null;
+    for (const filePath of paths) {
+      if (!filePath) continue;
+      const file = await this.github.getFileSha(filePath);
+      if (file?.content == null) continue;
+      if (!best || isPublishedNewer(best.content, file.content)) {
+        best = { content: file.content, path: filePath };
+      }
+    }
+    return best;
   }
 
   /**
@@ -359,7 +433,7 @@ class PublishService {
       this.logService.add({
         category: 'github',
         action: github.uploaded ? 'upload' : 'skip',
-        message: `Publish feeds matches=${cached.matches.length} highlights=${delivery.highlight.count} channels=${delivery.myanmartv.length} (github: ${github.reason}${github.error ? ` - ${github.error}` : ''})`,
+        message: `Publish matches=${cached.matches.length} (github: ${github.reason}${github.error ? ` - ${github.error}` : ''})`,
         actor,
         meta: { changed, github },
       });

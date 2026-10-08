@@ -10,7 +10,7 @@ const {
   STREAM_EXTRACT_LEAD_MIN,
 } = require('../../utils/time');
 const { clearSourceMatchUrl } = require('../../utils/matchUrlDiscovery');
-const { assertFeedKey, feedSummary } = require('../services/feedAdminService');
+const { assertFeedKey } = require('../services/feedAdminService');
 const { collectSourceFailuresFromMatches } = require('../services/dashboardService');
 const { toAdminMatchDoc, listAdminEntries } = require('../../utils/adminMatch');
 
@@ -1256,28 +1256,21 @@ function createAdminRouter(ctx) {
   });
 
   // ---------- Delivery feeds (highlight1, highlight2, tips, myanmartv) ----------
-  router.get('/feeds', auth, (_req, res) => {
-    const feeds = ['highlight1', 'highlight2', 'tips', 'myanmartv'].map((key) => {
-      const data = ctx.cache.getDelivery(key);
-      return {
-        feedKey: key,
-        data,
-        summary: feedSummary(key, data),
-      };
-    });
-    res.json({ ok: true, feeds });
+  router.get('/feeds', auth, async (_req, res) => {
+    try {
+      const feeds = await Promise.all(
+        ['highlight1', 'highlight2', 'tips', 'myanmartv'].map((key) => ctx.publish.readFeed(key))
+      );
+      res.json({ ok: true, feeds });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
   });
 
-  router.get('/feeds/:feedKey', auth, (req, res) => {
+  router.get('/feeds/:feedKey', auth, async (req, res) => {
     try {
-      const feedKey = assertFeedKey(req.params.feedKey);
-      const data = ctx.cache.getDelivery(feedKey);
-      res.json({
-        ok: true,
-        feedKey,
-        data,
-        summary: feedSummary(feedKey, data),
-      });
+      const feed = await ctx.publish.readFeed(req.params.feedKey);
+      res.json({ ok: true, ...feed });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
     }
