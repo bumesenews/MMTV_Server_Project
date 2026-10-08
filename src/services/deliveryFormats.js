@@ -2,6 +2,7 @@ const { nowYangon } = require('../utils/time');
 const { hashPayload, sanitizeForCompare } = require('../utils/compare');
 const { toPublicMatchesPayload } = require('./jsonGenerator');
 const { encryptPublicMatchesPayload } = require('../utils/streamUrlCrypto');
+const { isDirectMediaUrl } = require('../sources/highlightMedia');
 
 /**
  * Split Flutter delivery feeds:
@@ -59,7 +60,7 @@ function formatHighlightsDelivery(highlights = [], meta = {}) {
     url: h.url || null,
     match_date: h.match_date || h.matchDate || null,
     embed_url: h.embed_url || h.embedUrl || null,
-    m3u8: h.m3u8 || null,
+    m3u8: isDirectMediaUrl(h.m3u8) || null,
     headers: h.headers || null,
     source: h.source || 'highlight',
   }));

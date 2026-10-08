@@ -2,6 +2,7 @@ const { DateTime } = require('luxon');
 const { logger, logEvent, events } = require('../utils/logger');
 const { hashPayload } = require('../utils/compare');
 const { formatHighlightsDelivery } = require('./deliveryFormats');
+const { isDirectMediaUrl } = require('../sources/highlightMedia');
 
 const TIMEZONE = 'Asia/Yangon';
 const DEFAULT_RETENTION_DAYS = 7;
@@ -128,7 +129,7 @@ class HighlightManager {
       url: raw.url || null,
       matchDate,
       embedUrl: raw.embedUrl || raw.embed_url || null,
-      m3u8: raw.m3u8 || null,
+      m3u8: isDirectMediaUrl(raw.m3u8) || null,
       headers: raw.headers || null,
       source: raw.source || 'highlight',
       league: raw.league || this.parseTeamsFromTitle(title).league || null,
@@ -166,7 +167,7 @@ class HighlightManager {
         map.set(key, {
           ...prev,
           ...item,
-          m3u8: item.m3u8 || prev.m3u8 || null,
+          m3u8: isDirectMediaUrl(item.m3u8) || isDirectMediaUrl(prev.m3u8) || null,
           embedUrl: item.embedUrl || prev.embedUrl || null,
           headers: item.headers || prev.headers || null,
           img: item.img || prev.img || null,

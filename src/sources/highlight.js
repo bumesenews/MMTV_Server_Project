@@ -5,11 +5,13 @@ const { DEFAULT_UA, runExclusivePuppeteerTask } = require('../browser/puppeteerM
 const { HighlightManager } = require('../services/highlightManager');
 const {
   axiosGetHtml,
+  axiosGetPage,
   findStreamPatterns,
   flvToM3u8,
   pickStreamUrl,
   isTransientHttpError,
 } = require('./httpStreamExtractor');
+const { isDirectMediaUrl, unwrapEmbedTarget, extractOkCdnUrl } = require('./highlightMedia');
 
 const HOOFOOT_URL = 'https://hoofoot.com/';
 const DASFOOTBALL_URL = 'https://dasfootball.com/';
@@ -94,6 +96,7 @@ class HighlightSource {
       Number(this.config.maxPages || (this.parser === 'socolive' ? 10 : 1))
     );
     this.pagePath = this.config.paths?.page || '';
+    this.listFetchBase = '';
     this.dateHelper = new HighlightManager({ retentionDays: this.recentDays });
     this.selectors = this.config.selectors || {};
     this.attrs = {
@@ -107,13 +110,25 @@ class HighlightSource {
     url = String(url).replace(/&amp;/g, '&').trim();
     if (url.startsWith('http')) return url;
     if (url.startsWith('//')) return `https:${url}`;
-    if (url.startsWith('./')) return `${this.baseUrl}${url.slice(2)}`;
-    if (url.startsWith('/')) return `${this.baseUrl.replace(/\/$/, '')}${url}`;
+    const root = this.resolveBase(base);
+    if (url.startsWith('./')) return `${root}${url.slice(2)}`;
+    if (url.startsWith('/')) return `${root.replace(/\/$/, '')}${url}`;
     try {
-      return new URL(url, base).href;
+      return new URL(url, root).href;
     } catch {
       return '';
     }
+  }
+
+  resolveBase(base) {
+    if (this.listFetchBase && (base === this.baseUrl || base === this.listUrl)) {
+      try {
+        return `${new URL(this.listFetchBase).origin}/`;
+      } catch {
+        return base;
+      }
+    }
+    return base;
   }
 
   getAllowedDates() {
@@ -388,11 +403,13 @@ class HighlightSource {
     let lastListError = null;
     for (const attempt of tries) {
       try {
-        const html = await axiosGetHtml(url, {
+        const page = await axiosGetPage(url, {
           referer: attempt.referer,
           timeout: 20000,
           retries: 3,
         });
+        if (page.finalUrl) this.listFetchBase = page.finalUrl;
+        const html = page.html;
         if (html && html.length > 500 && !/just a moment|cf-browser-verification|access denied/i.test(html)) {
           logger.debug('Highlight list fetched via axios', { url, referer: attempt.referer });
           return html;
@@ -425,6 +442,8 @@ class HighlightSource {
           timeout: Math.min(Number(this.browser.timeout) || 45000, 25000),
         });
         await sleep(2000);
+        const finalUrl = listPage.url();
+        if (finalUrl && /^https?:/i.test(finalUrl)) this.listFetchBase = finalUrl;
         return await listPage.content();
       } finally {
         await this.browser.safeClosePage(listPage);
@@ -440,17 +459,23 @@ class HighlightSource {
       "iframe[src*='embed']",
       'iframe',
     ]);
+    const candidates = [];
     for (const sel of playerSels) {
-      const node = $(sel).first();
-      if (!node.length) continue;
-      const src =
-        this.attrFrom(node, this.attrs.src) ||
-        node.attr('src') ||
-        node.attr('href') ||
-        '';
-      const abs = this.absUrl(src, pageUrl);
-      if (abs) return abs;
+      $(sel).each((_, el) => {
+        const node = $(el);
+        const src =
+          this.attrFrom(node, this.attrs.src) ||
+          node.attr('src') ||
+          node.attr('href') ||
+          '';
+        const abs = this.absUrl(src, pageUrl);
+        if (abs) candidates.push(abs);
+      });
     }
+    const preferred = candidates.find(
+      (url) => /streamable\.com|dasfootball\.com/i.test(unwrapEmbedTarget(url))
+    );
+    if (preferred || candidates[0]) return preferred || candidates[0];
     const jq = String(html || '').match(
       /jQuery\(['"]#player['"]\)\.html\(['"]([\s\S]*?)['"]\)/i
     );
@@ -513,7 +538,7 @@ class HighlightSource {
       return hls ? [hls, url] : [url];
     });
     if (fromJw) htmlUrls.unshift(fromJw);
-    return pickBestM3u8(htmlUrls) || pickStreamUrl(htmlUrls.filter((u) => /\.m3u8/i.test(u || ''))) || fromJw || null;
+    return pickBestM3u8(htmlUrls) || isDirectMediaUrl(fromJw) || extractOkCdnUrl(html) || null;
   }
 
   async collect({ extractM3u8 = true, skipEnrichIds = null, knownIds = null } = {}) {
@@ -618,22 +643,28 @@ class HighlightSource {
       });
     }
 
-    const result = highlights.map((h) => ({
-      id: h.id,
-      title: h.title,
-      img: h.img,
-      url: h.url,
-      matchDate: h.matchDate,
-      embedUrl: h.embedUrl || null,
-      m3u8: h.m3u8 || null,
-      headers: h.m3u8
-        ? {
-            'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
-            Referer: h.embedUrl || h.url || this.baseUrl,
-          }
-        : null,
-      source: this.name,
-    }));
+    const result = highlights.map((h) => {
+      const media = isDirectMediaUrl(h.m3u8);
+      let referer = h.embedUrl || h.url || this.baseUrl;
+      if (/okcdn\.ru/i.test(media || '')) referer = 'https://ok.ru/';
+      else if (/streamable\.com/i.test(media || '')) referer = h.embedUrl || 'https://streamable.com/';
+      return {
+        id: h.id,
+        title: h.title,
+        img: h.img,
+        url: h.url,
+        matchDate: h.matchDate,
+        embedUrl: h.embedUrl || null,
+        m3u8: media || null,
+        headers: media
+          ? {
+              'User-Agent': process.env.USER_AGENT || DEFAULT_UA,
+              Referer: referer,
+            }
+          : null,
+        source: this.name,
+      };
+    });
 
     logEvent(events.SCRAPER_SUCCESS, 'Highlight scrape success', {
       source: this.name,
@@ -705,11 +736,12 @@ class HighlightSource {
   }
 
   async enrichHighlight(item) {
-    if (item.m3u8) {
+    const cached = isDirectMediaUrl(item.m3u8);
+    if (cached) {
       return {
         ...item,
         embedUrl: item.embedUrl || item.url || null,
-        m3u8: item.m3u8,
+        m3u8: cached,
       };
     }
 
@@ -721,15 +753,30 @@ class HighlightSource {
       pageHtml = await axiosGetHtml(item.url, { referer: this.listUrl || this.baseUrl });
       embedUrl = this.extractEmbedFromHtml(pageHtml, item.url);
       m3u8 = this.extractPageM3u8(pageHtml, item.url);
-      if (m3u8 && (!embedUrl || embedUrl === m3u8)) {
-        embedUrl = embedUrl || item.url;
-      }
     } catch (err) {
       logger.debug('Highlight match axios failed', {
         title: item.title,
         error: err.message,
       });
     }
+
+    const streamable =
+      this.extractStreamableEmbed(pageHtml) ||
+      (/streamable\.com/i.test(unwrapEmbedTarget(embedUrl)) ? unwrapEmbedTarget(embedUrl) : '');
+    if (streamable) {
+      const file = isDirectMediaUrl(await this.resolveStreamableFile(streamable));
+      if (file) {
+        const id = String(streamable).match(/streamable\.com\/(?:e|o)\/([a-z0-9]+)/i)?.[1];
+        return {
+          ...item,
+          embedUrl: id ? `https://streamable.com/e/${id}` : streamable,
+          m3u8: file,
+        };
+      }
+    }
+
+    embedUrl = unwrapEmbedTarget(embedUrl) || embedUrl;
+    m3u8 = isDirectMediaUrl(m3u8);
 
     if (!embedUrl && this.browser && this.parser !== 'socolive') {
       await runExclusivePuppeteerTask(async () => {
@@ -741,24 +788,45 @@ class HighlightSource {
           });
           await sleep(1200);
           const html = await page.content();
-          embedUrl = this.extractEmbedFromHtml(html, item.url);
+          embedUrl = unwrapEmbedTarget(this.extractEmbedFromHtml(html, item.url));
+          if (!m3u8) m3u8 = this.extractPageM3u8(html, item.url);
+          if (!pageHtml) pageHtml = html;
         } finally {
           await this.browser.safeClosePage(page);
         }
       });
     }
 
-    if (!m3u8 && embedUrl && /streamable\.com/i.test(embedUrl)) {
-      m3u8 = await this.resolveStreamableFile(embedUrl);
+    if (!m3u8 && /ok\.ru/i.test(`${embedUrl || ''} ${pageHtml}`)) {
+      let okHtml = pageHtml;
+      if (!extractOkCdnUrl(okHtml) && embedUrl) {
+        try {
+          okHtml = await axiosGetHtml(embedUrl, { referer: item.url || this.baseUrl });
+        } catch (err) {
+          logger.debug('OK.ru embed fetch failed', { title: item.title, error: err.message });
+        }
+      }
+      const okFile = extractOkCdnUrl(okHtml);
+      if (okFile) {
+        m3u8 = okFile;
+        if (!embedUrl || !/ok\.ru/i.test(embedUrl)) {
+          const found = String(pageHtml).match(/https?:\/\/ok\.ru\/videoembed\/\d+/i);
+          if (found) embedUrl = found[0];
+        }
+      }
     }
-    if (!m3u8 && embedUrl && embedUrl !== item.url && !mediaFileUrl(embedUrl)) {
-      m3u8 = await this.findM3u8FromEmbed(embedUrl);
+
+    if (!m3u8 && embedUrl && /streamable\.com/i.test(embedUrl)) {
+      m3u8 = isDirectMediaUrl(await this.resolveStreamableFile(embedUrl));
+    }
+    if (!m3u8 && embedUrl && embedUrl !== item.url && !/ok\.ru|streamable\.com|dasfootball\.com/i.test(embedUrl)) {
+      m3u8 = isDirectMediaUrl(await this.findM3u8FromEmbed(embedUrl));
     }
     if (!m3u8 && mediaFileUrl(embedUrl)) {
       m3u8 = mediaFileUrl(embedUrl);
     }
     if (m3u8 && !embedUrl) embedUrl = item.url;
-    return { ...item, embedUrl, m3u8 };
+    return { ...item, embedUrl: embedUrl || null, m3u8: m3u8 || null };
   }
 
   async findM3u8FromEmbed(embedUrl) {
@@ -769,7 +837,7 @@ class HighlightSource {
         const hls = flvToM3u8(url);
         return hls ? [hls, url] : [url];
       });
-      const picked = pickBestM3u8(htmlUrls) || pickStreamUrl(htmlUrls);
+      const picked = isDirectMediaUrl(pickBestM3u8(htmlUrls) || pickStreamUrl(htmlUrls));
       if (picked) {
         logger.debug('Highlight m3u8 found via axios', { embedUrl });
         return picked;
@@ -801,7 +869,7 @@ class HighlightSource {
           const hls = flvToM3u8(url);
           return hls ? [hls, url] : [url];
         });
-        return pickBestM3u8([...network, ...htmlUrls]);
+        return isDirectMediaUrl(pickBestM3u8([...network, ...htmlUrls]));
       } finally {
         await this.browser.safeClosePage(page);
       }
@@ -828,13 +896,7 @@ function titleFromDasfootballSlug(slug) {
 }
 
 function mediaFileUrl(value) {
-  const text = String(value || '')
-    .replace(/\\u0026/gi, '&')
-    .replace(/\\\//g, '/')
-    .replace(/&amp;/g, '&')
-    .trim();
-  const match = text.match(/https?:\/\/[^\s"'<>]+?\.(?:m3u8|mp4)(?:\?[^\s"'<>]*)?/i);
-  return match ? match[0] : '';
+  return isDirectMediaUrl(value);
 }
 
 function extractDasfootballVideos(html) {
@@ -916,9 +978,7 @@ function extractDasfootballVideos(html) {
 }
 
 function pickBestM3u8(urls) {
-  const cleaned = [...new Set(urls)].filter(
-    (url) => url && !/localhost/i.test(url) && /\.m3u8/i.test(url)
-  );
+  const cleaned = [...new Set(urls)].map((url) => isDirectMediaUrl(url)).filter(Boolean);
   if (!cleaned.length) return null;
   return cleaned.sort((a, b) => {
     const score = (url) => {
@@ -942,4 +1002,7 @@ module.exports = {
   parseDayMonthDate,
   MAX_ITEMS_CAP,
   isHighlightListDead,
+  isDirectMediaUrl,
+  unwrapEmbedTarget,
+  extractOkCdnUrl,
 };

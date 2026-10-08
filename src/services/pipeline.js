@@ -16,6 +16,7 @@ const { buildDeliveryBundle, formatChannelsDelivery, formatTipsDelivery } = requ
 const { enrichMatchState } = require('./statusService');
 const { hasDataChanged } = require('../utils/compare');
 const { HighlightSource } = require('../sources/highlight');
+const { isDirectMediaUrl } = require('../sources/highlightMedia');
 const { MyanmarTvSource } = require('../sources/myanmartv');
 const { TipsSource, resolveTipsDay } = require('../sources/tips');
 const { buildEngineStreamingSources } = require('../sources/registry');
@@ -1268,12 +1269,7 @@ class Pipeline {
             ? new Set()
             : new Set(
                 existing
-                  .filter(
-                    (h) =>
-                      h &&
-                      h.id != null &&
-                      String(h.m3u8 || h.embed_url || h.embedUrl || '').trim()
-                  )
+                  .filter((h) => h && h.id != null && isDirectMediaUrl(h.m3u8))
                   .map((h) => String(h.id))
               );
 
@@ -1309,7 +1305,7 @@ class Pipeline {
             if (!prev) return h;
             return {
               ...h,
-              m3u8: h.m3u8 || prev.m3u8 || null,
+              m3u8: isDirectMediaUrl(h.m3u8) || isDirectMediaUrl(prev.m3u8) || null,
               embedUrl: h.embedUrl || prev.embedUrl || prev.embed_url || null,
               headers: h.headers || prev.headers || null,
             };

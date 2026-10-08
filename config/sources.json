@@ -600,7 +600,7 @@
       "parser": "socolive",
       "feed": "highlight2",
       "domains": [
-        "https://socoliveza.tv/"
+        "https://socolivezq.tv/"
       ],
       "paths": {
         "list": "/video-highlight/",
@@ -649,7 +649,7 @@
       "retentionDays": 5,
       "maxPages": 10,
       "maxItems": 40,
-      "notes": "Socolive video-highlight last 5 days. Paginates list via axios. GitHub highlight2.json."
+      "notes": "Socolive video-highlight last 5 days. List host https://socolivezq.tv/. GitHub highlight2.json."
     },
     {
       "name": "myanmartv",

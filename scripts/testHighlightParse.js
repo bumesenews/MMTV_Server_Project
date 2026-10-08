@@ -2,7 +2,7 @@
  * Highlight1 (Hoofoot) / Highlight2 (Socolive) list parsers.
  * Run: node scripts/testHighlightParse.js
  */
-const { HighlightSource, parseDayMonthDate } = require('../src/sources/highlight');
+const { HighlightSource, parseDayMonthDate, isDirectMediaUrl, unwrapEmbedTarget, extractOkCdnUrl } = require('../src/sources/highlight');
 
 function assert(name, cond) {
   if (!cond) {
@@ -135,6 +135,43 @@ assert('day-month helper', parseDayMonthDate('20', '08', '2026') === '2026-08-20
     das.parseHighlights('<a href="/albania-vs-san-marino-highlights-2026-10-06/"></a>')[0].title ===
       'Albania vs San Marino'
   );
+}
+
+{
+  const garbage =
+    'https://ok.ru/video/16477891922671&quot;,&quot;link&quot;:&quot;https://vd400.okcdn.ru/video.m3u8?cmd=videoPlayerCdn';
+  assert('ok.ru json blob is not a media url', isDirectMediaUrl(garbage) === '');
+  assert(
+    'signed mp4 is a media url',
+    /9spbu1\.mp4/.test(
+      isDirectMediaUrl('https://cdn-cf-east.streamable.com/video/mp4/9spbu1.mp4?Expires=1&Key-Pair-Id=ABC')
+    )
+  );
+  assert(
+    'dasfootball embed unwraps streamable',
+    unwrapEmbedTarget(
+      'https://dasfootball.com/embed?src=https%3A%2F%2Fstreamable.com%2Fe%2Fuuik30&title=Switzerland'
+    ) === 'https://streamable.com/e/uuik30'
+  );
+  const okHtml =
+    'hlsManifestUrl&quot;:&quot;https://vd400.okcdn.ru/video.m3u8?cmd=videoPlayerCdn\\u0026expires=1&quot;';
+  assert(
+    'ok.ru manifest is a real m3u8',
+    extractOkCdnUrl(okHtml) === 'https://vd400.okcdn.ru/video.m3u8?cmd=videoPlayerCdn&expires=1'
+  );
+  const page = new HighlightSource({
+    config: { name: 'highlight2', parser: 'socolive', domains: ['https://socolivepp.tv/'] },
+  });
+  const extracted = page.extractPageM3u8(
+    `<iframe src="https://ok.ru/videoembed/1"></iframe><script>${garbage}</script>${okHtml}`,
+    'https://socolivepp.tv/video-highlight/sample/'
+  );
+  assert('page extract keeps the okcdn playlist', extracted === 'https://vd400.okcdn.ru/video.m3u8?cmd=videoPlayerCdn&expires=1');
+  const embed = page.extractEmbedFromHtml(
+    '<iframe src="https://ok.ru/videoembed/1"></iframe><iframe src="https://dasfootball.com/embed?src=https%3A%2F%2Fstreamable.com%2Fe%2Fuuik30"></iframe>',
+    'https://socolivepp.tv/video-highlight/sample/'
+  );
+  assert('player prefers the dasfootball embed', /dasfootball\.com\/embed/.test(embed));
 }
 
 if (process.exitCode) {
