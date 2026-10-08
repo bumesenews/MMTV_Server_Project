@@ -74,6 +74,7 @@ const shellHtml = `
 const shell = parseTipsHtml(shellHtml, { day: 'today', date: '2026-10-03' });
 assert('shell page label is not a tips heading', shell.label === 'www.predictz.com');
 assert('shell page is not a usable tips day', isUsableTipsDay(shell) === false);
+assert('unavailable day is not a usable tips day', isUsableTipsDay({ unavailable: true, tips: [], label: 'www.predictz.com' }) === false);
 assert('shell page has no tips', shell.tips.length === 0);
 
 const realEmpty = parseTipsHtml(

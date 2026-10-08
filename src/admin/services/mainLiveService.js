@@ -223,6 +223,7 @@ class MainLiveService {
             : next.streams?.[0]?.name || next.streams?.[0]?.quality || 'HD',
         userAgent: next.streams?.[0]?.headers?.['User-Agent'],
         referer: next.streams?.[0]?.headers?.Referer,
+        origin: next.streams?.[0]?.headers?.Origin,
         cookie: next.streams?.[0]?.headers?.Cookie,
       });
       next.hasStreams = next.streams.length > 0;
@@ -306,6 +307,7 @@ class MainLiveService {
       streamName: input.name || input.quality || input.streamName,
       userAgent: input.userAgent || input.headers?.['User-Agent'],
       referer: input.referer || input.headers?.Referer,
+      origin: input.origin || input.headers?.Origin,
       cookie: input.cookie || input.headers?.Cookie,
     });
     if (!built.length) throw new Error('Stream URL is required');
@@ -396,7 +398,8 @@ function newStreamId() {
 }
 
 /**
- * Build stream.headers for Flutter playback (UA / Referer / optional Cookie).
+ * Build stream.headers for Flutter playback
+ * (UA / Referer / optional Origin / optional Cookie).
  */
 function normalizeStreamHeaders(raw = {}, fallback = {}) {
   const src = raw && typeof raw === 'object' ? raw : {};
@@ -408,6 +411,10 @@ function normalizeStreamHeaders(raw = {}, fallback = {}) {
       src.Referer || src.referer || fallback.referer || ''
     ).trim(),
   };
+  const origin = String(
+    src.Origin || src.origin || fallback.origin || ''
+  ).trim();
+  if (origin) headers.Origin = origin;
   const cookie = String(
     src.Cookie || src.cookie || fallback.cookie || ''
   ).trim();
@@ -440,6 +447,7 @@ function normalizeStreamsInput(input = {}) {
         headers: normalizeStreamHeaders(raw.headers, {
           userAgent: raw.userAgent,
           referer: raw.referer,
+          origin: raw.origin,
           cookie: raw.cookie,
         }),
         active: raw.active !== false,
@@ -463,6 +471,7 @@ function normalizeStreamsInput(input = {}) {
         headers: normalizeStreamHeaders(input.headers, {
           userAgent: input.userAgent,
           referer: input.referer,
+          origin: input.origin,
           cookie: input.cookie,
         }),
         active: true,

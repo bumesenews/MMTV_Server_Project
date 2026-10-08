@@ -1856,19 +1856,19 @@ class Pipeline {
         expectedDate: expectedToday,
         day: 'today',
       });
-      const tomorrow =
-        resolveTipsDay({
-          scraped: formatted.tomorrow,
-          previousSame: previousDelivery?.tomorrow,
-          expectedDate: expectedTomorrow,
-          day: 'tomorrow',
-        }) || previousDelivery?.tomorrow || formatted.tomorrow;
-      if (!today) {
-        logger.warn('Tips today page was not the predictions table — keep previous tips.json', {
-          label: formatted.today?.label || null,
-          date: formatted.today?.date || null,
+      const tomorrow = resolveTipsDay({
+        scraped: formatted.tomorrow,
+        previousSame: previousDelivery?.tomorrow,
+        expectedDate: expectedTomorrow,
+        day: 'tomorrow',
+      });
+      const tomorrowHasTips = (tomorrow?.tips?.length || 0) > 0;
+      if (!today && !tomorrowHasTips) {
+        logger.warn('Tips pages were not the predictions tables — keep previous tips.json', {
+          todayLabel: formatted.today?.label || null,
+          tomorrowLabel: formatted.tomorrow?.label || null,
         });
-        logEvent(events.GITHUB_SKIPPED, 'Tips today page unavailable. GitHub upload skipped.', {
+        logEvent(events.GITHUB_SKIPPED, 'Tips pages unavailable. GitHub upload skipped.', {
           feed: 'tips',
           label: formatted.today?.label || null,
         });
@@ -1876,7 +1876,7 @@ class Pipeline {
           ok: false,
           reason: 'today_page_unavailable',
           today: 0,
-          tomorrow: formatted.tomorrow?.count || 0,
+          tomorrow: 0,
           at: new Date().toISOString(),
         };
         return {
@@ -1885,11 +1885,27 @@ class Pipeline {
           kept: previousDelivery,
         };
       }
+      const todayBlock = today || {
+        day: 'today',
+        date: expectedToday,
+        label: null,
+        pageUrl: formatted.today?.pageUrl || null,
+        count: 0,
+        tips: [],
+      };
+      const tomorrowBlock = tomorrow || {
+        day: 'tomorrow',
+        date: expectedTomorrow,
+        label: null,
+        pageUrl: formatted.tomorrow?.pageUrl || null,
+        count: 0,
+        tips: [],
+      };
       const nextDelivery = {
         ...formatted,
-        today,
-        tomorrow,
-        count: (today.tips?.length || 0) + (tomorrow?.tips?.length || 0),
+        today: todayBlock,
+        tomorrow: tomorrowBlock,
+        count: (todayBlock.tips?.length || 0) + (tomorrowBlock.tips?.length || 0),
       };
       if (!nextDelivery.count && previousDelivery?.count) {
         logger.warn('Tips scrape returned empty — keep previous tips.json');

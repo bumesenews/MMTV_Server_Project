@@ -13,7 +13,12 @@ const {
 const { extractStreamsFromPage, dedupeStreams, IFRAME_SRC_ATTRS } = require('./streamExtractor');
 const { sleep, DEFAULT_M3U8_PATTERNS, resolvePlayerWait } = require('./baseStreamingSource');
 const { cleanText } = require('../utils/normalize');
-const { isBrowserProtocolError } = require('../utils/streamExtractPolicy');
+const {
+  isBrowserProtocolError,
+  isValidatedStream,
+  isHttp403BlockedStream,
+  isKeptAfterValidation,
+} = require('../utils/streamExtractPolicy');
 const { maxPlayerStreams } = require('../utils/scraperConfig');
 const {
   normalizeServerName,
@@ -414,6 +419,7 @@ async function extractStreamsViaAxios({
     [...(skipServerNames || [])].map((n) => normalizeServerName(n)).filter(Boolean)
   );
   const streams = [];
+  const blockedKeep = [];
   const sourcePriority = Number(config.priority || 0);
   const htmlByUrl = new Map([[matchPageUrl, firstHtml]]);
 
@@ -526,9 +532,7 @@ async function extractStreamsViaAxios({
     if (!unique.length) return [];
     if (typeof validateStreams !== 'function') return unique.slice(0, 1);
     const checked = await validateStreams(unique);
-    return (checked || []).filter(
-      (s) => s && s.url && s.validation && s.validation.ok === true
-    );
+    return (checked || []).filter((s) => isKeptAfterValidation(s));
   };
 
   if (nameFirst) {
@@ -568,14 +572,19 @@ async function extractStreamsViaAxios({
       });
       const newest = streams.slice(before);
       if (!newest.length) continue;
-      const ok = await acceptResolved(newest);
-      if (ok.length) return ok.slice(0, 1);
+      const kept = await acceptResolved(newest);
+      const playable = kept.filter((s) => isValidatedStream(s));
+      if (playable.length) return playable.slice(0, 1);
+      for (const blocked of kept) {
+        if (isHttp403BlockedStream(blocked) && !blockedKeep.length) blockedKeep.push(blocked);
+      }
       streams.length = before;
       logger.info(`${sourceName} skip server after HTTP/auth deny`, {
         source: sourceName,
         name: candidate.name,
       });
     }
+    if (blockedKeep.length) return blockedKeep.slice(0, 1);
     return acceptResolved(streams);
   }
 
@@ -635,15 +644,40 @@ async function runAxiosThenPuppeteer({
   validate,
   shouldAbort,
 } = {}) {
-  const applyValidate = async (streams) => {
-    if (!streams?.length) return [];
-    if (typeof validate !== 'function') {
-      return (streams || []).filter((s) => s && s.url && s.active !== false);
+  const applyValidate = async (batch) => {
+    if (!batch?.length) return { playable: [], blocked: [] };
+    const classified = [];
+    const pending = [];
+    for (const item of batch) {
+      if (item?.validation && typeof item.validation.ok === 'boolean') classified.push(item);
+      else pending.push(item);
     }
-    const valid = await validate(streams);
-    return (valid || []).filter(
-      (s) => s && s.url && s.active !== false && (s.validation == null || s.validation.ok !== false)
-    );
+    let checked = classified;
+    if (pending.length) {
+      if (typeof validate !== 'function') {
+        checked = checked.concat(pending.filter((s) => s && s.url && s.active !== false));
+      } else {
+        checked = checked.concat(await validate(pending));
+      }
+    }
+    const kept = checked.filter((s) => isKeptAfterValidation(s));
+    return {
+      playable: kept.filter((s) => isValidatedStream(s)),
+      blocked: kept.filter((s) => isHttp403BlockedStream(s)),
+    };
+  };
+
+  const withBlockedFallback = (pup, axiosBlocked) => {
+    if (pup?.aborted) return pup;
+    if (pup?.streams?.length) return pup;
+    const blocked = pup?.blocked?.length ? pup.blocked : axiosBlocked;
+    if (!blocked?.length) return pup;
+    return {
+      streams: tagExtractionMethod(blocked, pup?.puppeteerLaunched ? 'puppeteer' : 'axios'),
+      method: pup?.puppeteerLaunched ? 'puppeteer' : 'axios',
+      puppeteerLaunched: Boolean(pup?.puppeteerLaunched),
+      aborted: false,
+    };
   };
 
   if (typeof shouldAbort === 'function' && shouldAbort()) {
@@ -657,15 +691,22 @@ async function runAxiosThenPuppeteer({
 
   try {
     const raw = await axiosExtract();
-    const axiosStreams = await applyValidate(raw);
-    if (axiosStreams.length) {
+    const split = await applyValidate(raw);
+    if (split.playable.length) {
       return {
-        streams: tagExtractionMethod(axiosStreams, 'axios'),
+        streams: tagExtractionMethod(split.playable, 'axios'),
         method: 'axios',
         puppeteerLaunched: false,
         aborted: false,
       };
     }
+    const pup = await puppeteerFallback({
+      puppeteerExtract,
+      applyValidate,
+      shouldAbort,
+      axiosError: null,
+    });
+    return withBlockedFallback(pup, split.blocked);
   } catch (err) {
     return puppeteerFallback({
       puppeteerExtract,
@@ -674,13 +715,6 @@ async function runAxiosThenPuppeteer({
       axiosError: err,
     });
   }
-
-  return puppeteerFallback({
-    puppeteerExtract,
-    applyValidate,
-    shouldAbort,
-    axiosError: null,
-  });
 }
 
 async function puppeteerFallback({
@@ -701,6 +735,7 @@ async function puppeteerFallback({
   if (typeof puppeteerExtract !== 'function') {
     return {
       streams: [],
+      blocked: [],
       method: 'axios',
       puppeteerLaunched: false,
       aborted: false,
@@ -708,9 +743,10 @@ async function puppeteerFallback({
     };
   }
   const raw = await puppeteerExtract();
-  const streams = await applyValidate(raw);
+  const split = await applyValidate(raw);
   return {
-    streams: tagExtractionMethod(streams, 'puppeteer'),
+    streams: tagExtractionMethod(split.playable, 'puppeteer'),
+    blocked: split.blocked,
     method: 'puppeteer',
     puppeteerLaunched: true,
     aborted: false,

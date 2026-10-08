@@ -6,7 +6,7 @@ const {
   playbackHeadersForClient,
 } = require('../../utils/streamHeaders');
 const {
-  isValidatedStream,
+  isKeptAfterValidation,
   normalizeValidationReason,
   normalizeExtractError,
 } = require('../../utils/streamExtractPolicy');
@@ -98,7 +98,7 @@ async function extractMainLiveStreams({ pipeline, matchUrl, sourceName } = {}) {
         failed.validation.state || failed.validation.reason
       );
     }
-    return (checked || []).filter((s) => s && s.active && s.url && s.validation?.ok === true);
+    return (checked || []).filter((s) => isKeptAfterValidation(s));
   };
 
   let streams = [];
@@ -111,7 +111,7 @@ async function extractMainLiveStreams({ pipeline, matchUrl, sourceName } = {}) {
     ) {
       streams = await validateStreams(streams);
     }
-    streams = (streams || []).filter((s) => isValidatedStream(s));
+    streams = (streams || []).filter((s) => isKeptAfterValidation(s));
     streams = validator.dedupeAndRank(streams);
     if (!streams.length) {
       error = lastValidationReason || 'NOT_FOUND';

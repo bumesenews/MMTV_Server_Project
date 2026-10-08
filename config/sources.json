@@ -553,11 +553,10 @@
       "name": "highlight1",
       "enabled": true,
       "type": "highlights",
-      "parser": "hoofoot",
+      "parser": "dasfootball",
       "feed": "highlight1",
       "domains": [
-        "https://hoofoot.com/",
-        "https://hoofoot.net/"
+        "https://dasfootball.com/"
       ],
       "paths": {
         "list": "/"
@@ -592,7 +591,7 @@
       "recentDays": 7,
       "retentionDays": 7,
       "maxItems": 8,
-      "notes": "Hoofoot gallery when DNS works. If hoofoot.com is dead, highlight1 falls back to Socolive /video-highlight/ so GitHub is not stuck on old rows."
+      "notes": "https://dasfootball.com/ homepage. VideoObject JSON-LD includes the Streamable MP4; match day comes from the highlights-YYYY-MM-DD slug."
     },
     {
       "name": "highlight2",
@@ -674,7 +673,7 @@
         "today": "https://www.predictz.com/predictions/",
         "tomorrow": "https://www.predictz.com/predictions/tomorrow/"
       },
-      "notes": "PredictZ today + tomorrow tips. Default TIPS_CRON 08:07 and 20:07 Yangon; queued if football scrape is busy."
+      "notes": "PredictZ today + tomorrow tips. Once daily at 14:00 Yangon, when the today table is published. A logo or Cloudflare page is not saved as today."
     }
   ]
 }

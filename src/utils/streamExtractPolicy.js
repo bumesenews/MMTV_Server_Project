@@ -12,6 +12,7 @@ const STREAM_SOURCE_STATUS = {
 const VALIDATION_REASON = {
   HTTP_403: 'HTTP_403',
   HTTP_404: 'HTTP_404',
+  HTTP_410: 'HTTP_410',
   TIMEOUT: 'TIMEOUT',
   NOT_HLS: 'NOT_HLS',
   EMPTY_PLAYLIST: 'EMPTY_PLAYLIST',
@@ -41,6 +42,7 @@ function normalizeValidationReason(raw) {
   }
   if (value === '403' || /http_403/i.test(value)) return VALIDATION_REASON.HTTP_403;
   if (value === '404' || /http_404/i.test(value)) return VALIDATION_REASON.HTTP_404;
+  if (value === '410' || /http_410/i.test(value)) return VALIDATION_REASON.HTTP_410;
   if (/not_hls|not_m3u8/i.test(value)) return VALIDATION_REASON.NOT_HLS;
   if (/empty_playlist/i.test(value)) return VALIDATION_REASON.EMPTY_PLAYLIST;
   if (/no_segments/i.test(value)) return VALIDATION_REASON.NO_SEGMENTS;
@@ -84,6 +86,31 @@ function isValidatedStream(stream) {
   if (stream.active === false) return false;
   if (String(stream.source || '').toLowerCase() === 'manual') return true;
   return stream.validation?.ok === true;
+}
+
+function validationStateOf(stream) {
+  return String(stream?.validation?.state || stream?.validation?.reason || '')
+    .trim()
+    .toUpperCase()
+    .replace(/[\s-]+/g, '_');
+}
+
+/** Automatic stream whose playlist returned HTTP 403. Kept, not treated as dead. */
+function isHttp403BlockedStream(stream) {
+  if (!stream?.url) return false;
+  if (String(stream.source || '').toLowerCase() === 'manual') return false;
+  const state = validationStateOf(stream);
+  return state === 'HTTP_403' || state === '403';
+}
+
+/**
+ * After validation, keep a playable stream, a manual/admin stream, or an
+ * automatic HTTP 403. Drop 404, 410, and malformed playlists.
+ */
+function isKeptAfterValidation(stream) {
+  if (!stream?.url) return false;
+  if (isValidatedStream(stream)) return true;
+  return isHttp403BlockedStream(stream);
 }
 
 function sourceHasValidatedStream(match, sourceName) {
@@ -289,6 +316,8 @@ function firstValidatedStreamHeaders(match) {
 function firstClientStream(match) {
   const validated = (match?.streams || []).find((s) => isValidatedStream(s));
   if (validated) return validated;
+  const blocked = (match?.streams || []).find((s) => isHttp403BlockedStream(s));
+  if (blocked) return blocked;
   if (String(match?.streamStatus || '') !== STREAM_SOURCE_STATUS.AVAILABLE) return null;
   return (match?.streams || []).find((s) => s?.url && s.active !== false) || null;
 }
@@ -358,6 +387,8 @@ module.exports = {
   VALIDATION_REASON,
   extractJobKey,
   isValidatedStream,
+  isHttp403BlockedStream,
+  isKeptAfterValidation,
   sourceHasValidatedStream,
   uniqueSourceStreamUrls,
   sourceNeedsMorePlayerStreams,

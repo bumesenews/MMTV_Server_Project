@@ -18,7 +18,7 @@ const {
  * └── Matches only. Highlights / Tips / MyanmarTV are skipped (no backlog).
  *
  * Non-peak (once per day, staggered):
- * └── 03:00 MyanmarTV | 06:00 Highlights | 08:00 Tips
+ * └── 03:00 MyanmarTV | 06:00 Highlights | 14:00 Tips
  *
  * Domain check (DOMAIN_CHECK_CRON, default every hour) — lightweight, not a heavy scrape.
  *

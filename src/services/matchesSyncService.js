@@ -5,6 +5,7 @@ const { finalizeStreamList } = require('../utils/streamCloneCleanup');
 const { enrichMatchState } = require('./statusService');
 const { decryptMatchesList } = require('../utils/streamUrlCrypto');
 const { isFalseEnglishPremierLabel } = require('../utils/normalize');
+const { isHttp403BlockedStream } = require('../utils/streamExtractPolicy');
 
 /** Seconds after kickoff before a match is removed from matches.json (2 hours). */
 const MATCH_EXPIRE_AFTER_SEC = Number(
@@ -61,7 +62,7 @@ function mergeStreamLists(existingStreams = [], incomingStreams = [], match = nu
     if (!s?.url) continue;
     // Skip streams explicitly marked inactive / failed validation
     if (s.active === false) continue;
-    if (s.validation && s.validation.ok === false) continue;
+    if (s.validation && s.validation.ok === false && !isHttp403BlockedStream(s)) continue;
 
     const key = streamIdentityKey(s);
     const prev = byKey.get(key);
@@ -127,7 +128,8 @@ function preferMatchUrlStatus(a, b) {
 
 function preferStreamStatus(a, b) {
   const rank = (s) => {
-    if (s === 'AVAILABLE') return 4;
+    if (s === 'AVAILABLE') return 5;
+    if (s === 'BLOCKED') return 4;
     if (s === 'SEARCHING') return 3;
     if (s === 'PREPARING_STREAM' || s === 'PREPARING') return 2;
     if (s === 'FAILED') return 1;
@@ -139,7 +141,7 @@ function preferStreamStatus(a, b) {
 function firstActiveStreamUrl(streams) {
   for (const s of streams || []) {
     if (!s?.url || s.active === false) continue;
-    if (s.validation && s.validation.ok === false) continue;
+    if (s.validation && s.validation.ok === false && !isHttp403BlockedStream(s)) continue;
     return s.url;
   }
   return null;
@@ -148,7 +150,7 @@ function firstActiveStreamUrl(streams) {
 function firstActiveStreamHeaders(streams) {
   for (const s of streams || []) {
     if (!s?.url || s.active === false) continue;
-    if (s.validation && s.validation.ok === false) continue;
+    if (s.validation && s.validation.ok === false && !isHttp403BlockedStream(s)) continue;
     return s.streamHeaders || s.headers || null;
   }
   return null;

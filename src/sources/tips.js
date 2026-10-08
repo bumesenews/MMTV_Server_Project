@@ -61,8 +61,9 @@ function htmlHasDatedTipsHeading(html) {
  * (a legitimate empty list). A logo/shell page such as "www.predictz.com" is not.
  */
 function isUsableTipsDay(day) {
-  if ((day?.tips?.length || 0) > 0) return true;
-  return Boolean(parseHeadingDate(day?.label));
+  if (!day || day.unavailable) return false;
+  if ((day.tips?.length || 0) > 0) return true;
+  return Boolean(parseHeadingDate(day.label));
 }
 
 /**
@@ -222,7 +223,7 @@ class TipsSource {
       const page = await this.browser.newPage();
       try {
         await page.goto(url, { waitUntil: 'domcontentloaded', timeout: this.browser.timeout || 25000 });
-        await page.waitForSelector('.pttr.ptcnt', { timeout: 20000 }).catch(() => {});
+        await page.waitForSelector('.pttr.ptcnt', { timeout: 30000 }).catch(() => {});
         await sleep(800);
         return await page.content();
       } finally {
@@ -232,14 +233,26 @@ class TipsSource {
 
     if (htmlHasTipRows(browserHtml) || htmlHasDatedTipsHeading(browserHtml)) return browserHtml;
     if (htmlHasDatedTipsHeading(axiosHtml)) return axiosHtml;
-    return browserHtml || axiosHtml;
+    throw new Error('PredictZ predictions table not found');
   }
 
   async scrapeDay(day) {
     const pageUrl = day === 'tomorrow' ? this.tomorrowUrl : this.todayUrl;
-    const date = yangonDateOffset(day === 'tomorrow' ? 1 : 0);
-    const html = await this.fetchHtml(pageUrl);
-    return parseTipsHtml(html, { day, date, pageUrl });
+    try {
+      const html = await this.fetchHtml(pageUrl);
+      return parseTipsHtml(html, { day, pageUrl });
+    } catch (err) {
+      logger.warn('PredictZ day unavailable', { day, pageUrl, error: err.message });
+      return {
+        day,
+        date: null,
+        label: null,
+        pageUrl,
+        count: 0,
+        tips: [],
+        unavailable: true,
+      };
+    }
   }
 
   async collect() {

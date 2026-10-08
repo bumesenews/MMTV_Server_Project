@@ -34,6 +34,8 @@ const {
   MAX_POST_KICKOFF_ATTEMPTS,
   extractJobKey,
   isValidatedStream,
+  isHttp403BlockedStream,
+  isKeptAfterValidation,
   sourceHasValidatedStream,
   decideSourceExtract,
   nextSourceStateAfterAttempt,
@@ -682,6 +684,7 @@ class StreamEngine {
 
   stampStreamFields(match, mins = minutesUntilKickoff(match?.kickoff)) {
     const hasValidated = (match?.streams || []).some((s) => isValidatedStream(s));
+    const hasBlocked = (match?.streams || []).some((s) => isHttp403BlockedStream(s));
     const streamSearch = match?.streamSearch || {};
     let lastAttemptAt = match.lastAttemptAt || null;
     for (const src of Object.values(streamSearch.sources || {})) {
@@ -689,15 +692,22 @@ class StreamEngine {
         lastAttemptAt = src.lastAttemptAt;
       }
     }
-    const streamStatus = aggregateStreamStatus(streamSearch, {
+    let streamStatus = aggregateStreamStatus(streamSearch, {
       hasValidatedStream: hasValidated,
       stopped: Boolean(streamSearch.stopped),
       mins,
     });
-    const validation = aggregateValidationFields(
+    let validation = aggregateValidationFields(
       { ...match, streamSearch },
       streamStatus
     );
+    if (!hasValidated && hasBlocked) {
+      streamStatus = 'BLOCKED';
+      validation = {
+        validationStatus: 'HTTP_403',
+        validationReason: 'HTTP_403',
+      };
+    }
     const first = (match?.streams || []).find((s) => isValidatedStream(s));
     return {
       ...match,
@@ -778,12 +788,11 @@ class StreamEngine {
           failed.validation.state || failed.validation.reason
         );
       }
-      return (checked || []).filter(
-        (s) => s && s.active && s.url && s.validation?.ok === true
-      );
+      return (checked || []).filter((s) => isKeptAfterValidation(s));
     };
 
     let streams = [];
+    let playable = [];
     let error = null;
     let extractionMethod = null;
     try {
@@ -820,11 +829,14 @@ class StreamEngine {
       ) {
         streams = await validateStreams(streams);
       }
-      streams = (streams || []).filter((s) => isValidatedStream(s));
+      streams = (streams || []).filter((s) => isKeptAfterValidation(s));
       streams = this.validator.dedupeAndRank(streams);
+      playable = streams.filter((s) => isValidatedStream(s));
       extractionMethod = streams[0]?.extractionMethod || null;
-      if (!streams.length) {
-        error = lastValidationReason || error;
+      if (!playable.length) {
+        error = streams.some((s) => isHttp403BlockedStream(s))
+          ? 'HTTP_403'
+          : lastValidationReason || error;
       }
     } catch (err) {
       error = normalizeExtractError(err);
@@ -877,7 +889,7 @@ class StreamEngine {
       streamSearch.sources[source.name] = nextSourceStateAfterAttempt({
         previous,
         slot,
-        validatedStreams: streams,
+        validatedStreams: playable,
         error,
         extractionMethod,
       });

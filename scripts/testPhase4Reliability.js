@@ -321,7 +321,7 @@ console.log('\n=== Phase 4: discoverAll source isolation ===');
   assert('Matches */5', DEFAULT_CRONS.PIPELINE_CRON === '*/5 * * * *');
   assert('MyanmarTV 03:00', DEFAULT_CRONS.MYANMARTV_CRON === '0 3 * * *');
   assert('Highlights 06:00', DEFAULT_CRONS.HIGHLIGHT_CRON === '0 6 * * *');
-  assert('Tips once daily 08:00', DEFAULT_CRONS.TIPS_CRON === '0 8 * * *');
+  assert('Tips once daily 14:00', DEFAULT_CRONS.TIPS_CRON === '0 14 * * *');
   assert('STREAM_EXTRACT_LEAD_MIN 30', STREAM_EXTRACT_LEAD_MIN === 30);
   {
     const k = Math.floor(Date.now() / 1000);

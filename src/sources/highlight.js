@@ -12,6 +12,7 @@ const {
 } = require('./httpStreamExtractor');
 
 const HOOFOOT_URL = 'https://hoofoot.com/';
+const DASFOOTBALL_URL = 'https://dasfootball.com/';
 const SOCOLIVE_LIST_URL = 'https://socolivepp.tv/video-highlight/';
 const SOCOLIVE_HIGHLIGHT1_FALLBACK_BASE = 'https://socoliveza.tv/';
 const SOCOLIVE_HIGHLIGHT1_FALLBACK_LIST = 'https://socoliveza.tv/video-highlight/';
@@ -22,6 +23,7 @@ function isHighlightListDead(err) {
   return /ENOTFOUND|ERR_NAME_NOT_RESOLVED|EAI_AGAIN|getaddrinfo|ENODATA|ENEEDAUTH/i.test(msg);
 }
 const MATCH_DATE_RE = /_(\d{4})_(\d{2})_(\d{2})(?:[/?]|$)/;
+const ISO_URL_DATE_RE = /-(\d{4})-(\d{2})-(\d{2})(?:[/?#]|$)/;
 const RECENT_DAYS = 7;
 const TIMEZONE = 'Asia/Yangon';
 /** 1GB host: never enrich more than this many videos per source per run. */
@@ -58,18 +60,22 @@ class HighlightSource {
   constructor({ config, browserManager } = {}) {
     this.config = config || {};
     this.name = this.config.name || 'highlight1';
-    this.parser = String(this.config.parser || this.name || '')
-      .toLowerCase()
-      .replace(/highlight/, '');
-    if (this.name === 'highlight2' || this.config.parser === 'socolive') {
+    const configuredParser = String(this.config.parser || '').toLowerCase();
+    if (this.name === 'highlight2' || configuredParser === 'socolive') {
       this.parser = 'socolive';
+    } else if (configuredParser === 'dasfootball') {
+      this.parser = 'dasfootball';
     } else {
-      this.parser = this.parser === 'socolive' ? 'socolive' : 'hoofoot';
+      this.parser = 'hoofoot';
     }
     this.browser = browserManager;
     this.baseUrl =
       (this.config.domains && this.config.domains[0]) ||
-      (this.parser === 'socolive' ? 'https://socolivepp.tv/' : HOOFOOT_URL);
+      (this.parser === 'socolive'
+        ? 'https://socolivepp.tv/'
+        : this.parser === 'dasfootball'
+          ? DASFOOTBALL_URL
+          : HOOFOOT_URL);
     const listPath = this.config.paths?.list || this.config.paths?.home || '';
     this.listUrl = listPath ? this.absUrl(listPath, this.baseUrl) : this.baseUrl;
     if (this.parser === 'socolive' && !listPath) {
@@ -131,14 +137,68 @@ class HighlightSource {
   }
 
   extractMatchDateKey(url) {
-    const match = String(url || '').match(MATCH_DATE_RE);
+    const text = String(url || '');
+    const match = text.match(MATCH_DATE_RE) || text.match(ISO_URL_DATE_RE);
     if (!match) return null;
     return `${match[1]}-${match[2]}-${match[3]}`;
   }
 
   parseHighlights(html) {
     if (this.parser === 'socolive') return this.parseConfigDrivenHighlights(html);
+    if (this.parser === 'dasfootball') return this.parseDasfootballHighlights(html);
     return this.parseHoofootHighlights(html);
+  }
+
+  /**
+   * dasfootball.com homepage ships schema.org VideoObject rows (title, page URL,
+   * thumbnail, and a signed Streamable MP4). Match day is the date in the slug.
+   */
+  parseDasfootballHighlights(html) {
+    const items = [];
+    const seen = new Set();
+    for (const node of extractDasfootballVideos(html)) {
+      const url = this.absUrl(node.url);
+      if (!url || seen.has(url) || !/dasfootball\.com/i.test(url)) continue;
+      if (!/-highlights-\d{4}-\d{2}-\d{2}/i.test(url)) continue;
+      seen.add(url);
+
+      const media = mediaFileUrl(node.embedUrl);
+      const thumb = Array.isArray(node.thumbnailUrl) ? node.thumbnailUrl[0] : node.thumbnailUrl;
+      const slug = dasfootballSlug(url);
+      items.push({
+        id: `${this.name}:${slug || url}`,
+        title: String(node.name || '').trim() || titleFromDasfootballSlug(slug),
+        img: this.absUrl(thumb) || '',
+        url,
+        matchDate: this.extractMatchDateKey(url),
+        embedUrl: media ? url : this.absUrl(node.embedUrl) || null,
+        m3u8: media || null,
+      });
+    }
+
+    if (items.length) return items;
+
+    const $ = load(html);
+    $('a[href*="-highlights-"]').each((_, element) => {
+      const href = $(element).attr('href') || '';
+      const url = this.absUrl(href);
+      if (!url || seen.has(url) || !/-highlights-\d{4}-\d{2}-\d{2}/i.test(url)) return;
+      seen.add(url);
+      const slug = dasfootballSlug(url);
+      const title =
+        $(element).find('h1,h2,h3').first().text().replace(/\s+/g, ' ').trim() ||
+        titleFromDasfootballSlug(slug);
+      items.push({
+        id: `${this.name}:${slug || url}`,
+        title,
+        img: this.absUrl($(element).find('img').attr('src')) || '',
+        url,
+        matchDate: this.extractMatchDateKey(url),
+        embedUrl: null,
+        m3u8: null,
+      });
+    });
+    return items;
   }
 
   parseHoofootHighlights(html) {
@@ -403,8 +463,38 @@ class HighlightSource {
       this.absUrl($('#player iframe').attr('src'), pageUrl) ||
       this.absUrl($("iframe[src*='embed']").first().attr('src'), pageUrl) ||
       this.extractJwplayerFile(html, pageUrl) ||
+      this.extractStreamableEmbed(html) ||
       null
     );
+  }
+
+  extractStreamableEmbed(html) {
+    const text = String(html || '');
+    const page = text.match(/https?:\/\/streamable\.com\/(?:e|o)\/[a-z0-9]+/i);
+    if (page) return page[0];
+    const file = text.match(
+      /https?:\/\/[^"'\\\s]*streamable\.com\/video\/[^"'\\\s]+\.(?:mp4|m3u8)(?:\?[^"'\\\s]*)?/i
+    );
+    return file ? mediaFileUrl(file[0]) : null;
+  }
+
+  async resolveStreamableFile(embedUrl) {
+    const direct = mediaFileUrl(embedUrl);
+    if (direct) return direct;
+    const id = String(embedUrl || '').match(/streamable\.com\/(?:e|o)\/([a-z0-9]+)/i)?.[1];
+    if (!id) return null;
+    try {
+      const raw = await axiosGetHtml(`https://api.streamable.com/videos/${id}`, {
+        referer: 'https://streamable.com/',
+        timeout: 20000,
+        retries: 2,
+      });
+      const data = JSON.parse(raw);
+      return mediaFileUrl(data?.files?.mp4?.url) || mediaFileUrl(data?.files?.['mp4-mobile']?.url) || null;
+    } catch (err) {
+      logger.debug('Streamable file lookup failed', { id, error: err.message });
+      return null;
+    }
   }
 
   extractJwplayerFile(html, pageUrl) {
@@ -434,6 +524,27 @@ class HighlightSource {
     void knownIds;
 
     let highlights = [];
+    if (this.parser === 'dasfootball') {
+      try {
+        const html = await this.fetchListHtml(this.listUrl, { allowPuppeteer: true });
+        const allowedDas = this.getAllowedDates();
+        highlights = this.parseHighlights(html)
+          .map((h) => ({
+            ...h,
+            matchDate: this.dateHelper.normalizeDate(h.matchDate || h.url) || h.matchDate,
+          }))
+          .filter((h) => h.matchDate && allowedDas.has(h.matchDate));
+        if (this.maxItems > 0) highlights = highlights.slice(0, this.maxItems);
+      } catch (err) {
+        logger.warn('Dasfootball list fetch failed', {
+          source: this.name,
+          url: this.listUrl,
+          error: err.message,
+        });
+        highlights = [];
+      }
+    }
+
     if (this.parser === 'hoofoot') {
       try {
         const html = await this.fetchListHtml(this.listUrl, { allowPuppeteer: true });
@@ -594,6 +705,14 @@ class HighlightSource {
   }
 
   async enrichHighlight(item) {
+    if (item.m3u8) {
+      return {
+        ...item,
+        embedUrl: item.embedUrl || item.url || null,
+        m3u8: item.m3u8,
+      };
+    }
+
     let embedUrl = null;
     let m3u8 = null;
     let pageHtml = '';
@@ -629,8 +748,14 @@ class HighlightSource {
       });
     }
 
-    if (!m3u8 && embedUrl && embedUrl !== item.url) {
+    if (!m3u8 && embedUrl && /streamable\.com/i.test(embedUrl)) {
+      m3u8 = await this.resolveStreamableFile(embedUrl);
+    }
+    if (!m3u8 && embedUrl && embedUrl !== item.url && !mediaFileUrl(embedUrl)) {
       m3u8 = await this.findM3u8FromEmbed(embedUrl);
+    }
+    if (!m3u8 && mediaFileUrl(embedUrl)) {
+      m3u8 = mediaFileUrl(embedUrl);
     }
     if (m3u8 && !embedUrl) embedUrl = item.url;
     return { ...item, embedUrl, m3u8 };
@@ -682,6 +807,112 @@ class HighlightSource {
       }
     });
   }
+}
+
+function dasfootballSlug(url) {
+  const path = String(url || '').split('?')[0].replace(/\/+$/, '');
+  const slash = path.lastIndexOf('/');
+  return slash >= 0 ? path.slice(slash + 1) : path;
+}
+
+function titleFromDasfootballSlug(slug) {
+  const parts = String(slug || '').replace(/-highlights-\d{4}-\d{2}-\d{2}$/i, '').split('-vs-');
+  const cap = (value) =>
+    String(value || '')
+      .split('-')
+      .filter(Boolean)
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  if (parts.length === 2 && parts[0] && parts[1]) return `${cap(parts[0])} vs ${cap(parts[1])}`;
+  return cap(String(slug || '').replace(/-highlights-\d{4}-\d{2}-\d{2}$/i, ''));
+}
+
+function mediaFileUrl(value) {
+  const text = String(value || '')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\\//g, '/')
+    .replace(/&amp;/g, '&')
+    .trim();
+  const match = text.match(/https?:\/\/[^\s"'<>]+?\.(?:m3u8|mp4)(?:\?[^\s"'<>]*)?/i);
+  return match ? match[0] : '';
+}
+
+function extractDasfootballVideos(html) {
+  const text = String(html || '');
+  const videos = [];
+  const seen = new Set();
+  const push = (node) => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+    const type = node['@type'];
+    if (type === 'VideoObject' && node.url && !seen.has(node.url)) {
+      seen.add(node.url);
+      videos.push(node);
+    }
+    if (Array.isArray(node.itemListElement)) node.itemListElement.forEach(push);
+    if (Array.isArray(node['@graph'])) node['@graph'].forEach(push);
+  };
+
+  const $ = load(text);
+  $('script').each((_, el) => {
+    const body = $(el).text();
+    if (!body || !/VideoObject/.test(body)) return;
+    const type = String($(el).attr('type') || '');
+    if (!/ld\+json/i.test(type) && !body.trim().startsWith('{') && !body.trim().startsWith('[')) return;
+    try {
+      const parsed = JSON.parse(body);
+      (Array.isArray(parsed) ? parsed : [parsed]).forEach(push);
+    } catch {
+      /* flight payload is not raw JSON */
+    }
+  });
+  if (videos.length) return videos;
+
+  let from = 0;
+  const needle = '"@type":"VideoObject"';
+  while (from < text.length) {
+    const idx = text.indexOf(needle, from);
+    if (idx < 0) break;
+    const start = text.lastIndexOf('{', idx);
+    if (start < 0) {
+      from = idx + needle.length;
+      continue;
+    }
+    let depth = 0;
+    let inStr = false;
+    let esc = false;
+    let end = -1;
+    for (let i = start; i < text.length; i += 1) {
+      const ch = text[i];
+      if (inStr) {
+        if (esc) esc = false;
+        else if (ch === '\\') esc = true;
+        else if (ch === '"') inStr = false;
+        continue;
+      }
+      if (ch === '"') inStr = true;
+      else if (ch === '{') depth += 1;
+      else if (ch === '}') {
+        depth -= 1;
+        if (depth === 0) {
+          end = i;
+          break;
+        }
+      }
+    }
+    if (end < 0) break;
+    const raw = text.slice(start, end + 1);
+    try {
+      push(JSON.parse(raw));
+    } catch {
+      try {
+        push(JSON.parse(raw.replace(/\\u0026/gi, '&').replace(/\\\//g, '/')));
+      } catch {
+        /* skip malformed object */
+      }
+    }
+    from = end + 1;
+  }
+  return videos;
 }
 
 function pickBestM3u8(urls) {

@@ -22,6 +22,7 @@ const VALIDATION_STATE = {
   HTTP_401: 'HTTP_401',
   HTTP_403: 'HTTP_403',
   HTTP_404: 'HTTP_404',
+  HTTP_410: 'HTTP_410',
   NOT_HLS: 'NOT_HLS',
   EMPTY_PLAYLIST: 'EMPTY_PLAYLIST',
   NO_SEGMENTS: 'NO_SEGMENTS',
@@ -123,6 +124,7 @@ function stateFromHttp(status) {
   if (status === 401) return VALIDATION_STATE.HTTP_401;
   if (status === 403) return VALIDATION_STATE.HTTP_403;
   if (status === 404) return VALIDATION_STATE.HTTP_404;
+  if (status === 410) return VALIDATION_STATE.HTTP_410;
   return VALIDATION_STATE.INVALID;
 }
 
@@ -298,6 +300,28 @@ class StreamValidator {
     };
   }
 
+  /**
+   * HTTP 403 is not proof the playlist is dead (datacenter IP, CDN, Referer).
+   * Keep the discovered URL and headers so the client can still try them.
+   */
+  blockedResult(stream, extra = {}) {
+    return {
+      ...stream,
+      active: true,
+      validation: {
+        ok: false,
+        state: VALIDATION_STATE.HTTP_403,
+        statusCode: extra.statusCode ?? 403,
+        contentType: extra.contentType ?? null,
+        reason: VALIDATION_STATE.HTTP_403,
+        playlistHash: null,
+        playlistType: null,
+        retriedWithSourceHeaders: Boolean(extra.retried),
+      },
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
   availableResult(stream, headers, extra = {}) {
     const clientHeaders = playbackHeadersForClient(headers);
     return {
@@ -442,6 +466,24 @@ class StreamValidator {
 
     if (status < 200 || status >= 400) {
       const state = stateFromHttp(status);
+      if (state === VALIDATION_STATE.HTTP_403) {
+        const blocked = this.blockedResult(stream, {
+          statusCode: status,
+          contentType,
+          retried,
+        });
+        this.logValidation({
+          source: stream.source,
+          url: stream.url,
+          headers,
+          httpStatus: status,
+          hls: 'unknown',
+          playlist: 'blocked',
+          result: state,
+          retried,
+        });
+        return blocked;
+      }
       const result = this.failResult(stream, state, {
         statusCode: status,
         contentType,

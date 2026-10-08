@@ -16,7 +16,13 @@ const {
   VALIDATION_STATE,
   parseHlsPlaylist,
 } = require('../src/services/streamValidator');
-const { generateFlutterJson } = require('../src/services/jsonGenerator');
+const { generateFlutterJson, toPublicMatch } = require('../src/services/jsonGenerator');
+const { mergeStreamLists } = require('../src/services/matchesSyncService');
+const { enrichMatchState } = require('../src/services/statusService');
+const {
+  isKeptAfterValidation,
+  isHttp403BlockedStream,
+} = require('../src/utils/streamExtractPolicy');
 const {
   nextSourceStateAfterAttempt,
   STREAM_SOURCE_STATUS,
@@ -774,6 +780,128 @@ async function run() {
       'collapsed match still publishes 3 Flutter links',
       collapsed.matches[0].streamCount === 3,
       `got ${collapsed.matches[0].streamCount}`
+    );
+  }
+
+  console.log('\n=== Automatic validation keep / remove ===');
+  {
+    const url = 'https://cdn.example/auto.m3u8';
+    const headers = {
+      'User-Agent': PLAYBACK_UA_MOBILE,
+      Referer: 'https://player.example/embed/',
+    };
+    const automatic = {
+      source: 'socolive',
+      url,
+      quality: 'HD',
+      headers: { ...headers },
+      streamHeaders: { ...headers },
+      matchPageUrl: 'https://socolivepp.tv/truc-tiep/demo/',
+      active: true,
+    };
+    const manual = {
+      source: 'manual',
+      url: 'https://cdn.example/manual.m3u8',
+      quality: 'Admin',
+      headers: { Referer: 'https://admin.example/' },
+      streamHeaders: { Referer: 'https://admin.example/' },
+      active: true,
+    };
+
+    const http200 = makeHttp(async () => okResponse(mediaPlaylist()));
+    const active = await new StreamValidator({ http: http200 }).validate(automatic);
+    assert('HTTP 200 valid m3u8 is ACTIVE', active.validation.ok === true && active.validation.state === VALIDATION_STATE.AVAILABLE);
+    assert('HTTP 200 stream is kept', isKeptAfterValidation(active) && active.url === url);
+
+    const http403 = makeHttp(async () => ({ status: 403, data: 'Forbidden', contentType: 'text/plain' }));
+    const blocked = await new StreamValidator({ http: http403, sourceConfigs: {} }).validate({
+      ...automatic,
+      headers: { ...headers },
+      streamHeaders: { ...headers },
+    });
+    assert('HTTP 403 state is HTTP_403', blocked.validation.state === VALIDATION_STATE.HTTP_403);
+    assert('HTTP 403 reason is HTTP_403', blocked.validation.reason === 'HTTP_403');
+    assert('HTTP 403 is not a validated playlist', blocked.validation.ok === false && isHttp403BlockedStream(blocked));
+    assert('HTTP 403 stream is kept', isKeptAfterValidation(blocked));
+    assert('HTTP 403 keeps the stream URL', blocked.url === url);
+    assert(
+      'HTTP 403 keeps stream headers',
+      blocked.headers?.Referer === headers.Referer &&
+        blocked.streamHeaders?.Referer === headers.Referer &&
+        blocked.headers?.['User-Agent'] === PLAYBACK_UA_MOBILE
+    );
+    assert('HTTP 403 does not clear quality or source', blocked.quality === 'HD' && blocked.source === 'socolive');
+
+    const http404 = makeHttp(async () => ({ status: 404, data: 'missing', contentType: 'text/plain' }));
+    const missing = await new StreamValidator({ http: http404 }).validate({
+      ...automatic,
+      url: 'https://cdn.example/missing.m3u8',
+    });
+    assert('HTTP 404 is removed', missing.validation.state === VALIDATION_STATE.HTTP_404 && !isKeptAfterValidation(missing));
+
+    const http410 = makeHttp(async () => ({ status: 410, data: 'gone', contentType: 'text/plain' }));
+    const gone = await new StreamValidator({ http: http410 }).validate({
+      ...automatic,
+      url: 'https://cdn.example/gone.m3u8',
+    });
+    assert('HTTP 410 is removed', gone.validation.state === VALIDATION_STATE.HTTP_410 && !isKeptAfterValidation(gone));
+
+    const httpBad = makeHttp(async () => ({ status: 200, data: '<html>nope</html>', contentType: 'text/html' }));
+    const invalid = await new StreamValidator({ http: httpBad }).validate({
+      ...automatic,
+      url: 'https://cdn.example/bad.m3u8',
+    });
+    assert('invalid playlist is removed', invalid.validation.state === VALIDATION_STATE.NOT_HLS && !isKeptAfterValidation(invalid));
+
+    assert('manual stream stays kept without validation', isKeptAfterValidation(manual));
+    const merged = mergeStreamLists([manual], [blocked, missing, gone, invalid]);
+    const mergedUrls = merged.streams.map((s) => s.url);
+    assert('merge keeps manual stream', mergedUrls.includes(manual.url));
+    assert('merge keeps HTTP 403 stream', mergedUrls.includes(url));
+    assert('merge drops HTTP 404, 410, and invalid playlists', !mergedUrls.includes(missing.url) && !mergedUrls.includes(gone.url) && !mergedUrls.includes(invalid.url));
+    assert(
+      'manual headers were not rewritten',
+      merged.streams.find((s) => s.source === 'manual')?.headers?.Referer === 'https://admin.example/'
+    );
+
+    const kickoff = DateTime.now().setZone(ZONE).toISO();
+    const match = enrichMatchState({
+      matchId: 'blocked_auto_20261008',
+      league: 'Friendly',
+      homeTeam: 'Home',
+      awayTeam: 'Away',
+      kickoff,
+      matchUrl: 'https://socolivepp.tv/truc-tiep/demo/',
+      streams: [manual, blocked],
+      streamUrl: blocked.url,
+      streamHeaders: blocked.streamHeaders,
+      streamStatus: 'BLOCKED',
+      validationStatus: 'HTTP_403',
+      validationReason: 'HTTP_403',
+    });
+    assert('403 preserve keeps hasStreams', match.hasStreams === true);
+    assert('403 preserve keeps streamCount', match.streamCount === 2);
+
+    const flutter = generateFlutterJson([match]);
+    const row = flutter.matches[0];
+    assert('Flutter keeps both manual and 403 streams', row.streamCount === 2 && row.hasStreams === true);
+    assert('Flutter keeps the 403 URL', row.streams.some((s) => s.url === url && s.source === 'socolive'));
+    assert('Flutter keeps manual URL', row.streams.some((s) => s.source === 'manual' && s.url === manual.url));
+    assert(
+      'Flutter 403 stream keeps Referer',
+      row.streams.find((s) => s.url === url)?.headers?.Referer === headers.Referer
+    );
+    const autoRow = row.streams.find((s) => s.url === url);
+    assert('Flutter 403 validationStatus is HTTP_403', autoRow?.validationStatus === 'HTTP_403');
+
+    const delivered = toPublicMatch(match);
+    assert('delivery hasStreams counts the 403 stream', delivered.hasStreams === true && delivered.streamCount === 2);
+    assert('delivery JSON keeps the 403 URL', delivered.streams.some((s) => s.url === url));
+    assert('delivery JSON keeps the manual URL', delivered.streams.some((s) => s.source === 'manual' && s.url === manual.url));
+    assert(
+      'delivery JSON keeps 403 headers',
+      delivered.streams.find((s) => s.url === url)?.headers?.Referer === headers.Referer ||
+        delivered.streams.find((s) => s.url === url)?.streamHeaders?.Referer === headers.Referer
     );
   }
 }

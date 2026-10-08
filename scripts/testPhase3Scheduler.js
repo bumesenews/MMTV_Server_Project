@@ -38,7 +38,7 @@ console.log('\n=== Phase 3: default crons ===');
 assert('Matches cron every 5 min', DEFAULT_CRONS.PIPELINE_CRON === '*/5 * * * *');
 assert('MyanmarTV once daily 03:00', DEFAULT_CRONS.MYANMARTV_CRON === '0 3 * * *');
 assert('Highlights once daily 06:00', DEFAULT_CRONS.HIGHLIGHT_CRON === '0 6 * * *');
-assert('Tips once daily 08:00', DEFAULT_CRONS.TIPS_CRON === '0 8 * * *');
+assert('Tips once daily 14:00', DEFAULT_CRONS.TIPS_CRON === '0 14 * * *');
 assert('Timezone Asia/Yangon', ZONE === 'Asia/Yangon');
 
 console.log('\n=== Phase 3: peak window 17:00–03:00 ===');

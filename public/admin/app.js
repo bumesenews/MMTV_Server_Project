@@ -462,6 +462,7 @@
       const ua = headers['User-Agent'] || headers.userAgent || '';
       const referer = headers.Referer || headers.referer || '';
       const cookie = headers.Cookie || headers.cookie || '';
+      const origin = headers.Origin || headers.origin || '';
       row.innerHTML = `
         <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap">
           <label style="flex:0 0 120px">Name
@@ -481,6 +482,9 @@
           </label>
           <label style="flex:1;min-width:180px">Cookie (optional)
             <input name="streamCookie[]" value="${esc(cookie)}" placeholder="optional" />
+          </label>
+          <label style="flex:1;min-width:180px">Origin (optional)
+            <input name="streamOrigin[]" value="${esc(origin)}" placeholder="https://source.example" />
           </label>
         </div>
       `;
@@ -513,6 +517,7 @@
       const uas = fd.getAll('streamUa[]');
       const referers = fd.getAll('streamReferer[]');
       const cookies = fd.getAll('streamCookie[]');
+      const origins = fd.getAll('streamOrigin[]');
       const streams = [];
       for (let i = 0; i < Math.max(names.length, urls.length); i += 1) {
         const url = String(urls[i] || '').trim();
@@ -523,6 +528,8 @@
         };
         const cookie = String(cookies[i] || '').trim();
         if (cookie) headers.Cookie = cookie;
+        const origin = String(origins[i] || '').trim();
+        if (origin) headers.Origin = origin;
         streams.push({
           name: String(names[i] || 'HD').trim() || 'HD',
           url,
@@ -663,6 +670,7 @@
         'User-Agent': s.headers?.['User-Agent'] || '',
         Referer: s.headers?.Referer || '',
         ...(s.headers?.Cookie ? { Cookie: s.headers.Cookie } : {}),
+        ...(s.headers?.Origin ? { Origin: s.headers.Origin } : {}),
       },
       active: s.active !== false,
       type: s.type || 'm3u8',
@@ -685,6 +693,8 @@
         };
         const cookie = row.querySelector('[data-cookie]')?.value.trim() || '';
         if (cookie) headers.Cookie = cookie;
+        const origin = row.querySelector('[data-origin]')?.value.trim() || '';
+        if (origin) headers.Origin = origin;
         return {
           id: prev.id,
           name: row.querySelector('[data-name]').value.trim() || 'HD',
@@ -727,6 +737,7 @@
                 <label style="flex:1;min-width:160px">User-Agent<input data-ua value="${esc(s.headers?.['User-Agent'] || '')}" placeholder="Mozilla/5.0 ..." /></label>
                 <label style="flex:1;min-width:160px">Referer<input data-referer value="${esc(s.headers?.Referer || '')}" placeholder="https://source.example/" /></label>
                 <label style="flex:1;min-width:160px">Cookie (optional)<input data-cookie value="${esc(s.headers?.Cookie || '')}" placeholder="optional" /></label>
+                <label style="flex:1;min-width:160px">Origin (optional)<input data-origin value="${esc(s.headers?.Origin || '')}" placeholder="https://source.example" /></label>
               </div>
             </div>
           `).join('') || '<p class="muted">No streams yet.</p>'}
@@ -1012,7 +1023,8 @@
           <label style="grid-column:1/-1">m3u8 URL<input name="url" required placeholder="https://.../index.m3u8" /></label>
           <label>User-Agent<input name="userAgent" placeholder="Mozilla/5.0 ..." /></label>
           <label>Referer<input name="referer" placeholder="https://source.example/" /></label>
-          <label>Cookie (optional)<input name="cookie" /></label>
+          <label>Cookie (optional)<input name="cookie" placeholder="name=value; name2=value2" /></label>
+          <label>Origin (optional)<input name="origin" placeholder="https://source.example" /></label>
           <label>Active<select name="active"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
           <div style="grid-column:1/-1"><button type="submit">Save Manual Stream</button></div>
         </form>
@@ -1080,6 +1092,7 @@
             userAgent: fd.get('userAgent'),
             referer: fd.get('referer'),
             cookie: fd.get('cookie'),
+            origin: fd.get('origin'),
             active: fd.get('active') === 'true',
           }),
         }).then((res) => {
