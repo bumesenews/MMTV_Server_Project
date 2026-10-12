@@ -99,6 +99,7 @@ class MainLiveService {
       matchUrlSource,
       matchUrlStatus: matchUrl ? (looksLikeM3u8(matchUrl) ? 'AVAILABLE' : 'SEARCHING') : null,
       matchUrlExtractAt: null,
+      matchUrlExtractAttempts: 0,
       matchUrlExtractError: null,
       originalNames: {},
       sourcePages: matchUrlSource && matchUrl ? { [matchUrlSource]: matchUrl } : {},
@@ -160,6 +161,10 @@ class MainLiveService {
       next.date = formatDate(kickoff);
       next.time = formatTime(kickoff);
       next.timezone = 'Asia/Yangon';
+      if (next.kickoff !== current.kickoff) {
+        next.matchUrlExtractAt = null;
+        next.matchUrlExtractAttempts = 0;
+      }
     }
 
     if (patch.matchUrl !== undefined || patch.matchUrlSource !== undefined || patch.source !== undefined) {
@@ -175,10 +180,12 @@ class MainLiveService {
         next.matchUrlSource = null;
         next.matchUrlStatus = null;
         next.matchUrlExtractAt = null;
+        next.matchUrlExtractAttempts = 0;
         next.matchUrlExtractError = null;
       } else if (next.matchUrl !== current.matchUrl) {
         next.matchUrlStatus = looksLikeM3u8(next.matchUrl) ? 'AVAILABLE' : 'SEARCHING';
         next.matchUrlExtractAt = null;
+        next.matchUrlExtractAttempts = 0;
         next.matchUrlExtractError = null;
         next.streams = (next.streams || []).filter(
           (s) => String(s.source || '').toLowerCase() === 'manual'
@@ -238,7 +245,7 @@ class MainLiveService {
     return next;
   }
 
-  markExtractStatus(matchId, { status, error = null, queued = false } = {}) {
+  markExtractStatus(matchId, { status, error = null, queued = false, touchExtractAt = true } = {}) {
     const all = this.all();
     const current = all[matchId];
     if (!current) throw new Error('MainLive match not found');
@@ -246,7 +253,7 @@ class MainLiveService {
       ...current,
       matchUrlStatus: status || current.matchUrlStatus,
       matchUrlExtractError: error,
-      matchUrlExtractAt: new Date().toISOString(),
+      matchUrlExtractAt: touchExtractAt ? new Date().toISOString() : current.matchUrlExtractAt,
       matchUrlExtractQueued: Boolean(queued),
       updatedAt: new Date().toISOString(),
     };
@@ -273,6 +280,7 @@ class MainLiveService {
     }));
     const streams = [...manual, ...auto];
     const ok = found.length > 0;
+    const attempts = Number(current.matchUrlExtractAttempts) || 0;
     const next = {
       ...current,
       streams,
@@ -283,6 +291,7 @@ class MainLiveService {
       matchUrlSource: sourceName || current.matchUrlSource,
       matchUrlStatus: ok ? 'AVAILABLE' : 'FAILED',
       matchUrlExtractError: ok ? null : extraction.error || 'NOT_FOUND',
+      matchUrlExtractAttempts: ok ? attempts : attempts + 1,
       matchUrlExtractAt: new Date().toISOString(),
       matchUrlExtractQueued: false,
       sourcePages: {

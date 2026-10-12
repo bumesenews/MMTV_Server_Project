@@ -9,7 +9,7 @@ const {
   minutesUntilKickoff,
   STREAM_EXTRACT_LEAD_MIN,
 } = require('../../utils/time');
-const { clearSourceMatchUrl } = require('../../utils/matchUrlDiscovery');
+const { clearSourceMatchUrl, inMatchUrlHuntWindow } = require('../../utils/matchUrlDiscovery');
 const { assertFeedKey } = require('../services/feedAdminService');
 const { collectSourceFailuresFromMatches } = require('../services/dashboardService');
 const { toAdminMatchDoc, listAdminEntries } = require('../../utils/adminMatch');
@@ -681,30 +681,34 @@ function createAdminRouter(ctx) {
       const match = current.matches[idx];
       const minsUntilKickoff = minutesUntilKickoff(match?.kickoff);
       const extractionEligible = isStreamExtractEligible(match?.kickoff);
-      // Save + CONFIRMED always. Only kick extract when inside −30‥+2h.
-      // forceStreamCheck still cannot bypass the −30 gate in StreamEngine.
-      // If pipeline is busy, run() queues _pendingMatches + force for drain.
+      const discoveryOpen = inMatchUrlHuntWindow(match?.kickoff);
+      // Save + CONFIRMED on the chosen site. The other sites search for their
+      // own Match URL while the hunt window is open. m3u8 extract still waits
+      // until −30. forceStreamCheck cannot bypass that gate.
       let extractionQueued = false;
+      let discoveryQueued = false;
       let extractionResult = null;
-      if (extractionEligible) {
+      if (discoveryOpen) {
         try {
-          extractionResult = await ctx.pipeline.run({ forceStreamCheck: true });
-          extractionQueued =
-            extractionResult?.ok === true || extractionResult?.queued === true;
-          if (!extractionQueued) {
-            // Defensive: ensure next drain still retries Admin extract.
+          extractionResult = await ctx.pipeline.run({ forceStreamCheck: extractionEligible });
+          const started = extractionResult?.ok === true || extractionResult?.queued === true;
+          discoveryQueued = started;
+          extractionQueued = extractionEligible && started;
+          if (!started) {
             ctx.pipeline._pendingMatches = true;
-            ctx.pipeline._pendingForceStreamCheck = true;
-            extractionQueued = true;
+            if (extractionEligible) ctx.pipeline._pendingForceStreamCheck = true;
+            discoveryQueued = true;
+            extractionQueued = extractionEligible;
           }
         } catch (err) {
           ctx.pipeline._pendingMatches = true;
-          ctx.pipeline._pendingForceStreamCheck = true;
-          extractionQueued = true;
+          if (extractionEligible) ctx.pipeline._pendingForceStreamCheck = true;
+          discoveryQueued = true;
+          extractionQueued = extractionEligible;
           ctx.logService.add({
             category: 'scraper',
             action: 'manual_match_url_extract',
-            message: `Stream extract after manual match URL failed (queued retry): ${err.message}`,
+            message: `Match URL search after manual match URL failed (queued retry): ${err.message}`,
             actor: req.admin.username,
             meta: { matchId },
           });
@@ -718,6 +722,7 @@ function createAdminRouter(ctx) {
         published,
         extractionEligible,
         extractionQueued,
+        discoveryQueued,
         extractionReason: extractionResult?.reason || null,
         minutesUntilKickoff: minsUntilKickoff,
         extractLeadMinutes: STREAM_EXTRACT_LEAD_MIN,

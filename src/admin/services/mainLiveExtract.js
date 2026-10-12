@@ -14,6 +14,7 @@ const { logger } = require('../../utils/logger');
 const {
   looksLikeM3u8,
   resolveSourceFromUrl,
+  mainLiveExtractPlan,
   needsMainLiveExtract,
 } = require('./mainLiveExtractPolicy');
 
@@ -155,6 +156,25 @@ async function extractAndPublishMainLive(ctx, matchId, { actor = 'admin', force 
     return { match: current, extraction: { skipped: true, reason: 'already_m3u8' }, published: null };
   }
 
+  if (!looksLikeM3u8(current.matchUrl)) {
+    const plan = mainLiveExtractPlan(current, { force });
+    if (!plan.due) {
+      const match =
+        plan.reason === 'before_lead'
+          ? ctx.mainLive.markExtractStatus(matchId, {
+              status: 'SCHEDULED',
+              error: null,
+              touchExtractAt: false,
+            })
+          : current;
+      return {
+        match,
+        extraction: { skipped: true, reason: plan.reason },
+        published: null,
+      };
+    }
+  }
+
   if (ctx.pipeline?.running) {
     ctx.pipeline._pendingMainLiveExtract = true;
     const match = ctx.mainLive.markExtractStatus(matchId, {
@@ -183,6 +203,7 @@ async function extractAndPublishMainLive(ctx, matchId, { actor = 'admin', force 
 module.exports = {
   looksLikeM3u8,
   resolveSourceFromUrl,
+  mainLiveExtractPlan,
   needsMainLiveExtract,
   extractMainLiveStreams,
   extractAndPublishMainLive,

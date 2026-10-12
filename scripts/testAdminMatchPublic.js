@@ -3,7 +3,8 @@
  * Run: node scripts/testAdminMatchPublic.js
  */
 const { applyAdminEntryToFixture, upsertAdminEntry, emptyAdminMatchDoc } = require('../src/utils/adminMatch');
-const { needsMatchUrlDiscovery, applySourceDiscoveryResult, MATCH_URL_STATUS } = require('../src/utils/matchUrlDiscovery');
+const { needsMatchUrlDiscovery, applyAdminMatchUrl, applySourceDiscoveryResult, MATCH_URL_STATUS } = require('../src/utils/matchUrlDiscovery');
+const { toUtcUnixSeconds } = require('../src/utils/time');
 const { generateFlutterJson, toPublicMatch, toPublicMatchesPayload, flutterStreamName, publicStreamLabel } = require('../src/services/jsonGenerator');
 const { formatMatchesDelivery } = require('../src/services/deliveryFormats');
 
@@ -113,6 +114,50 @@ console.log('\n=== TEST 5 Manual Match URL not overwritten ===');
   check(
     'auto result does not replace manual URL',
     overwritten.matchUrlSearch.sources.cakhia.matchUrl === 'https://cakhia.example/keep-me'
+  );
+}
+
+console.log('\n=== TEST 5b Admin URL sends the other sites to search ===');
+{
+  const kickSec = toUtcUnixSeconds(fixture.kickoff);
+  const now = kickSec - 35 * 60;
+  const missed = applySourceDiscoveryResult(
+    { ...fixture },
+    'xoilac',
+    null,
+    { id: 't40', attempt: 3 },
+    new Date((kickSec - 40 * 60) * 1000).toISOString()
+  );
+  const stamped = applyAdminMatchUrl(
+    missed,
+    'cakhia',
+    'https://cakhia.example/manual-page',
+    new Date((kickSec - 36 * 60) * 1000).toISOString()
+  );
+  check(
+    'admin site is not searched again',
+    needsMatchUrlDiscovery(stamped, 'cakhia', now) === false
+  );
+  for (const name of ['xoilac', 'phut', 'socolive']) {
+    check(
+      `${name} searches after an admin Match URL`,
+      needsMatchUrlDiscovery(stamped, name, now) === true
+    );
+  }
+  const after = applySourceDiscoveryResult(
+    stamped,
+    'xoilac',
+    null,
+    { id: 't30', attempt: 4 },
+    new Date(now * 1000).toISOString()
+  );
+  check(
+    'xoilac is not forced again after that search',
+    needsMatchUrlDiscovery(after, 'xoilac', now + 60) === false
+  );
+  check(
+    'phut is still due',
+    needsMatchUrlDiscovery(after, 'phut', now + 60) === true
   );
 }
 

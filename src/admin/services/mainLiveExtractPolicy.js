@@ -1,4 +1,10 @@
-const { STREAM_SEARCH_INTERVAL_MINUTES } = require('../../utils/time');
+const { minutesUntilKickoff, nowUtcUnixSeconds } = require('../../utils/time');
+
+/** First MainLive m3u8 search opens this many minutes before kickoff. */
+const MAINLIVE_EXTRACT_LEAD_MIN = 30;
+/** If that search finds nothing, try once more after this many minutes. */
+const MAINLIVE_EXTRACT_RETRY_MIN = 15;
+const MAINLIVE_EXTRACT_MAX_ATTEMPTS = 2;
 
 function looksLikeM3u8(url) {
   return /\.m3u8(\?|#|$)/i.test(String(url || '').trim());
@@ -45,35 +51,61 @@ function resolveSourceFromUrl(sources, matchUrl, preferredName) {
   return list[0] || null;
 }
 
-function extractCooldownMs() {
-  return Math.max(1, Number(STREAM_SEARCH_INTERVAL_MINUTES) || 5) * 60 * 1000;
-}
-
-function needsMainLiveExtract(match, { force = false } = {}) {
-  if (!match) return false;
-  const url = String(match.matchUrl || '').trim();
-  if (!url) return false;
-  if (String(match.status || '') === 'END') return false;
-  if (looksLikeM3u8(url)) {
-    const hasUrl = (match.streams || []).some((s) => String(s.url || '').trim() === url);
-    return !hasUrl;
-  }
-  const hasAuto = (match.streams || []).some((s) => {
+function hasAutomaticStream(match) {
+  return (match?.streams || []).some((s) => {
     const src = String(s.source || '').toLowerCase();
     return src && src !== 'manual';
   });
-  if (hasAuto && !force) return false;
-  if (force) return true;
-  const at = Date.parse(match.matchUrlExtractAt || '');
-  if (Number.isFinite(at) && Date.now() - at < extractCooldownMs()) {
-    return match.matchUrlStatus === 'SEARCHING';
+}
+
+/**
+ * Page Match URLs: first search at kickoff−30, one more search 15 minutes
+ * after that attempt if it found nothing. A pasted .m3u8 is stored immediately.
+ */
+function mainLiveExtractPlan(match, { force = false, nowSec = nowUtcUnixSeconds() } = {}) {
+  if (!match) return { due: false, reason: 'no_match' };
+  const url = String(match.matchUrl || '').trim();
+  if (!url) return { due: false, reason: 'no_match_url' };
+  if (String(match.status || '') === 'END') return { due: false, reason: 'ended' };
+  if (looksLikeM3u8(url)) {
+    const hasUrl = (match.streams || []).some((s) => String(s.url || '').trim() === url);
+    return hasUrl
+      ? { due: false, reason: 'already_m3u8' }
+      : { due: true, reason: 'already_m3u8' };
   }
-  return true;
+  if (hasAutomaticStream(match) && !force) return { due: false, reason: 'found' };
+
+  const mins = minutesUntilKickoff(match.kickoff, nowSec);
+  if (mins == null || mins > MAINLIVE_EXTRACT_LEAD_MIN) {
+    return { due: false, reason: 'before_lead' };
+  }
+  if (force) return { due: true, reason: 'force' };
+
+  const attempts = Number(match.matchUrlExtractAttempts) || 0;
+  if (attempts <= 0) return { due: true, reason: 'lead' };
+  if (attempts >= MAINLIVE_EXTRACT_MAX_ATTEMPTS) {
+    return { due: false, reason: 'attempts_done' };
+  }
+  const at = Date.parse(match.matchUrlExtractAt || '');
+  if (!Number.isFinite(at)) return { due: true, reason: 'retry' };
+  const waitedMs = nowSec * 1000 - at;
+  if (waitedMs < MAINLIVE_EXTRACT_RETRY_MIN * 60 * 1000) {
+    return { due: false, reason: 'retry_wait' };
+  }
+  return { due: true, reason: 'retry' };
+}
+
+function needsMainLiveExtract(match, options) {
+  return mainLiveExtractPlan(match, options).due;
 }
 
 module.exports = {
   looksLikeM3u8,
   hostOf,
   resolveSourceFromUrl,
+  mainLiveExtractPlan,
   needsMainLiveExtract,
+  MAINLIVE_EXTRACT_LEAD_MIN,
+  MAINLIVE_EXTRACT_RETRY_MIN,
+  MAINLIVE_EXTRACT_MAX_ATTEMPTS,
 };

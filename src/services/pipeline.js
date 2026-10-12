@@ -219,8 +219,8 @@ class Pipeline {
   }
 
   /**
-   * MainLive is not in the FotMob fixture loop. After Matches extract,
-   * retry admin-entered match pages until an m3u8 is found and published.
+   * MainLive is not in the FotMob fixture loop. A saved Match URL is searched
+   * at kickoff−30, then once more 15 minutes later if that search found nothing.
    */
   async retryPendingMainLiveExtracts({ actor = 'scraper', force = false } = {}) {
     const { needsMainLiveExtract } = require('../admin/services/mainLiveExtractPolicy');

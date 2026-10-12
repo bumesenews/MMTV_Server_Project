@@ -306,6 +306,23 @@
       </div>`;
   }
 
+  function mainLiveExtractToast(result, { saved = true } = {}) {
+    const extraction = result?.extraction;
+    const prefix = saved ? 'Match URL saved · ' : '';
+    if (extraction?.queued) return 'Match URL saved — extract queued behind the scraper';
+    if (extraction?.skipped && extraction.reason === 'before_lead') {
+      return `${prefix}m3u8 search starts 30 minutes before kickoff`;
+    }
+    if (extraction?.skipped && extraction.reason === 'retry_wait') {
+      return `${prefix}next m3u8 search is 15 minutes after the last attempt`;
+    }
+    if (extraction?.ok) {
+      const n = extraction.streams?.length || 0;
+      return saved ? `Match URL saved · found ${n} stream(s)` : `Found ${n} stream(s)`;
+    }
+    return `${prefix}${result?.match?.matchUrlStatus || extraction?.error || 'searching'}`;
+  }
+
   async function renderMainLive() {
     setTitle('MainLive (mainlive.json)');
     const [matchData, leagueData, teamData] = await Promise.all([
@@ -406,7 +423,7 @@
                         ).join('')}
                       </select>
                       <input data-act="ml-match-url" type="url" value="${esc(m.matchUrl || '')}" placeholder="https://…/truc-tiep/…" style="flex:1;min-width:140px" />
-                      <button class="secondary" data-act="save-match-url" title="Save page URL and extract m3u8">Add URL</button>
+                      <button class="secondary" data-act="save-match-url" title="Save page URL. m3u8 search starts 30 minutes before kickoff">Add URL</button>
                     </div>
                   </td>
                   <td>${(m.streams || []).length}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}</td>
@@ -558,13 +575,9 @@
           created?.match?.time ||
             time12FromFields(fd.get('timeHour'), fd.get('timeMinute'), fd.get('timePeriod'))
         );
-        const extractNote = created?.extraction?.queued
-          ? ' · m3u8 search queued'
-          : created?.extraction?.ok
-            ? ' · m3u8 found'
-            : created?.match?.matchUrl
-              ? ` · extract ${created.match.matchUrlStatus || 'done'}`
-              : '';
+        const extractNote = created?.match?.matchUrl
+          ? ` · ${mainLiveExtractToast(created, { saved: false })}`
+          : '';
         toast(`MainLive created · kickoff ${t} Asia/Yangon · ${streams.length} stream(s)${extractNote}`);
         renderMainLive();
       } catch (err) {
@@ -598,18 +611,12 @@
         const source = tr.querySelector('[data-act="ml-match-source"]')?.value;
         if (!matchUrl) return toast('Enter a match page URL', 'error');
         try {
-          toast('Saving match URL — searching m3u8…');
+          toast('Saving match URL…');
           const result = await api(`/mainlive/${encodeURIComponent(id)}/match-url`, {
             method: 'POST',
             body: JSON.stringify({ matchUrl, source }),
           });
-          if (result?.extraction?.queued) {
-            toast('Match URL saved — extract queued behind the scraper');
-          } else if (result?.extraction?.ok) {
-            toast(`Match URL saved · found ${result.extraction.streams?.length || 0} stream(s)`);
-          } else {
-            toast(`Match URL saved · ${result?.match?.matchUrlStatus || result?.extraction?.error || 'searching'}`);
-          }
+          toast(mainLiveExtractToast(result));
           renderMainLive();
         } catch (err) {
           toast(err.message, 'error');
@@ -774,18 +781,14 @@
           return;
         }
         try {
-          toast('Searching for m3u8…');
+          toast('Saving match URL…');
           const result = await api(`/mainlive/${encodeURIComponent(matchId)}/match-url`, {
             method: 'POST',
             body: JSON.stringify({ matchUrl, source }),
           });
-          if (result?.extraction?.queued) {
-            toast('Match URL saved — extract queued behind the scraper');
-          } else if (result?.extraction?.ok) {
-            toast(`Found ${result.extraction.streams?.length || 0} stream(s)`);
-          } else {
-            toast(`Saved URL · ${result?.match?.matchUrlStatus || result?.extraction?.error || 'no m3u8 yet'}`, 'error');
-          }
+          const extraction = result?.extraction;
+          const quiet = extraction?.ok || extraction?.queued || extraction?.skipped;
+          toast(mainLiveExtractToast(result), quiet ? undefined : 'error');
           overlay.remove();
           renderMainLive();
         } catch (err) {
@@ -975,9 +978,11 @@
             body: JSON.stringify({ source, matchUrl }),
           });
           if (result?.extractionQueued) {
-            toast('Match URL saved · stream extraction started');
+            toast('Match URL saved · this site extracts m3u8, the other sites search for the match');
+          } else if (result?.discoveryQueued) {
+            toast('Match URL saved · the other sites are searching for this match');
           } else if (result?.extractionEligible === false) {
-            toast('Match URL saved · m3u8 extract waits until −30 min');
+            toast('Match URL saved · other sites search from −60 min, m3u8 extract waits until −30 min');
           } else {
             toast('Match URL saved');
           }

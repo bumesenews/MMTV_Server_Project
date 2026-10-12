@@ -319,10 +319,31 @@ function lastAttemptAgeSec(lastAttemptAt, nowSec) {
 /**
  * True when this source should scrape the Today page for this FotMob fixture.
  */
+/**
+ * Admin saved a page on one site. The other sites still need their own page,
+ * even if an earlier slot already missed.
+ */
+function peerAdminDiscoverDue(fixture, sourceName, state, nowSec) {
+  if (state?.manual || sourceHasSavedMatchUrl(state)) return false;
+  if (!inMatchUrlHuntWindow(fixture?.kickoff, nowSec)) return false;
+  const sources = fixture?.matchUrlSearch?.sources || {};
+  let manualAt = 0;
+  for (const [name, raw] of Object.entries(sources)) {
+    if (name === sourceName) continue;
+    if (!raw?.manual || !String(raw.matchUrl || '').trim()) continue;
+    const at = Date.parse(raw.lastAttemptAt || '') || 0;
+    if (at > manualAt) manualAt = at;
+  }
+  if (!manualAt) return false;
+  const last = Date.parse(state?.lastAttemptAt || '') || 0;
+  return last < manualAt;
+}
+
 function needsMatchUrlDiscovery(fixture, sourceName, nowSec) {
   const st = getSourceMatchUrlState(fixture, sourceName);
   if (st.manual) return false;
   if (sourceHasSavedMatchUrl(st)) return false;
+  if (peerAdminDiscoverDue(fixture, sourceName, st, nowSec)) return true;
 
   const cooldownSec = Math.max(1, MATCH_URL_SEARCH_INTERVAL_MINUTES) * 60;
   const liveSlot = resolveMatchUrlLiveSlot(fixture?.kickoff, nowSec);
@@ -602,7 +623,8 @@ function aggregateMatchUrlFields(fixture) {
 }
 
 /**
- * Admin-supplied Match URL — treated as confirmed so discovery stops and extract runs.
+ * Admin-supplied Match URL for one site. That site is confirmed.
+ * The other sites stay due for their own Match URL search.
  */
 function applyAdminMatchUrl(fixture, sourceName, matchUrl, nowIso) {
   const url = String(matchUrl || '').trim();
@@ -659,6 +681,7 @@ module.exports = {
   sourceHasSavedMatchUrl,
   neverSearchedMatchUrl,
   matchUrlHuntCatchupSlot,
+  inMatchUrlHuntWindow,
   needsMatchUrlDiscovery,
   applySourceDiscoveryResult,
   applyAdminMatchUrl,
