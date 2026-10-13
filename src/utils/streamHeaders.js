@@ -288,6 +288,26 @@ function containsSensitive(value) {
   return SENSITIVE_HEADER_RE.test(String(value || ''));
 }
 
+/**
+ * Manual admin streams store User-Agent, Referer, and Cookie, but Origin was
+ * omitted unless the admin typed it. Players need Origin next to Referer.
+ * Keep a typed Origin. When it is blank, use the Referer origin.
+ */
+function fillOriginFromReferer(headers) {
+  if (!headers || typeof headers !== 'object') return headers || null;
+  const current = String(headers.Origin || headers.origin || '').trim();
+  if (current) {
+    if (headers.Origin === current && !headers.origin) return headers;
+    const next = { ...headers, Origin: current };
+    delete next.origin;
+    return next;
+  }
+  const referer = String(headers.Referer || headers.referer || '').trim();
+  const origin = originFromUrl(referer);
+  if (!origin) return headers;
+  return { ...headers, Origin: origin };
+}
+
 module.exports = {
   PLAYBACK_UA_MOBILE,
   PLAYBACK_HEADER_NAMES,
@@ -302,6 +322,7 @@ module.exports = {
   headersEqual,
   originFromUrl,
   originReferer,
+  fillOriginFromReferer,
   inferPlayerReferer,
   GENERIC_PLAYER_REFERERS,
   isSiteReferer,

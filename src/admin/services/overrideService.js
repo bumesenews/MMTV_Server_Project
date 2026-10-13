@@ -2,6 +2,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { JsonStore } = require('../store/jsonStore');
 const { applyAdminMatchUrl } = require('../../utils/matchUrlDiscovery');
+const { fillOriginFromReferer } = require('../../utils/streamHeaders');
 
 function newId() {
   return crypto.randomUUID();
@@ -194,23 +195,27 @@ class OverrideService {
         );
         const manual = (ov.manualStreams || [])
           .filter((s) => s.active !== false)
-          .map((s) => ({
-            source: 'manual',
-            type: s.type || 'm3u8',
-            quality: s.quality || s.name || 'HD',
-            name: s.name || s.quality || 'HD',
-            url: s.url,
-            headers: {
+          .map((s) => {
+            const headers = fillOriginFromReferer({
               'User-Agent': s.headers?.['User-Agent'] || '',
               Referer: s.headers?.Referer || '',
               ...(s.headers?.Origin ? { Origin: s.headers.Origin } : {}),
               ...(s.headers?.Cookie ? { Cookie: s.headers.Cookie } : {}),
-            },
-            active: s.active !== false,
-            priority: 1000,
-            checkedAt: s.updatedAt || s.createdAt || new Date().toISOString(),
-            manualId: s.id,
-          }));
+            });
+            return {
+              source: 'manual',
+              type: s.type || 'm3u8',
+              quality: s.quality || s.name || 'HD',
+              name: s.name || s.quality || 'HD',
+              url: s.url,
+              headers,
+              streamHeaders: headers,
+              active: s.active !== false,
+              priority: 1000,
+              checkedAt: s.updatedAt || s.createdAt || new Date().toISOString(),
+              manualId: s.id,
+            };
+          });
 
         const streams = sortStreams([...manual, ...autoStreams], SOURCE_PRIORITY);
         const kickoff = ov.kickoff || withManualMatchUrl.kickoff;
@@ -278,16 +283,16 @@ function normalizeManualStream(input = {}) {
     quality,
     name: input.name || quality,
     url: String(input.url).trim(),
-    headers: {
+    headers: fillOriginFromReferer({
       'User-Agent': input.headers?.['User-Agent'] || input.userAgent || '',
       Referer: input.headers?.Referer || input.referer || '',
       ...(input.headers?.Origin || input.origin
-        ? { Origin: input.headers?.Origin || input.origin }
+        ? { Origin: String(input.headers?.Origin || input.origin).trim() }
         : {}),
       ...(input.headers?.Cookie || input.cookie
         ? { Cookie: input.headers?.Cookie || input.cookie }
         : {}),
-    },
+    }),
     active: input.active !== false,
     createdAt: input.createdAt || new Date().toISOString(),
     updatedAt: new Date().toISOString(),

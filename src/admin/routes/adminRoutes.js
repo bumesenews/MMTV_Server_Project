@@ -412,6 +412,7 @@ function createAdminRouter(ctx) {
             url: match.streams[0].url,
             quality: match.streams[0].quality,
             name: match.streams[0].name,
+            headers: match.streams[0].headers,
           });
         } catch {
           // ignore duplicate

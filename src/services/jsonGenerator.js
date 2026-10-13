@@ -16,6 +16,7 @@ const {
   sanitizeSourcePages,
 } = require('../utils/matchUrlDiscovery');
 const { finalizeStreamList, isManualStream } = require('../utils/streamCloneCleanup');
+const { fillOriginFromReferer } = require('../utils/streamHeaders');
 const { selectUniqueNamedStreams } = require('../utils/streamServerName');
 
 const STREAM_SOURCE_LABELS = {
@@ -370,6 +371,13 @@ function toPublicStream(stream) {
   if (source) out.source = source;
   else delete out.source;
   delete out.quality;
+  if (isManualStream(stream)) {
+    const headers = fillOriginFromReferer(out.headers || out.streamHeaders || null);
+    if (headers) {
+      out.headers = headers;
+      out.streamHeaders = fillOriginFromReferer(out.streamHeaders || headers);
+    }
+  }
   return out;
 }
 

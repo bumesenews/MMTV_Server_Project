@@ -2,6 +2,7 @@ const path = require('path');
 const { JsonStore } = require('../store/jsonStore');
 const { generateMatchId } = require('../../utils/matchId');
 const { combineDateAndTime, formatDate, formatTime, toYangon } = require('../../utils/time');
+const { fillOriginFromReferer } = require('../../utils/streamHeaders');
 
 /**
  * Admin-created matches persisted separately from scraper output.
@@ -64,10 +65,16 @@ class ManualMatchService {
         quality: streamName,
         name: streamName,
         url: streamUrl,
-        headers: {
-          'User-Agent': input.userAgent || '',
-          Referer: input.referer || '',
-        },
+        headers: fillOriginFromReferer({
+          'User-Agent': input.userAgent || input.headers?.['User-Agent'] || '',
+          Referer: input.referer || input.headers?.Referer || '',
+          ...(input.origin || input.headers?.Origin
+            ? { Origin: String(input.origin || input.headers.Origin || input.headers.origin).trim() }
+            : {}),
+          ...(input.cookie || input.headers?.Cookie
+            ? { Cookie: String(input.cookie || input.headers.Cookie || input.headers.cookie).trim() }
+            : {}),
+        }),
         active: true,
         priority: 1000,
         checkedAt: new Date().toISOString(),
@@ -163,7 +170,9 @@ class ManualMatchService {
             quality: name,
             name,
             url,
-            headers: next.streams?.[0]?.headers || { 'User-Agent': '', Referer: '' },
+            headers: fillOriginFromReferer(
+              next.streams?.[0]?.headers || { 'User-Agent': '', Referer: '' }
+            ),
             active: true,
             priority: 1000,
             checkedAt: new Date().toISOString(),

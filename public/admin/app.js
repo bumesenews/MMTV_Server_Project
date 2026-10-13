@@ -389,7 +389,7 @@
               <strong>Stream URLs</strong>
               <button type="button" class="secondary" id="mainlive-add-stream">+ Add stream</button>
             </div>
-            <p class="muted" style="margin:0 0 8px">Paste a streaming site match page above — the server finds the m3u8 and uploads <code>mainlive.json</code>. You can still add m3u8s by hand below.</p>
+            <p class="muted" style="margin:0 0 8px">Paste a streaming site match page above — the server finds the m3u8 and uploads <code>mainlive.json</code>. You can still add m3u8s by hand below. Each hand-entered stream saves User-Agent, Referer, Cookie, and Origin.</p>
             <div id="mainlive-streams"></div>
           </div>
           <div style="grid-column:1/-1"><button type="submit">Create MainLive Match</button></div>
@@ -490,17 +490,17 @@
           </label>
           <button type="button" class="danger" data-remove-stream>Remove</button>
         </div>
-        <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
-          <label style="flex:1;min-width:180px">User-Agent
+        <div class="grid-2" style="margin-top:8px">
+          <label>User-Agent
             <input name="streamUa[]" value="${esc(ua)}" placeholder="Mozilla/5.0 ..." />
           </label>
-          <label style="flex:1;min-width:180px">Referer
+          <label>Referer
             <input name="streamReferer[]" value="${esc(referer)}" placeholder="https://source.example/" />
           </label>
-          <label style="flex:1;min-width:180px">Cookie (optional)
-            <input name="streamCookie[]" value="${esc(cookie)}" placeholder="optional" />
+          <label>Cookie
+            <input name="streamCookie[]" value="${esc(cookie)}" placeholder="name=value; name2=value2" />
           </label>
-          <label style="flex:1;min-width:180px">Origin (optional)
+          <label>Origin
             <input name="streamOrigin[]" value="${esc(origin)}" placeholder="https://source.example" />
           </label>
         </div>
@@ -687,7 +687,7 @@
       'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px';
     const card = document.createElement('div');
     card.className = 'panel';
-    card.style.cssText = 'width:min(720px,100%);max-height:90vh;overflow:auto';
+    card.style.cssText = 'width:min(920px,100%);max-height:90vh;overflow:auto';
 
     const syncFromDom = () => {
       const rows = [...card.querySelectorAll('#ml-stream-list [data-i]')];
@@ -716,7 +716,7 @@
     const renderList = () => {
       card.innerHTML = `
         <h3>Streams · ${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</h3>
-        <p class="muted" style="margin-top:0">Paste a match page URL to auto-find m3u8, or enter m3u8s by hand.</p>
+        <p class="muted" style="margin-top:0">Paste a match page URL to auto-find m3u8, or enter m3u8s by hand. Origin is saved with User-Agent, Referer, and Cookie.</p>
         <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
           <label style="flex:0 0 120px">Source
             <select id="ml-match-source">
@@ -740,11 +740,11 @@
                 <label style="flex:1;min-width:220px">m3u8 URL<input data-url value="${esc(s.url || '')}" placeholder="https://.../index.m3u8" /></label>
                 <button type="button" class="danger" data-del>Remove</button>
               </div>
-              <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap">
-                <label style="flex:1;min-width:160px">User-Agent<input data-ua value="${esc(s.headers?.['User-Agent'] || '')}" placeholder="Mozilla/5.0 ..." /></label>
-                <label style="flex:1;min-width:160px">Referer<input data-referer value="${esc(s.headers?.Referer || '')}" placeholder="https://source.example/" /></label>
-                <label style="flex:1;min-width:160px">Cookie (optional)<input data-cookie value="${esc(s.headers?.Cookie || '')}" placeholder="optional" /></label>
-                <label style="flex:1;min-width:160px">Origin (optional)<input data-origin value="${esc(s.headers?.Origin || '')}" placeholder="https://source.example" /></label>
+              <div class="grid-2" style="margin-top:8px">
+                <label>User-Agent<input data-ua value="${esc(s.headers?.['User-Agent'] || '')}" placeholder="Mozilla/5.0 ..." /></label>
+                <label>Referer<input data-referer value="${esc(s.headers?.Referer || '')}" placeholder="https://source.example/" /></label>
+                <label>Cookie<input data-cookie value="${esc(s.headers?.Cookie || '')}" placeholder="name=value; name2=value2" /></label>
+                <label>Origin<input data-origin value="${esc(s.headers?.Origin || '')}" placeholder="https://source.example" /></label>
               </div>
             </div>
           `).join('') || '<p class="muted">No streams yet.</p>'}
@@ -1029,7 +1029,7 @@
           <label>User-Agent<input name="userAgent" placeholder="Mozilla/5.0 ..." /></label>
           <label>Referer<input name="referer" placeholder="https://source.example/" /></label>
           <label>Cookie (optional)<input name="cookie" placeholder="name=value; name2=value2" /></label>
-          <label>Origin (optional)<input name="origin" placeholder="https://source.example" /></label>
+          <label>Origin (optional)<input name="playbackOrigin" data-playback-origin placeholder="https://source.example" /></label>
           <label>Active<select name="active"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
           <div style="grid-column:1/-1"><button type="submit">Save Manual Stream</button></div>
         </form>
@@ -1097,7 +1097,9 @@
             userAgent: fd.get('userAgent'),
             referer: fd.get('referer'),
             cookie: fd.get('cookie'),
-            origin: fd.get('origin'),
+            origin: String(
+              form.querySelector('[data-playback-origin]')?.value || fd.get('playbackOrigin') || ''
+            ).trim(),
             active: fd.get('active') === 'true',
           }),
         }).then((res) => {

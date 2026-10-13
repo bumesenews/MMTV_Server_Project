@@ -8,7 +8,7 @@ const fs = require('fs');
 const os = require('os');
 const { syncMatchesForDelivery } = require('../src/services/matchesSyncService');
 const { OverrideService } = require('../src/admin/services/overrideService');
-const { generateFlutterJson } = require('../src/services/jsonGenerator');
+const { generateFlutterJson, toPublicMatch } = require('../src/services/jsonGenerator');
 const { DateTime } = require('luxon');
 
 const ZONE = 'Asia/Yangon';
@@ -400,6 +400,46 @@ function testGithubRestoreMergesLocal() {
   check('restore merge keeps local stream', (m.streams || []).some((s) => s.url === streamUrl));
 }
 
+function testManualStreamOrigin() {
+  console.log('\nManual stream publishes Origin with Referer, User-Agent, and Cookie');
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmtv-origin-'));
+  const overrides = new OverrideService(tmpDir);
+  const matchId = 'origin_match';
+  const typed = overrides.addManualStream(matchId, {
+    url: 'https://cdn.example/typed.m3u8',
+    userAgent: 'UA-TEST',
+    referer: 'https://player.example/embed/',
+    cookie: 'sid=abc',
+    origin: 'https://cdn-origin.example',
+  });
+  check('typed Origin is stored', typed.headers.Origin === 'https://cdn-origin.example');
+  check('typed Cookie is stored', typed.headers.Cookie === 'sid=abc');
+
+  const derived = overrides.addManualStream(matchId, {
+    url: 'https://cdn.example/derived.m3u8',
+    userAgent: 'UA-TEST',
+    referer: 'https://player.example/embed/',
+    cookie: 'sid=abc',
+  });
+  check(
+    'blank Origin is filled from Referer',
+    derived.headers.Origin === 'https://player.example'
+  );
+
+  const applied = overrides.applyToMatches([
+    baseFixture({ matchId, streams: [], kickoff: kickoffIso(3) }),
+  ]);
+  const flutter = generateFlutterJson(applied, {}, {});
+  const pub = toPublicMatch(flutter.matches[0]);
+  const row = pub.streams.find((s) => s.url === 'https://cdn.example/typed.m3u8');
+  check('public headers keep typed Origin', row.headers.Origin === 'https://cdn-origin.example');
+  check('public streamHeaders keep typed Origin', row.streamHeaders.Origin === 'https://cdn-origin.example');
+  check('public headers keep Cookie', row.headers.Cookie === 'sid=abc');
+  check('public headers keep Referer', row.headers.Referer === 'https://player.example/embed/');
+  check('public headers keep User-Agent', row.headers['User-Agent'] === 'UA-TEST');
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+}
+
 function main() {
   console.log('Phase 1 refresh merge preserve tests');
   testPreserveAdminAndStreams();
@@ -409,6 +449,7 @@ function main() {
   testFlutterShape();
   testPartialIncomingCannotWipe();
   testGithubRestoreMergesLocal();
+  testManualStreamOrigin();
   console.log(`\nAll ${passed} checks passed.`);
 }
 

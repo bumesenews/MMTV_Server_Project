@@ -7,6 +7,7 @@ const { hashPayload, sanitizeForCompare } = require('../../utils/compare');
 const { toPublicMatch } = require('../../services/jsonGenerator');
 const { encryptPublicMatchesPayload } = require('../../utils/streamUrlCrypto');
 const { looksLikeM3u8 } = require('./mainLiveExtractPolicy');
+const { fillOriginFromReferer } = require('../../utils/streamHeaders');
 
 /**
  * Admin-owned MainLive feed (mainlive.json) — separate from scraped matches.json.
@@ -428,7 +429,7 @@ function normalizeStreamHeaders(raw = {}, fallback = {}) {
     src.Cookie || src.cookie || fallback.cookie || ''
   ).trim();
   if (cookie) headers.Cookie = cookie;
-  return headers;
+  return fillOriginFromReferer(headers);
 }
 
 /**
