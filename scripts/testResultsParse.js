@@ -82,14 +82,22 @@ const aligned = filterResultsToMatchFixtures(
   ],
   normalizer
 );
-assert('results keep the matches.json fixture only', aligned.count === 1 && aligned.results[0].id === 'today');
+assert('every result stays in the feed', aligned.count === 2);
+const todayRow = aligned.results.find((row) => row.id === 'today');
+const otherDay = aligned.results.find((row) => row.id === 'other-day');
 assert(
-  'team names and logos come from the fixture',
-  aligned.results[0].homeTeam === 'Manchester City' &&
-    aligned.results[0].awayTeam === 'Arsenal' &&
-    aligned.results[0].homeLogo === 'city.png' &&
-    aligned.results[0].awayLogo === 'arsenal.png' &&
-    aligned.results[0].homeScore === 2
+  'same-day fixture supplies the team names and logos',
+  todayRow.homeTeam === 'Manchester City' &&
+    todayRow.awayTeam === 'Arsenal' &&
+    todayRow.homeLogo === 'city.png' &&
+    todayRow.awayLogo === 'arsenal.png' &&
+    todayRow.homeScore === 2
+);
+assert(
+  'a club in matches.json keeps its logo on another day',
+  otherDay.homeTeam === 'Manchester City' &&
+    otherDay.homeLogo === 'city.png' &&
+    otherDay.awayLogo === 'arsenal.png'
 );
 
 async function main() {
@@ -126,10 +134,16 @@ async function main() {
     ],
   });
   kept.push(...(windowed.delivery?.results || []));
-  assert('older than yesterday is omitted', kept.length === 1 && kept[0].id === 'keep', String(kept.length));
+  const keep = kept.find((row) => row.id === 'keep');
+  const stranger = kept.find((row) => row.id === 'stranger');
+  assert('older than yesterday is omitted', kept.length === 2 && keep && stranger, String(kept.map((row) => row.id)));
   assert(
-    'kept result uses the matches.json logo',
-    kept[0].homeLogo === null && kept[0].awayLogo === 'zamalek.png' && kept[0].homeTeam === 'Asyut Petroleum'
+    'fixture result uses the matches.json logo',
+    keep.homeLogo === null && keep.awayLogo === 'zamalek.png' && keep.homeTeam === 'Asyut Petroleum'
+  );
+  assert(
+    'a result outside matches.json is still shown',
+    stranger.homeTeam === 'Other' && stranger.homeLogo == null && stranger.awayLogo == null
   );
 
   console.log(`\n${passed} passed, ${failed} failed`);

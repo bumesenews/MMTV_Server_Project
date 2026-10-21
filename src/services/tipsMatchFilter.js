@@ -1,4 +1,4 @@
-const { formatDate } = require('../utils/time');
+const { formatDate, todayYangon } = require('../utils/time');
 const { teamMatchKey, Normalizer } = require('../utils/normalize');
 
 function yangonDateFromMatch(match) {
@@ -14,14 +14,27 @@ function yangonDateFromMatch(match) {
   return `${display[3]}-${month}-${day}`;
 }
 
-function fixtureKey(homeTeam, awayTeam, date, normalizer) {
-  const day = String(date || '').trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+function pairKey(homeTeam, awayTeam, normalizer) {
   const home = teamMatchKey(normalizer.normalizeTeam(homeTeam));
   const away = teamMatchKey(normalizer.normalizeTeam(awayTeam));
   if (!home || !away) return null;
-  const pair = [home, away].sort().join('|');
+  return [home, away].sort().join('|');
+}
+
+function fixtureKey(homeTeam, awayTeam, date, normalizer) {
+  const day = String(date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const pair = pairKey(homeTeam, awayTeam, normalizer);
+  if (!pair) return null;
   return `${day}|${pair}`;
+}
+
+function chooseFixture(tip, options) {
+  const tipDate = String(tip.date || '').trim();
+  const dated = options.find((item) => item.date === tipDate);
+  if (dated) return dated;
+  if (options.length === 1) return options[0];
+  return null;
 }
 
 function logoUrl(value) {
@@ -40,51 +53,63 @@ function logosFromFixture(tip, match, normalizer) {
   };
 }
 
-function filterDay(day, matchesByKey, normalizer) {
-  const source = day && typeof day === 'object' ? day : {};
-  const tips = [];
-  for (const tip of source.tips || []) {
-    const key = fixtureKey(
-      tip.homeTeam,
-      tip.awayTeam,
-      tip.date || source.date,
-      normalizer
-    );
-    const match = key ? matchesByKey.get(key) : null;
-    if (!match) continue;
-    tips.push({
-      ...tip,
-      ...logosFromFixture(tip, match, normalizer),
-    });
-  }
-  return {
-    ...source,
-    tips,
-    count: tips.length,
-  };
-}
-
 /**
- * Keep a tip only when matches.json has the same two teams on the same Yangon date.
+ * Keep a tip when matches.json has the same two teams.
+ * The tip is filed under that fixture's Asia/Yangon date, so a PredictZ
+ * "today" row whose kickoff is after midnight lands on tomorrow.
  * Home and away order does not matter. Team aliases are applied before compare.
  * Each kept tip receives that fixture's logo on the matching team.
  */
 function filterTipsToMatchFixtures(delivery, matches, normalizer) {
   const matcher = normalizer || new Normalizer();
-  const matchesByKey = new Map();
+  const byPair = new Map();
   for (const match of matches || []) {
-    const key = fixtureKey(
-      match.homeTeam,
-      match.awayTeam,
-      yangonDateFromMatch(match),
-      matcher
-    );
-    if (key) matchesByKey.set(key, match);
+    const date = yangonDateFromMatch(match);
+    const pair = pairKey(match.homeTeam, match.awayTeam, matcher);
+    if (!date || !pair) continue;
+    const list = byPair.get(pair) || [];
+    list.push({ match, date });
+    byPair.set(pair, list);
   }
 
   const payload = delivery && typeof delivery === 'object' ? delivery : {};
-  const today = filterDay(payload.today, matchesByKey, matcher);
-  const tomorrow = filterDay(payload.tomorrow, matchesByKey, matcher);
+  const todayDate = payload.today?.date || todayYangon().toFormat('yyyy-MM-dd');
+  const tomorrowDate =
+    payload.tomorrow?.date || todayYangon().plus({ days: 1 }).toFormat('yyyy-MM-dd');
+  const buckets = { today: [], tomorrow: [] };
+  const seen = new Set();
+  const rows = [...(payload.today?.tips || []), ...(payload.tomorrow?.tips || [])];
+  for (const tip of rows) {
+    const pair = pairKey(tip.homeTeam, tip.awayTeam, matcher);
+    const chosen = pair ? chooseFixture(tip, byPair.get(pair) || []) : null;
+    if (!chosen) continue;
+    const day = chosen.date === todayDate ? 'today' : chosen.date === tomorrowDate ? 'tomorrow' : null;
+    if (!day) continue;
+    const id = String(tip.id || `${pair}|${chosen.date}`);
+    if (seen.has(`${day}|${id}`)) continue;
+    seen.add(`${day}|${id}`);
+    buckets[day].push({
+      ...tip,
+      day,
+      date: chosen.date,
+      ...logosFromFixture(tip, chosen.match, matcher),
+    });
+  }
+
+  const today = {
+    ...(payload.today || {}),
+    day: 'today',
+    date: todayDate,
+    tips: buckets.today,
+    count: buckets.today.length,
+  };
+  const tomorrow = {
+    ...(payload.tomorrow || {}),
+    day: 'tomorrow',
+    date: tomorrowDate,
+    tips: buckets.tomorrow,
+    count: buckets.tomorrow.length,
+  };
   return {
     ...payload,
     today,

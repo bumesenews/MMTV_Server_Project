@@ -91,20 +91,17 @@ function createResultsPipeline({ env = process.env, cache, github, fetchDay = fe
         }
         merged.sort((a, b) => String(b.kickoff).localeCompare(String(a.kickoff)));
         const scraped = buildResultsDelivery(merged, { generatedAt: at, source: SOURCE_PAGE });
-        if (!Array.isArray(matches)) {
-          status.lastRunAt = at;
-          status.lastRunStatus = 'matches_unavailable';
-          status.lastError = null;
-          writeStatus(status, env);
-          logger.warn('matches.json unavailable — skip results publish', { stage: 'results' });
-          return { ok: false, reason: 'matches_unavailable', changed: false };
+        const payload = Array.isArray(matches)
+          ? filterResultsToMatchFixtures(scraped, matches, normalizer)
+          : scraped;
+        if (Array.isArray(matches)) {
+          const withLogo = payload.results.filter((row) => row.homeLogo || row.awayLogo).length;
+          logger.info('Results team logos copied from matches.json', {
+            stage: 'results',
+            count: payload.count,
+            withLogo,
+          });
         }
-        const payload = filterResultsToMatchFixtures(scraped, matches, normalizer);
-        logger.info('Results limited to matches.json teams', {
-          stage: 'results',
-          scraped: scraped.count,
-          kept: payload.count,
-        });
         const previous = cache?.getDelivery ? cache.getDelivery('results') : null;
         if (cache?.saveDeliveryBundle) cache.saveDeliveryBundle({ results: payload });
         let githubResult = { uploaded: false, reason: 'not_configured' };

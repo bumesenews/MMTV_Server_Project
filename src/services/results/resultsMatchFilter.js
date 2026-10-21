@@ -18,14 +18,35 @@ function teamsFromFixture(result, match, normalizer) {
   };
 }
 
+function rememberTeam(catalog, normalizer, name, logo) {
+  const standard = normalizer.normalizeTeam(name) || name;
+  const key = teamMatchKey(standard);
+  if (!key) return;
+  const prev = catalog.get(key);
+  const nextLogo = logoUrl(logo);
+  if (!prev) {
+    catalog.set(key, { name: standard, logo: nextLogo });
+    return;
+  }
+  if (!prev.logo && nextLogo) prev.logo = nextLogo;
+}
+
+function sideFromCatalog(name, catalog, normalizer) {
+  const standard = normalizer.normalizeTeam(name) || name;
+  const found = catalog.get(teamMatchKey(standard));
+  if (!found) return { name, logo: null };
+  return { name: found.name || name, logo: found.logo };
+}
+
 /**
- * Keep a result only when matches.json has the same two teams on the same
- * Yangon date. Team names and logos on the kept row come from that fixture.
- * The score stays with the result's home and away sides.
+ * Every result stays in the feed. Team names and logos are copied from
+ * matches.json when that club is there. A same-day fixture wins so each
+ * badge stays with the right side of the score.
  */
 function filterResultsToMatchFixtures(delivery, matches, normalizer) {
   const matcher = normalizer || new Normalizer();
   const matchesByKey = new Map();
+  const catalog = new Map();
   for (const match of matches || []) {
     const key = fixtureKey(
       match.homeTeam,
@@ -33,20 +54,26 @@ function filterResultsToMatchFixtures(delivery, matches, normalizer) {
       yangonDateFromMatch(match),
       matcher
     );
-    if (key) matchesByKey.set(key, match);
+    if (key && !matchesByKey.has(key)) matchesByKey.set(key, match);
+    rememberTeam(catalog, matcher, match.homeTeam, match.homeLogo);
+    rememberTeam(catalog, matcher, match.awayTeam, match.awayLogo);
   }
 
   const payload = delivery && typeof delivery === 'object' ? delivery : {};
-  const results = [];
-  for (const row of payload.results || []) {
+  const results = (payload.results || []).map((row) => {
     const key = fixtureKey(row.homeTeam, row.awayTeam, row.date, matcher);
     const match = key ? matchesByKey.get(key) : null;
-    if (!match) continue;
-    results.push({
+    if (match) return { ...row, ...teamsFromFixture(row, match, matcher) };
+    const home = sideFromCatalog(row.homeTeam, catalog, matcher);
+    const away = sideFromCatalog(row.awayTeam, catalog, matcher);
+    return {
       ...row,
-      ...teamsFromFixture(row, match, matcher),
-    });
-  }
+      homeTeam: home.name,
+      awayTeam: away.name,
+      homeLogo: home.logo,
+      awayLogo: away.logo,
+    };
+  });
   return {
     ...payload,
     results,

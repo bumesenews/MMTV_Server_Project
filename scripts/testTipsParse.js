@@ -194,5 +194,35 @@ assert('filtered count', filtered.count === 2, String(filtered.count));
 const none = filterTipsToMatchFixtures(tipsDelivery, [], normalizer);
 assert('no matches means no tips', none.count === 0 && none.today.tips.length === 0);
 
+const midnight = filterTipsToMatchFixtures(
+  {
+    today: {
+      date: '2026-10-21',
+      tips: [
+        { id: 'como', homeTeam: 'Como', awayTeam: 'Man Utd', date: '2026-10-21', prediction: 'Home 1-0' },
+        { id: 'villa', homeTeam: 'Aston Villa', awayTeam: 'Viking', date: '2026-10-21', prediction: 'Home 2-0' },
+      ],
+    },
+    tomorrow: { date: '2026-10-22', tips: [] },
+  },
+  [
+    { homeTeam: 'Como', awayTeam: 'Manchester United', kickoff: '2026-10-21T23:15:00.000+06:30' },
+    { homeTeam: 'Aston Villa', awayTeam: 'Viking', kickoff: '2026-10-22T01:30:00.000+06:30' },
+  ],
+  new Normalizer({
+    teams: [{ standardName: 'Manchester United', aliases: ['Man Utd'] }],
+  })
+);
+assert(
+  'kickoff before midnight stays on today',
+  midnight.today.tips.map((tip) => tip.id).join(',') === 'como'
+);
+assert(
+  'kickoff after midnight moves to tomorrow',
+  midnight.tomorrow.count === 1 &&
+    midnight.tomorrow.tips[0].id === 'villa' &&
+    midnight.tomorrow.tips[0].date === '2026-10-22'
+);
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

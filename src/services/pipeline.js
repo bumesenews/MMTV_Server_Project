@@ -1894,8 +1894,8 @@ class Pipeline {
   }
 
   /**
-   * Keep results whose two teams are still in matches.json on the same day,
-   * and copy that fixture's team names and logos onto the score.
+   * Copy team names and logos from matches.json onto the saved results.
+   * Scores stay in the feed when a club is not in matches.json.
    */
   async _alignResultsWithMatches(matches) {
     if (!Array.isArray(matches)) return;
