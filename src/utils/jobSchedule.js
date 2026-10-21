@@ -5,7 +5,7 @@
  * During peak, only Matches (pipeline) may run among the four heavy scrapers.
  *
  * Priority when multiple heavy jobs contend:
- *   P0 Matches → P1 Highlights → P2 Tips → P3 Myanmar TV
+ *   P0 Matches → P1 Highlights → P2 Tips
  */
 const { DateTime } = require('luxon');
 const { ZONE, nowYangon } = require('./time');
@@ -14,14 +14,12 @@ const HEAVY_JOBS = Object.freeze({
   MATCHES: 'matches',
   HIGHLIGHTS: 'highlights',
   TIPS: 'tips',
-  MYANMARTV: 'myanmartv',
 });
 
 const HEAVY_JOB_PRIORITY = Object.freeze({
   [HEAVY_JOBS.MATCHES]: 0,
   [HEAVY_JOBS.HIGHLIGHTS]: 1,
   [HEAVY_JOBS.TIPS]: 2,
-  [HEAVY_JOBS.MYANMARTV]: 3,
 });
 
 /**
@@ -37,7 +35,6 @@ const MORNING_FEEDS = Object.freeze({
 /** Recommended production crons (Asia/Yangon). Matches stays every 5 minutes. */
 const DEFAULT_CRONS = Object.freeze({
   PIPELINE_CRON: '*/5 * * * *',
-  MYANMARTV_CRON: '0 3 * * *',
   HIGHLIGHT_CRON: '0 5,8 * * *',
   RESULTS_CRON: '0 6,10 * * *',
   TIPS_CRON: '0 7,11 * * *',

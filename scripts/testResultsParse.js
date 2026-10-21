@@ -6,7 +6,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { DateTime } = require('luxon');
-const { parseResultsPayload, buildResultsDelivery } = require('../src/services/results/resultsSource');
+const { parseResultsPayload, buildResultsDelivery, resolveResultsSource } = require('../src/services/results/resultsSource');
 const { createResultsPipeline } = require('../src/services/results/resultsPipeline');
 const { filterResultsToMatchFixtures } = require('../src/services/results/resultsMatchFilter');
 const { Normalizer } = require('../src/utils/normalize');
@@ -34,11 +34,33 @@ const packed = {
 
 const rows = parseResultsPayload(packed);
 assert('finished score kept', rows.some((row) => row.homeTeam === 'Asyut Petroleum' && row.homeScore === 0 && row.awayScore === 1 && row.status === 'FT'));
+const asyut = rows.find((row) => row.id === 'n54qllhnog3vqvy');
+assert(
+  'team crest urls come from the result team ids',
+  asyut.homeLogo === 'https://imgts.sportpulseapiz.com/football/team/homeid/image/small' &&
+    asyut.awayLogo === 'https://imgts.sportpulseapiz.com/football/team/awayid/image/small'
+);
 assert('league name attached', rows.find((row) => row.id === 'n54qllhnog3vqvy')?.competition === 'Egyptian Premier League');
 assert('not-started match omitted', !rows.some((row) => row.homeTeam === 'Not Started Home'));
 assert('live score kept', rows.some((row) => row.status === '2H' && row.homeScore === 2 && row.awayScore === 2));
 const delivery = buildResultsDelivery(rows, { generatedAt: '2026-10-21T08:00:00.000+06:30' });
 assert('delivery count', delivery.count === 2 && delivery.timezone === 'Asia/Yangon');
+const custom = resolveResultsSource({
+  domains: ['https://scores.example/kqbd/'],
+  paths: { page: 'https://scores.example/kqbd/', api: 'https://api.example/football/match/recent' },
+  selectors: { card: ['.score-row', '.match'] },
+  attrs: { href: ['data-href'], src: ['data-src', 'src'] },
+  logoUrl: 'https://cdn.example/team/{id}.png',
+});
+assert(
+  'admin results source settings',
+  custom.page === 'https://scores.example/kqbd/' &&
+    custom.api === 'https://api.example/football/match/recent/' &&
+    custom.selectors.card.join(',') === '.score-row,.match' &&
+    custom.attrs.href.join(',') === 'data-href' &&
+    custom.attrs.src.join(',') === 'data-src,src' &&
+    custom.logoTemplate === 'https://cdn.example/team/{id}.png'
+);
 
 const normalizer = new Normalizer({
   teams: [{ standardName: 'Manchester City', aliases: ['Man City'] }],
@@ -52,6 +74,8 @@ const aligned = filterResultsToMatchFixtures(
         date: '2026-10-21',
         homeTeam: 'Man City',
         awayTeam: 'Arsenal',
+        homeLogo: 'https://imgts.sportpulseapiz.com/football/team/city/image/small',
+        awayLogo: 'https://imgts.sportpulseapiz.com/football/team/arsenal/image/small',
         homeScore: 2,
         awayScore: 1,
         status: 'FT',
@@ -119,7 +143,7 @@ async function main() {
     fetchDay: async () => [
       { id: 'old', date: '2026-10-19', kickoff: '2026-10-19T10:00:00.000Z', homeTeam: 'Old', awayTeam: 'Side', homeScore: 1, awayScore: 0, status: 'FT', competition: 'Cup' },
       { id: 'keep', date: '2026-10-20', kickoff: '2026-10-20T14:00:00.000Z', homeTeam: 'Asyut Petroleum', awayTeam: 'Zamalek', homeScore: 0, awayScore: 1, status: 'FT', competition: 'Egyptian Premier League' },
-      { id: 'stranger', date: '2026-10-20', kickoff: '2026-10-20T16:00:00.000Z', homeTeam: 'Other', awayTeam: 'Club', homeScore: 3, awayScore: 0, status: 'FT', competition: 'Cup' },
+      { id: 'stranger', date: '2026-10-20', kickoff: '2026-10-20T16:00:00.000Z', homeTeam: 'Other', awayTeam: 'Club', homeLogo: 'https://imgts.sportpulseapiz.com/football/team/other/image/small', awayLogo: 'https://imgts.sportpulseapiz.com/football/team/club/image/small', homeScore: 3, awayScore: 0, status: 'FT', competition: 'Cup' },
     ],
   }).run({
     now: DateTime.fromISO('2026-10-21T08:00:00.000+06:30', { setZone: true }),
@@ -143,7 +167,9 @@ async function main() {
   );
   assert(
     'a result outside matches.json is still shown',
-    stranger.homeTeam === 'Other' && stranger.homeLogo == null && stranger.awayLogo == null
+    stranger.homeTeam === 'Other' &&
+      stranger.homeLogo === 'https://imgts.sportpulseapiz.com/football/team/other/image/small' &&
+      stranger.awayLogo === 'https://imgts.sportpulseapiz.com/football/team/club/image/small'
   );
 
   console.log(`\n${passed} passed, ${failed} failed`);

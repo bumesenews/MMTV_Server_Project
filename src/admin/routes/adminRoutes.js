@@ -1275,11 +1275,11 @@ function createAdminRouter(ctx) {
     }
   });
 
-  // ---------- Delivery feeds (highlight1, highlight2, tips, myanmartv) ----------
+  // ---------- Delivery feeds (highlight1, highlight2, tips, results) ----------
   router.get('/feeds', auth, async (_req, res) => {
     try {
       const feeds = await Promise.all(
-        ['highlight1', 'highlight2', 'tips', 'myanmartv', 'results'].map((key) => ctx.publish.readFeed(key))
+        ['highlight1', 'highlight2', 'tips', 'results'].map((key) => ctx.publish.readFeed(key))
       );
       res.json({ ok: true, feeds });
     } catch (err) {
@@ -1370,31 +1370,6 @@ function createAdminRouter(ctx) {
         github: result.github || null,
         count: result.delivery?.count ?? 0,
       });
-    } catch (err) {
-      res.status(500).json({ ok: false, error: err.message });
-    }
-  });
-
-  router.post('/pipeline/channels', auth, editor, async (req, res) => {
-    try {
-      const result = await ctx.pipeline.runMyanmarTv({
-        force: Boolean(req.body?.force),
-      });
-      ctx.logService.add({
-        category: 'scraper',
-        action: 'channels_run',
-        message: `MyanmarTV job ok=${result.ok}`,
-        actor: req.admin.username,
-        meta: result,
-      });
-      if (['already_running', 'pipeline_running', 'highlight_running', 'tips_running'].includes(result.reason)) {
-        return res.status(409).json({
-          ok: false,
-          error: 'Another job is running. Try again shortly.',
-          reason: result.reason,
-        });
-      }
-      res.json({ ok: Boolean(result.ok), ...result });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }

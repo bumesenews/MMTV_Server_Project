@@ -25,7 +25,6 @@ Working store = local `data/`. Flutter can read this server (`/flutter/*.json`) 
 | **Matches** (SecondLive) | `data/delivery/matches.json` | `/flutter/matches.json` | Scraper (+ admin overrides / manual) |
 | **Highlight 1** | `data/delivery/highlight1.json` | `/flutter/highlight1.json` (also `/flutter/highlight.json`) | Highlight job (Hoofoot) |
 | **Highlight 2** | `data/delivery/highlight2.json` | `/flutter/highlight2.json` | Highlight job (Socolive) |
-| **Myanmar TV** | `data/delivery/myanmartv.json` | `/flutter/myanmartv.json` | MyanmarTV job |
 | **Tips** | `data/delivery/tips.json` | `/flutter/tips.json` | Tips job (PredictZ) |
 | **App version** | admin store | `/flutter/app-version.json` | Admin |
 
@@ -277,7 +276,7 @@ The main tick does **not** re-scrape highlights / tips / Myanmar TV; it reuses t
 
 Manual triggers:
 
-- CLI: `npm run scrape` (`src/cli/runPipeline.js`) — flags `--force`, `--highlights`, `--channels` / `--myanmartv`, `--tips`
+- CLI: `npm run scrape` (`src/cli/runPipeline.js`) — flags `--force`, `--highlights`, `--results`, `--tips`
 - Admin: `POST /api/admin/pipeline/run`, `/highlights`, `/channels`, `/tips`
 - Empty local matches → `restoreMatchesFromGithub` (auto in pipeline + admin endpoint)
 
@@ -617,7 +616,7 @@ npm run pm2:start
 npm run scrape
 npm run scrape -- --highlights
 npm run scrape -- --tips
-npm run scrape -- --myanmartv
+npm run scrape -- --results
 node scripts/checkTodayMatchUrls.js
 node scripts/testMatchUrlMatching.js
 ```

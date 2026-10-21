@@ -3,7 +3,6 @@ const { LuongSonSource } = require('./luongson');
 const { SocoliveSource } = require('./socolive');
 const { XoilacSource } = require('./xoilac');
 const { HighlightSource } = require('./highlight');
-const { MyanmarTvSource } = require('./myanmartv');
 const { TipsSource } = require('./tips');
 const { GenericStreamingSource } = require('./genericStreamingSource');
 const {
@@ -20,7 +19,6 @@ module.exports = {
   SocoliveSource,
   XoilacSource,
   HighlightSource,
-  MyanmarTvSource,
   TipsSource,
   GenericStreamingSource,
   PARSER_REGISTRY,

@@ -48,7 +48,6 @@ async function main() {
   const previous = cache.getDelivery('matches');
   const extras = {
     highlights: cache.getCurrent()?.highlights || cache.getDelivery('highlight1')?.highlights || [],
-    channels: cache.getCurrent()?.channels || cache.getDelivery('myanmartv') || [],
   };
 
   // Local delivery/current is the merge base — never [].

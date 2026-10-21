@@ -13,7 +13,8 @@ const { hasDataChanged, hashPayload } = require('../utils/compare');
  * - mainlive.json (admin-managed)
  * - matches.json
  * - highlight.json
- * - myanmartv.json
+ * - results.json
+ * - tips.json
  */
 class GitHubService {
   constructor(env = process.env) {
@@ -29,7 +30,6 @@ class GitHubService {
       highlight: env.GITHUB_HIGHLIGHTS_PATH || 'highlight.json',
       highlight1: env.GITHUB_HIGHLIGHT1_PATH || 'highlight1.json',
       highlight2: env.GITHUB_HIGHLIGHT2_PATH || 'highlight2.json',
-      myanmartv: env.GITHUB_CHANNELS_PATH || 'myanmartv.json',
       tips: env.GITHUB_TIPS_PATH || 'tips.json',
       results: env.GITHUB_RESULTS_PATH || 'results.json',
     };
@@ -223,9 +223,6 @@ class GitHubService {
     if (feedKey === 'highlight' || feedKey === 'highlight1' || feedKey === 'highlight2') {
       return !Array.isArray(payload.highlights) || payload.highlights.length === 0;
     }
-    if (feedKey === 'myanmartv') {
-      return !Array.isArray(payload) || payload.length === 0;
-    }
     if (feedKey === 'results') {
       return !Array.isArray(payload?.results) || payload.results.length === 0;
     }
@@ -357,7 +354,7 @@ class GitHubService {
   /**
    * Upload Flutter feeds independently (change-only per file).
    * Null keys are skipped — scraper publish omits mainlive so it stays admin-owned.
-   * @param {object} bundle - { mainlive?, matches, highlight, myanmartv }
+   * @param {object} bundle - { mainlive?, matches, highlight, results, tips }
    * @param {object} previousBundle - previous local delivery files
    * @param {object} options - { allowEmptyFeeds?: string[] }
    */
@@ -377,7 +374,6 @@ class GitHubService {
       'highlight',
       'highlight1',
       'highlight2',
-      'myanmartv',
       'tips',
       'results',
     ]) {

@@ -62,7 +62,6 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         highlight: '/flutter/highlight1.json',
         highlight1: '/flutter/highlight1.json',
         highlight2: '/flutter/highlight2.json',
-        myanmartv: '/flutter/myanmartv.json',
         results: '/flutter/results.json',
         tips: '/flutter/tips.json',
         appVersion: '/flutter/app-version.json',
@@ -74,7 +73,6 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         'GET /flutter/matches.json',
         'GET /flutter/highlight1.json',
         'GET /flutter/highlight2.json',
-        'GET /flutter/myanmartv.json',
         'GET /flutter/results.json',
         'GET /flutter/tips.json',
         'GET /flutter/app-version.json',
@@ -118,27 +116,6 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
   app.get('/flutter/results.json', (req, res) => {
     if (!publicJson && !requireApiKey(req, res)) return;
     return sendDelivery(res, 'results');
-  });
-
-  app.get('/flutter/myanmartv.json', (req, res) => {
-    if (!publicJson && !requireApiKey(req, res)) return;
-    const delivery = cache.getDelivery('myanmartv');
-    if (delivery) return res.json(delivery);
-    const current = cache.getCurrent();
-    if (!current?.channels) return res.status(404).json({ ok: false, error: 'No data' });
-    return res.json(
-      current.channels.map((c) => ({
-        title: c.title,
-        img: c.img || null,
-        streamUrl: c.streamUrl || '',
-      }))
-    );
-  });
-
-  // Short aliases
-  app.get('/flutter/channels.json', (req, res) => {
-    if (!publicJson && !requireApiKey(req, res)) return;
-    return sendDelivery(res, 'myanmartv');
   });
 
   app.get('/flutter/highlights.json', (req, res) => {

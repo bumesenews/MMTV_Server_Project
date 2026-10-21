@@ -5,10 +5,10 @@ const { logger } = require('../../utils/logger');
 const { ZONE, nowYangon } = require('../../utils/time');
 const { hasDataChanged } = require('../../utils/compare');
 const {
-  SOURCE_PAGE,
   resultDates,
   fetchRecentResults,
   buildResultsDelivery,
+  resolveResultsSource,
 } = require('./resultsSource');
 const { filterResultsToMatchFixtures } = require('./resultsMatchFilter');
 
@@ -55,7 +55,13 @@ function resultsHaveNewData(previous, next) {
 
 function createResultsPipeline({ env = process.env, cache, github, fetchDay = fetchRecentResults } = {}) {
   return {
-    async run({ isHigherPriorityBusy = () => false, now = null, matches = null, normalizer = null } = {}) {
+    async run({
+      isHigherPriorityBusy = () => false,
+      now = null,
+      matches = null,
+      normalizer = null,
+      sourceConfig = null,
+    } = {}) {
       const nowDt = now && DateTime.isDateTime(now) ? now.setZone(ZONE) : nowYangon();
       const at = nowDt.toISO();
       if (inProcess && Date.now() - inProcessSince < LOCK_MS) {
@@ -77,12 +83,21 @@ function createResultsPipeline({ env = process.env, cache, github, fetchDay = fe
       inProcessSince = Date.now();
       const status = readStatus(env);
       try {
+        const source = resolveResultsSource(sourceConfig);
+        logger.info('Results source', {
+          stage: 'results',
+          page: source.page,
+          api: source.api,
+          card: source.selectors.card,
+          href: source.attrs.href,
+          attributes: source.attrs.src,
+        });
         const dates = resultDates(nowDt);
         const allowed = new Set(dates);
         const merged = [];
         const seen = new Set();
         for (const date of dates) {
-          const rows = await fetchDay(date, env);
+          const rows = await fetchDay(date, env, source);
           for (const row of rows) {
             if (!allowed.has(row.date) || seen.has(row.id)) continue;
             seen.add(row.id);
@@ -90,7 +105,7 @@ function createResultsPipeline({ env = process.env, cache, github, fetchDay = fe
           }
         }
         merged.sort((a, b) => String(b.kickoff).localeCompare(String(a.kickoff)));
-        const scraped = buildResultsDelivery(merged, { generatedAt: at, source: SOURCE_PAGE });
+        const scraped = buildResultsDelivery(merged, { generatedAt: at, source: source.page });
         const payload = Array.isArray(matches)
           ? filterResultsToMatchFixtures(scraped, matches, normalizer)
           : scraped;

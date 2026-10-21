@@ -73,23 +73,6 @@ async function main() {
     validateStatus: () => true,
   });
   console.log('\nHIGHLIGHT', h.status, String(h.data).slice(0, 120).replace(/\s+/g, ' '));
-
-  // Myanmar with browser-like headers
-  const m = await axios.get('https://www.myanmartvchannels.com/tv-channels.html', {
-    timeout: 20000,
-    headers: {
-      'User-Agent': ua,
-      Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.9,my;q=0.8',
-      Referer: 'https://www.google.com/',
-      'Sec-Fetch-Dest': 'document',
-      'Sec-Fetch-Mode': 'navigate',
-      'Sec-Fetch-Site': 'cross-site',
-      'Sec-Fetch-User': '?1',
-    },
-    validateStatus: () => true,
-  });
-  console.log('\nMYANMAR', m.status, String(m.data).includes('tv-channels') || String(m.data).includes('channel'));
 }
 
 main().catch((e) => {

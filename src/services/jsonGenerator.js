@@ -160,7 +160,7 @@ function flutterPlaybackHeaders(raw) {
 
 /**
  * Generate Flutter-facing JSON payload.
- * Includes live matches + highlights + Myanmar TV channels.
+ * Includes live matches and highlights.
  */
 function generateFlutterJson(matches, meta = {}, extras = {}) {
   const cleanedMatches = (matches || []).map((raw) => {
@@ -276,15 +276,7 @@ function generateFlutterJson(matches, meta = {}, extras = {}) {
     source: h.source || 'highlight',
   }));
 
-  const channels = (extras.channels || meta.channels || []).map((c) => ({
-    title: c.title,
-    img: c.img || null,
-    pageUrl: c.pageUrl || c.url || null,
-    streamUrl: c.streamUrl || '',
-    headers: c.headers || null,
-    active: Boolean(c.active ?? c.streamUrl),
-    source: c.source || 'myanmartv',
-  }));
+  const channels = [];
 
   const payload = {
     version: 1,

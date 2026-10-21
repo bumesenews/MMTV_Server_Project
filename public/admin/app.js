@@ -220,9 +220,8 @@
         body: JSON.stringify({ force: true }),
       });
       const h = result.payload?.highlightCount ?? result.payload?.highlights?.length ?? 0;
-      const c = result.payload?.channelCount ?? result.payload?.channels?.length ?? 0;
       toast(
-        `Scraper OK · ${result.payload?.matches?.length || 0} matches · ${h} highlights · ${c} channels`
+        `Scraper OK · ${result.payload?.matches?.length || 0} matches · ${h} highlights`
       );
       renderPage(true);
     } catch (err) {
@@ -1250,10 +1249,47 @@
     { key: 'results', label: 'Results', file: 'results.json', scraper: '/pipeline/results' },
   ];
 
+  function resultsSourceForm(source) {
+    const page = source?.paths?.page || (source?.domains || [])[0] || 'https://socolivezu.tv/kqbd/';
+    const apiUrl = source?.paths?.api || 'https://fb-api.apiscoreflow.com/football/match/recent/';
+    const card = (source?.selectors?.card || ['.as-match']).join(', ');
+    const href = (source?.attrs?.href || ['href', 'data-href']).join(', ');
+    const attributes = (source?.attrs?.src || ['src', 'data-src']).join(', ');
+    const logoUrl = source?.logoUrl || 'https://imgts.sportpulseapiz.com/football/team/{id}/image/small';
+    return `
+      <form id="results-source-form" class="grid-2" style="margin-bottom:16px">
+        <label style="grid-column:1/-1">Website URL
+          <input name="website" value="${esc(page)}" required />
+        </label>
+        <label style="grid-column:1/-1">Class name
+          <input name="className" value="${esc(card)}" placeholder=".as-match, .score-row" />
+        </label>
+        <label>Href
+          <input name="href" value="${esc(href)}" placeholder="href, data-href" />
+        </label>
+        <label>Attributes
+          <input name="attributes" value="${esc(attributes)}" placeholder="src, data-src" />
+        </label>
+        <label style="grid-column:1/-1">Data API
+          <input name="api" value="${esc(apiUrl)}" required />
+        </label>
+        <label style="grid-column:1/-1">Logo URL
+          <input name="logoUrl" value="${esc(logoUrl)}" placeholder="https://cdn.example/team/{id}.png" />
+        </label>
+        <div style="grid-column:1/-1" class="row">
+          <button type="submit">Save results source</button>
+        </div>
+        <p class="muted" style="grid-column:1/-1">Separate class names, href names, and attributes with commas. <code>{id}</code> in the logo URL is the team id from the score feed. The next results run uses these settings.</p>
+      </form>`;
+  }
+
   async function renderFeeds() {
     setTitle('Delivery Feeds');
     const active = state.feedTab || 'highlight1';
-    const res = await api(`/feeds/${encodeURIComponent(active)}`);
+    const [res, sourcesRes] = await Promise.all([
+      api(`/feeds/${encodeURIComponent(active)}`),
+      active === 'results' ? api('/sources') : Promise.resolve(null),
+    ]);
     const tab = FEED_TABS.find((t) => t.key === active) || FEED_TABS[0];
     const jsonText = res.data != null ? JSON.stringify(res.data, null, 2) : '{\n}';
     const summary = res.summary || {};
@@ -1261,6 +1297,10 @@
     pageEl.innerHTML = `
       <div class="panel">
         <p class="muted">Edit and publish <code>${esc(tab.file)}</code> when scraping fails. Changes are saved locally and uploaded to GitHub.</p>
+        ${active === 'results' ? `
+          <h3>Results source</h3>
+          ${resultsSourceForm((sourcesRes?.config?.sources || []).find((s) => s.name === 'results'))}
+        ` : ''}
         <div class="row" style="gap:6px;flex-wrap:wrap;margin-bottom:12px">
           ${FEED_TABS.map((t) => `
             <button class="${t.key === active ? '' : 'secondary'}" data-feed-tab="${esc(t.key)}">${esc(t.label)}</button>
@@ -1283,18 +1323,48 @@
         </div>
         <textarea id="feed-json" spellcheck="false" style="width:100%;min-height:420px;font-family:ui-monospace,monospace;font-size:0.82rem;line-height:1.4;padding:12px;border-radius:8px;border:1px solid var(--border);background:var(--panel);color:inherit"></textarea>
         <p class="muted" style="margin-top:8px">
-          ${active === 'myanmartv'
-            ? 'Paste a JSON array of <code>{ title, img, streamUrl }</code> objects.'
-            : active === 'tips'
-              ? 'Paste the full tips object with <code>today</code> and <code>tomorrow</code> sections.'
+          ${active === 'tips'
+            ? 'Paste the full tips object with <code>today</code> and <code>tomorrow</code> sections.'
+            : active === 'results'
+              ? 'Paste the full results object with a <code>results</code> array.'
               : 'Paste the full highlight object with a <code>highlights</code> array, or just the highlights array.'}
         </p>
       </div>`;
 
     $('#feed-json').value = jsonText;
 
+    const resultsForm = $('#results-source-form');
+    if (resultsForm) {
+      resultsForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const fd = new FormData(resultsForm);
+        const split = (name) => String(fd.get(name) || '').split(',').map((item) => item.trim()).filter(Boolean);
+        const website = String(fd.get('website') || '').trim();
+        const apiUrl = String(fd.get('api') || '').trim();
+        try {
+          await api('/sources/results/config', {
+            method: 'PATCH',
+            body: JSON.stringify({
+              name: 'results',
+              type: 'results',
+              enabled: true,
+              domains: [website],
+              paths: { page: website, api: apiUrl },
+              selectors: { card: split('className') },
+              attrs: { href: split('href'), src: split('attributes') },
+              logoUrl: String(fd.get('logoUrl') || '').trim(),
+            }),
+          });
+          toast('Results source saved');
+          renderFeeds();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+    }
+
     const feedEditor = $('#feed-json');
-    const emptyTemplate = active === 'myanmartv' ? '[]' : '{\n}';
+    const emptyTemplate = '{\n}';
 
     $('#feed-select-all').addEventListener('click', () => {
       feedEditor.focus();

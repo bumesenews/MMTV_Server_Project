@@ -15,7 +15,6 @@ class CacheService {
       highlight: path.join(this.deliveryDir, 'highlight.json'),
       highlight1: path.join(this.deliveryDir, 'highlight1.json'),
       highlight2: path.join(this.deliveryDir, 'highlight2.json'),
-      myanmartv: path.join(this.deliveryDir, 'myanmartv.json'),
       tips: path.join(this.deliveryDir, 'tips.json'),
       results: path.join(this.deliveryDir, 'results.json'),
     };
@@ -62,7 +61,6 @@ class CacheService {
       highlight: this.readJson(this.deliveryFiles.highlight),
       highlight1: this.readJson(this.deliveryFiles.highlight1),
       highlight2: this.readJson(this.deliveryFiles.highlight2),
-      myanmartv: this.readJson(this.deliveryFiles.myanmartv),
       tips: this.readJson(this.deliveryFiles.tips),
       results: this.readJson(this.deliveryFiles.results),
     };
@@ -88,7 +86,6 @@ class CacheService {
       'highlight',
       'highlight1',
       'highlight2',
-      'myanmartv',
       'tips',
       'results',
     ];
@@ -121,7 +118,6 @@ class CacheService {
       highlight2: Array.isArray(bundle.highlight2?.highlights)
         ? bundle.highlight2.highlights.length
         : 0,
-      channels: Array.isArray(bundle.myanmartv) ? bundle.myanmartv.length : 0,
       tips: Number(bundle.tips?.count) || 0,
       results: Number(bundle.results?.count) || 0,
     });

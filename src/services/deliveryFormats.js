@@ -9,7 +9,6 @@ const { isDirectMediaUrl } = require('../sources/highlightMedia');
  * - mainlive.json → admin-managed MainLive feed (separate from scraper)
  * - matches.json  → scraped fixtures + merged streams (FotMob, etc.)
  * - highlight.json
- * - myanmartv.json (channels array)
  */
 
 /**
@@ -77,17 +76,6 @@ function formatHighlightsDelivery(highlights = [], meta = {}) {
   };
 }
 
-/**
- * Myanmar TV channels — plain array [{ title, img, streamUrl }].
- */
-function formatChannelsDelivery(channels = []) {
-  return (channels || []).map((c) => ({
-    title: c.title || '',
-    img: c.img || null,
-    streamUrl: c.streamUrl || '',
-  }));
-}
-
 function mapTipRow(tip = {}) {
   return {
     id: tip.id || null,
@@ -147,8 +135,7 @@ function formatTipsDelivery(payload = {}) {
 function buildDeliveryBundle({
   matchesPayload,
   highlights,
-  channels,
-  // Match publish must not rebuild highlight.json / myanmartv.json.
+  // Match publish must not rebuild highlight.json.
   // Those files are owned by their own jobs and GitHub is often newer
   // than this server's data/delivery cache.
   includeSideFeeds = false,
@@ -158,7 +145,6 @@ function buildDeliveryBundle({
   };
   if (includeSideFeeds) {
     bundle.highlight = formatHighlightsDelivery(highlights || []);
-    bundle.myanmartv = formatChannelsDelivery(channels || []);
   }
   return bundle;
 }
@@ -167,7 +153,6 @@ module.exports = {
   formatMatchesDelivery,
   formatMainLiveDelivery,
   formatHighlightsDelivery,
-  formatChannelsDelivery,
   formatTipsDelivery,
   buildDeliveryBundle,
 };

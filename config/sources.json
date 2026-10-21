@@ -652,15 +652,33 @@
       "notes": "Socolive video-highlight last 5 days. List host https://socolivezq.tv/. GitHub highlight2.json."
     },
     {
-      "name": "myanmartv",
+      "name": "results",
       "enabled": true,
-      "type": "channels",
+      "type": "results",
       "domains": [
-        "https://www.myanmartvchannels.com/"
+        "https://socolivezu.tv/kqbd/"
       ],
       "paths": {
-        "channels": "https://www.myanmartvchannels.com/tv-channels.html"
-      }
+        "page": "https://socolivezu.tv/kqbd/",
+        "api": "https://fb-api.apiscoreflow.com/football/match/recent/"
+      },
+      "selectors": {
+        "card": [
+          ".as-match"
+        ]
+      },
+      "attrs": {
+        "href": [
+          "href",
+          "data-href"
+        ],
+        "src": [
+          "src",
+          "data-src"
+        ]
+      },
+      "logoUrl": "https://imgts.sportpulseapiz.com/football/team/{id}/image/small",
+      "notes": "Football results. Website URL is the Referer. Scores load from paths.api. Card class, href, and image attributes are edited from the admin Feeds page."
     },
     {
       "name": "tips",

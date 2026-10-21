@@ -269,9 +269,11 @@ class ConfigAdminService {
     const current = await this.getSourcesConfig();
     const sources = [...(current.content.sources || [])];
     const idx = sources.findIndex((s) => s.name === sourceName);
-    if (idx < 0) throw new Error(`Source ${sourceName} not found in config`);
-
-    sources[idx] = deepMerge(sources[idx], patch);
+    const base = idx < 0 ? { name: sourceName, enabled: true } : sources[idx];
+    const nextSource = deepMerge(base, patch);
+    nextSource.name = sourceName;
+    if (idx < 0) sources.push(nextSource);
+    else sources[idx] = nextSource;
     const next = {
       ...current.content,
       updatedAt: new Date().toISOString(),
@@ -279,7 +281,7 @@ class ConfigAdminService {
     };
 
     const result = await this.saveSourcesConfig(next, meta);
-    return { source: sources[idx], ...result };
+    return { source: nextSource, ...result };
   }
 }
 

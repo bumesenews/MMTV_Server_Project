@@ -41,7 +41,6 @@ function yangonAt(hour, minute = 0) {
 
 console.log('\n=== Phase 3: default crons ===');
 assert('Matches cron every 5 min', DEFAULT_CRONS.PIPELINE_CRON === '*/5 * * * *');
-assert('MyanmarTV once daily 03:00', DEFAULT_CRONS.MYANMARTV_CRON === '0 3 * * *');
 assert('Highlights 05:00 and 08:00', DEFAULT_CRONS.HIGHLIGHT_CRON === '0 5,8 * * *');
 assert('Results 06:00 and 10:00', DEFAULT_CRONS.RESULTS_CRON === '0 6,10 * * *');
 assert('Tips 07:00 and 11:00', DEFAULT_CRONS.TIPS_CRON === '0 7,11 * * *');
@@ -72,25 +71,15 @@ for (const [label, hour] of [
     mayRunLowPriorityHeavyJob(when) === false
   );
   assert(
-    `Peak ${label}: MyanmarTV blocked`,
-    mayRunLowPriorityHeavyJob(when) === false
-  );
-  assert(
     `Peak ${label}: Matches still selected`,
     selectNextHeavyJob(
-      [HEAVY_JOBS.HIGHLIGHTS, HEAVY_JOBS.TIPS, HEAVY_JOBS.MYANMARTV, HEAVY_JOBS.MATCHES],
+      [HEAVY_JOBS.HIGHLIGHTS, HEAVY_JOBS.TIPS, HEAVY_JOBS.MATCHES],
       { when }
     ) === HEAVY_JOBS.MATCHES
   );
 }
 
 console.log('\n=== Phase 3: priority on same tick ===');
-assert(
-  'Matches vs MyanmarTV → Matches',
-  selectNextHeavyJob([HEAVY_JOBS.MYANMARTV, HEAVY_JOBS.MATCHES], {
-    when: yangonAt(4),
-  }) === HEAVY_JOBS.MATCHES
-);
 assert(
   'Matches vs Highlights → Matches',
   selectNextHeavyJob([HEAVY_JOBS.HIGHLIGHTS, HEAVY_JOBS.MATCHES], {
@@ -105,36 +94,29 @@ assert(
 );
 {
   const order = prioritizeHeavyJobs([
-    HEAVY_JOBS.MYANMARTV,
     HEAVY_JOBS.TIPS,
     HEAVY_JOBS.MATCHES,
     HEAVY_JOBS.HIGHLIGHTS,
   ]);
   assert(
-    'All four → Matches → Highlights → Tips → MyanmarTV',
+    'Matches → Highlights → Tips',
     order.join(',') ===
       [
         HEAVY_JOBS.MATCHES,
         HEAVY_JOBS.HIGHLIGHTS,
         HEAVY_JOBS.TIPS,
-        HEAVY_JOBS.MYANMARTV,
       ].join(',')
   );
 }
 assert(
   'Non-peak without Matches → Highlights first',
   selectNextHeavyJob(
-    [HEAVY_JOBS.MYANMARTV, HEAVY_JOBS.TIPS, HEAVY_JOBS.HIGHLIGHTS],
+    [HEAVY_JOBS.TIPS, HEAVY_JOBS.HIGHLIGHTS],
     { when: yangonAt(10) }
   ) === HEAVY_JOBS.HIGHLIGHTS
 );
 
 console.log('\n=== Phase 3: independent schedules (non-collision) ===');
-assert(
-  '03:00 selects MyanmarTV alone',
-  selectNextHeavyJob([HEAVY_JOBS.MYANMARTV], { when: yangonAt(3) }) ===
-    HEAVY_JOBS.MYANMARTV
-);
 assert(
   '06:00 selects Highlights alone',
   selectNextHeavyJob([HEAVY_JOBS.HIGHLIGHTS], { when: yangonAt(6) }) ===
@@ -236,7 +218,6 @@ console.log('\n=== Phase 3: peak API skip (force bypass) ===');
 console.log('\n=== Phase 3: drain priority order (Matches before Highlights) ===');
 {
   const due = [
-    HEAVY_JOBS.MYANMARTV,
     HEAVY_JOBS.TIPS,
     HEAVY_JOBS.HIGHLIGHTS,
     HEAVY_JOBS.MATCHES,
@@ -246,7 +227,6 @@ console.log('\n=== Phase 3: drain priority order (Matches before Highlights) ===
   assert('Drain order starts with Matches', first === HEAVY_JOBS.MATCHES);
   assert('Then Highlights', rest[0] === HEAVY_JOBS.HIGHLIGHTS);
   assert('Then Tips', rest[1] === HEAVY_JOBS.TIPS);
-  assert('Then MyanmarTV', rest[2] === HEAVY_JOBS.MYANMARTV);
 }
 
 console.log('\n=== Phase 3: morning retry ===');

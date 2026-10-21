@@ -319,7 +319,6 @@ console.log('\n=== Phase 4: discoverAll source isolation ===');
   console.log('\n=== Phase 4: timing freeze ===');
   assert('TZ Asia/Yangon', ZONE === 'Asia/Yangon');
   assert('Matches */5', DEFAULT_CRONS.PIPELINE_CRON === '*/5 * * * *');
-  assert('MyanmarTV 03:00', DEFAULT_CRONS.MYANMARTV_CRON === '0 3 * * *');
   assert('Highlights 05:00 and 08:00', DEFAULT_CRONS.HIGHLIGHT_CRON === '0 5,8 * * *');
   assert('Results 06:00 and 10:00', DEFAULT_CRONS.RESULTS_CRON === '0 6,10 * * *');
   assert('Tips 07:00 and 11:00', DEFAULT_CRONS.TIPS_CRON === '0 7,11 * * *');
@@ -354,7 +353,7 @@ console.log('\n=== Phase 4: discoverAll source isolation ===');
     assert(
       'peak Matches still preferred',
       selectNextHeavyJob(
-        [HEAVY_JOBS.TIPS, HEAVY_JOBS.MATCHES, HEAVY_JOBS.MYANMARTV],
+        [HEAVY_JOBS.TIPS, HEAVY_JOBS.MATCHES],
         { when: peak }
       ) === HEAVY_JOBS.MATCHES
     );

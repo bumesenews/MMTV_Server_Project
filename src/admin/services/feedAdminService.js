@@ -1,10 +1,9 @@
 const {
   formatHighlightsDelivery,
   formatTipsDelivery,
-  formatChannelsDelivery,
 } = require('../../services/deliveryFormats');
 
-const FEED_KEYS = new Set(['highlight1', 'highlight2', 'tips', 'myanmartv', 'results']);
+const FEED_KEYS = new Set(['highlight1', 'highlight2', 'tips', 'results']);
 
 const FEED_META = {
   highlight1: {
@@ -22,11 +21,6 @@ const FEED_META = {
     githubFile: 'tips.json',
     defaultSource: 'https://www.predictz.com/',
   },
-  myanmartv: {
-    label: 'Myanmar TV',
-    githubFile: 'myanmartv.json',
-    defaultSource: 'https://www.myanmartvchannels.com/',
-  },
   results: {
     label: 'Football Results',
     githubFile: 'results.json',
@@ -38,7 +32,7 @@ function assertFeedKey(key) {
   const normalized = String(key || '').trim().toLowerCase();
   if (!FEED_KEYS.has(normalized)) {
     throw new Error(
-      `Unknown feed "${key}". Allowed: highlight1, highlight2, tips, myanmartv, results`
+      `Unknown feed "${key}". Allowed: highlight1, highlight2, tips, results`
     );
   }
   return normalized;
@@ -95,14 +89,6 @@ function normalizeFeed(feedKey, raw) {
     };
   }
 
-  if (key === 'myanmartv') {
-    const channels = Array.isArray(raw) ? raw : raw.channels;
-    if (!Array.isArray(channels)) {
-      throw new Error('Expected a channels array or plain JSON array');
-    }
-    return formatChannelsDelivery(channels);
-  }
-
   throw new Error(`Unsupported feed: ${key}`);
 }
 
@@ -114,7 +100,7 @@ function feedStamp(data) {
 
 /**
  * Published GitHub copy should replace the local admin cache when it is newer,
- * or when a timestamp-less feed (Myanmar TV) simply differs.
+ * or when a feed without a timestamp simply differs.
  */
 function isPublishedNewer(local, published) {
   if (published == null) return false;
@@ -162,16 +148,6 @@ function feedSummary(feedKey, data) {
       label: FEED_META.results.label,
       count,
       scraped_at: data.generatedAt || null,
-      empty: count === 0,
-    };
-  }
-  if (key === 'myanmartv') {
-    const count = Array.isArray(data) ? data.length : 0;
-    return {
-      feedKey: key,
-      label: FEED_META[key].label,
-      count,
-      scraped_at: null,
       empty: count === 0,
     };
   }

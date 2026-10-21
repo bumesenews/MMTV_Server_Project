@@ -82,7 +82,6 @@ class DashboardService {
               running: Boolean(this.pipeline.running),
               tipsRunning: Boolean(this.pipeline.tipsRunning),
               highlightRunning: Boolean(this.pipeline.highlightRunning),
-              channelsRunning: Boolean(this.pipeline.channelsRunning),
             },
       lastGithubUpload: this.publish.lastGithub || payload?.meta?.lastGithub || current?.meta?.lastGithub || null,
       generatedAt: payload?.generatedAt || current?.generatedAt || null,

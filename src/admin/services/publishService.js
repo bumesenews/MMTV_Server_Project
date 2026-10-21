@@ -20,7 +20,7 @@ const {
 
 /**
  * Applies admin overrides + league filters, writes local cache, uploads GitHub if changed.
- * Publishes Flutter feeds: matches, highlight, myanmartv.
+ * Publishes Flutter feeds: matches, highlight, results, tips.
  * mainlive.json is published separately via publishMainLive().
  *
  * matches.json sync before save/GitHub:
@@ -181,7 +181,7 @@ class PublishService {
   }
 
   /**
-   * Admin publish for highlight1, highlight2, tips, or myanmartv feeds.
+   * Admin publish for highlight1, highlight2, tips, or results feeds.
    */
   async publishFeed(feedKey, rawPayload, { actor = 'admin' } = {}) {
     const key = assertFeedKey(feedKey);
@@ -211,17 +211,6 @@ class PublishService {
           ...current,
           highlights: delivery.highlights,
           highlightCount: delivery.count,
-        });
-      }
-    }
-
-    if (key === 'myanmartv' && Array.isArray(delivery)) {
-      const current = this.cache.getCurrent();
-      if (current) {
-        this.cache.saveGenerated({
-          ...current,
-          channels: delivery,
-          channelCount: delivery.length,
         });
       }
     }

@@ -15,11 +15,9 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
       timezone: 'Asia/Yangon',
       lastRun: pipeline.lastRun,
       lastHighlightRun: pipeline.lastHighlightRun,
-      lastChannelsRun: pipeline.lastChannelsRun,
       lastTipsRun: pipeline.lastTipsRun,
       running: pipeline.running,
       highlightRunning: pipeline.highlightRunning,
-      channelsRunning: pipeline.channelsRunning,
       tipsRunning: pipeline.tipsRunning,
       ...(diag
         ? {
@@ -51,13 +49,6 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
     } catch (err) {
       return res.status(500).json({ ok: false, reason: err.message });
     }
-  });
-
-  router.post('/pipeline/channels', async (req, res) => {
-    if (!requireApiKey(req, res)) return;
-    const force = Boolean(req.body?.force || req.query.force);
-    const result = await pipeline.runMyanmarTv({ force });
-    return res.status(result.ok ? 200 : 500).json(result);
   });
 
   router.post('/pipeline/tips', async (req, res) => {
@@ -123,8 +114,6 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
       highlights: 'highlight',
       highlight1: 'highlight1',
       highlight2: 'highlight2',
-      channels: 'myanmartv',
-      myanmartv: 'myanmartv',
       tips: 'tips',
       results: 'results',
     };
