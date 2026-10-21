@@ -18,6 +18,7 @@ const { GitHubService } = require('./githubService');
 const { generateFlutterJson } = require('./jsonGenerator');
 const { buildDeliveryBundle, formatChannelsDelivery, formatTipsDelivery } = require('./deliveryFormats');
 const { filterTipsToMatchFixtures } = require('./tipsMatchFilter');
+const { filterResultsToMatchFixtures } = require('./results/resultsMatchFilter');
 const { enrichMatchState } = require('./statusService');
 const { hasDataChanged, hashPayload } = require('../utils/compare');
 const { HighlightSource } = require('../sources/highlight');
@@ -748,6 +749,12 @@ class Pipeline {
         });
         this._pendingMainLiveExtract = false;
 
+        try {
+          await this._alignResultsWithMatches(published.payload?.matches || []);
+        } catch (err) {
+          logger.warn('Results were not aligned to matches.json', { error: err.message });
+        }
+
         return {
           ok: true,
           payload: published.payload,
@@ -813,6 +820,11 @@ class Pipeline {
         await this._alignTipsWithMatches(delivery.matches?.matches || []);
       } catch (err) {
         logger.warn('Tips were not aligned to matches.json', { error: err.message });
+      }
+      try {
+        await this._alignResultsWithMatches(delivery.matches?.matches || []);
+      } catch (err) {
+        logger.warn('Results were not aligned to matches.json', { error: err.message });
       }
 
       const durationMs = Date.now() - startedAt;
@@ -1882,6 +1894,36 @@ class Pipeline {
   }
 
   /**
+   * Keep results whose two teams are still in matches.json on the same day,
+   * and copy that fixture's team names and logos onto the score.
+   */
+  async _alignResultsWithMatches(matches) {
+    if (!Array.isArray(matches)) return;
+    const previous = this.cache.getDelivery('results');
+    if (!previous) return;
+    const next = filterResultsToMatchFixtures(previous, matches, this.normalizer);
+    const signature = (payload) =>
+      (payload.results || [])
+        .map(
+          (row) =>
+            `${row.id}|${row.homeTeam}|${row.awayTeam}|${row.homeLogo || ''}|${row.awayLogo || ''}|${row.homeScore}|${row.awayScore}|${row.status}`
+        )
+        .join(';');
+    if (signature(previous) === signature(next)) return;
+
+    this.cache.saveDeliveryBundle({ results: next });
+    const github = await this.github.uploadJsonIfChanged(this.github.paths.results, next, {
+      previousLocal: previous,
+      feedKey: 'results',
+      allowEmpty: true,
+    });
+    logger.info('Results realigned to matches.json', {
+      kept: next.count,
+      github: github.reason || (github.uploaded ? 'changed' : 'skipped'),
+    });
+  }
+
+  /**
    * Dedicated PredictZ tips job (today + tomorrow).
    * 07:00 Asia/Yangon, and 11:00 when that scrape stored no new tips.
    * Axios first, Puppeteer if blocked. Never overwrite with empty on failure.
@@ -2178,7 +2220,15 @@ class Pipeline {
     this.resultsRunning = true;
     this._resultsSince = Date.now();
     try {
+      const config = await this.configLoader.load(true);
+      this.normalizer.reload({
+        leagues: config.leagues?.allowedLeagues || config.leagues?.leagues || [],
+        teams: config.teams?.teams || [],
+      });
+      const matchList = this.cache.getDelivery('matches')?.matches;
       const result = await this._resultsPipeline.run({
+        matches: Array.isArray(matchList) ? matchList : null,
+        normalizer: this.normalizer,
         isHigherPriorityBusy: () =>
           Boolean(
             this.running ||

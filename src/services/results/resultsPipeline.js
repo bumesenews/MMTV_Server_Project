@@ -10,6 +10,7 @@ const {
   fetchRecentResults,
   buildResultsDelivery,
 } = require('./resultsSource');
+const { filterResultsToMatchFixtures } = require('./resultsMatchFilter');
 
 const LOCK_MS = 15 * 60 * 1000;
 let inProcess = false;
@@ -54,7 +55,7 @@ function resultsHaveNewData(previous, next) {
 
 function createResultsPipeline({ env = process.env, cache, github, fetchDay = fetchRecentResults } = {}) {
   return {
-    async run({ isHigherPriorityBusy = () => false, now = null } = {}) {
+    async run({ isHigherPriorityBusy = () => false, now = null, matches = null, normalizer = null } = {}) {
       const nowDt = now && DateTime.isDateTime(now) ? now.setZone(ZONE) : nowYangon();
       const at = nowDt.toISO();
       if (inProcess && Date.now() - inProcessSince < LOCK_MS) {
@@ -89,7 +90,21 @@ function createResultsPipeline({ env = process.env, cache, github, fetchDay = fe
           }
         }
         merged.sort((a, b) => String(b.kickoff).localeCompare(String(a.kickoff)));
-        const payload = buildResultsDelivery(merged, { generatedAt: at, source: SOURCE_PAGE });
+        const scraped = buildResultsDelivery(merged, { generatedAt: at, source: SOURCE_PAGE });
+        if (!Array.isArray(matches)) {
+          status.lastRunAt = at;
+          status.lastRunStatus = 'matches_unavailable';
+          status.lastError = null;
+          writeStatus(status, env);
+          logger.warn('matches.json unavailable — skip results publish', { stage: 'results' });
+          return { ok: false, reason: 'matches_unavailable', changed: false };
+        }
+        const payload = filterResultsToMatchFixtures(scraped, matches, normalizer);
+        logger.info('Results limited to matches.json teams', {
+          stage: 'results',
+          scraped: scraped.count,
+          kept: payload.count,
+        });
         const previous = cache?.getDelivery ? cache.getDelivery('results') : null;
         if (cache?.saveDeliveryBundle) cache.saveDeliveryBundle({ results: payload });
         let githubResult = { uploaded: false, reason: 'not_configured' };
