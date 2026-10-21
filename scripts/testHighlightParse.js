@@ -126,6 +126,22 @@ assert('day-month helper', parseDayMonthDate('20', '08', '2026') === '2026-08-20
   assert('dasfootball match date from slug', dasItems[0].matchDate === '2026-10-06');
   assert('dasfootball signed mp4', /9spbu1\.mp4/.test(dasItems[0].m3u8 || ''));
   assert('dasfootball id', dasItems[0].id === 'highlight1:argentina-vs-benin-highlights-2026-10-06');
+  const withLogos = das.parseHighlights(`
+    <script type="application/ld+json">
+    {"@type":"VideoObject","name":"Napoli vs Bodo/Glimt","url":"https://dasfootball.com/napoli-vs-bodo-glimt-highlights-2026-10-20/","embedUrl":"https://cdn-cf-east.streamable.com/video/mp4/wdoop7.mp4?Expires=1","thumbnailUrl":["https://dasfootball.com/thumb.webp"]}
+    </script>
+    <a href="/napoli-vs-bodo-glimt-highlights-2026-10-20/">
+      <img src="/api/assets/football/teams/492.png?v=2" alt="Napoli"/>
+      <img src="/api/assets/football/teams/327.png?v=2" alt="Bodo/Glimt"/>
+    </a>
+  `);
+  assert(
+    'dasfootball home and away logos',
+    withLogos[0].homeTeam === 'Napoli' &&
+      withLogos[0].awayTeam === 'Bodo/Glimt' &&
+      withLogos[0].homeLogo === 'https://dasfootball.com/api/assets/football/teams/492.png?v=2' &&
+      withLogos[0].awayLogo === 'https://dasfootball.com/api/assets/football/teams/327.png?v=2'
+  );
   const cardsOnly = das.parseHighlights(
     '<a href="/england-vs-czechia-highlights-2026-10-06/"><h2>England vs Czechia</h2></a>'
   );

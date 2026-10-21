@@ -169,6 +169,7 @@ class HighlightSource {
    * thumbnail, and a signed Streamable MP4). Match day is the date in the slug.
    */
   parseDasfootballHighlights(html) {
+    const logos = extractDasfootballTeamLogos(html, (url) => this.absUrl(url));
     const items = [];
     const seen = new Set();
     for (const node of extractDasfootballVideos(html)) {
@@ -180,14 +181,16 @@ class HighlightSource {
       const media = mediaFileUrl(node.embedUrl);
       const thumb = Array.isArray(node.thumbnailUrl) ? node.thumbnailUrl[0] : node.thumbnailUrl;
       const slug = dasfootballSlug(url);
+      const title = String(node.name || '').trim() || titleFromDasfootballSlug(slug);
       items.push({
         id: `${this.name}:${slug || url}`,
-        title: String(node.name || '').trim() || titleFromDasfootballSlug(slug),
+        title,
         img: this.absUrl(thumb) || '',
         url,
         matchDate: this.extractMatchDateKey(url),
         embedUrl: media ? url : this.absUrl(node.embedUrl) || null,
         m3u8: media || null,
+        ...dasfootballTeamsFor(logos, slug, title),
       });
     }
 
@@ -203,14 +206,19 @@ class HighlightSource {
       const title =
         $(element).find('h1,h2,h3').first().text().replace(/\s+/g, ' ').trim() ||
         titleFromDasfootballSlug(slug);
+      const thumb = $(element)
+        .find('img')
+        .filter((_, img) => !/\/api\/assets\/football\/teams\//.test($(img).attr('src') || ''))
+        .first();
       items.push({
         id: `${this.name}:${slug || url}`,
         title,
-        img: this.absUrl($(element).find('img').attr('src')) || '',
+        img: this.absUrl(thumb.attr('src')) || '',
         url,
         matchDate: this.extractMatchDateKey(url),
         embedUrl: null,
         m3u8: null,
+        ...dasfootballTeamsFor(logos, slug, title),
       });
     });
     return items;
@@ -897,6 +905,77 @@ function titleFromDasfootballSlug(slug) {
 
 function mediaFileUrl(value) {
   return isDirectMediaUrl(value);
+}
+
+function normalizeHighlightTitle(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/\s+v(?:s\.?)?\s+/g, ' vs ')
+    .trim();
+}
+
+function unescapeDasfootball(html) {
+  return String(html || '')
+    .replace(/\\u0026/gi, '&')
+    .replace(/\\\//g, '/')
+    .replace(/\\"/g, '"');
+}
+
+function dasfootballTeamsFor(logos, slug, title) {
+  const team =
+    (slug && logos.bySlug.get(slug)) ||
+    logos.byTitle.get(normalizeHighlightTitle(title)) ||
+    null;
+  if (!team) return {};
+  return {
+    homeTeam: team.homeTeam || null,
+    awayTeam: team.awayTeam || null,
+    homeLogo: team.homeLogo || null,
+    awayLogo: team.awayLogo || null,
+  };
+}
+
+function extractDasfootballTeamLogos(html, absUrl) {
+  const bySlug = new Map();
+  const byTitle = new Map();
+  const remember = (slug, title, team) => {
+    if (!team.homeLogo && !team.awayLogo) return;
+    if (slug) bySlug.set(slug, team);
+    const key = normalizeHighlightTitle(title);
+    if (key) byTitle.set(key, team);
+  };
+
+  const $ = load(String(html || ''));
+  $('a[href*="-highlights-"]').each((_, el) => {
+    const anchor = $(el);
+    const slug = dasfootballSlug(anchor.attr('href') || '');
+    const imgs = anchor.find('img[src*="/api/assets/football/teams/"]');
+    if (imgs.length < 2) return;
+    const homeTeam = String(imgs.eq(0).attr('alt') || '').trim() || null;
+    const awayTeam = String(imgs.eq(1).attr('alt') || '').trim() || null;
+    remember(slug, homeTeam && awayTeam ? `${homeTeam} vs ${awayTeam}` : '', {
+      homeTeam,
+      awayTeam,
+      homeLogo: absUrl(imgs.eq(0).attr('src')) || null,
+      awayLogo: absUrl(imgs.eq(1).attr('src')) || null,
+    });
+  });
+
+  const text = unescapeDasfootball(html);
+  const re =
+    /"title"\s*:\s*"([^"]+)"[\s\S]{0,600}?"homeTeam"\s*:\s*\{[\s\S]{0,600}?"name"\s*:\s*"([^"]*)"[\s\S]{0,400}?"logoUrl"\s*:\s*"([^"]+)"[\s\S]{0,700}?"awayTeam"\s*:\s*\{[\s\S]{0,600}?"name"\s*:\s*"([^"]*)"[\s\S]{0,400}?"logoUrl"\s*:\s*"([^"]+)"/g;
+  let match;
+  while ((match = re.exec(text))) {
+    remember(null, match[1], {
+      homeTeam: match[2] || null,
+      awayTeam: match[4] || null,
+      homeLogo: absUrl(match[3]) || null,
+      awayLogo: absUrl(match[5]) || null,
+    });
+  }
+
+  return { bySlug, byTitle };
 }
 
 function extractDasfootballVideos(html) {

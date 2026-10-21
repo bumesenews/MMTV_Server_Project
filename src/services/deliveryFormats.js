@@ -63,6 +63,10 @@ function formatHighlightsDelivery(highlights = [], meta = {}) {
     m3u8: isDirectMediaUrl(h.m3u8) || null,
     headers: h.headers || null,
     source: h.source || 'highlight',
+    homeTeam: h.homeTeam || null,
+    awayTeam: h.awayTeam || null,
+    homeLogo: h.homeLogo || null,
+    awayLogo: h.awayLogo || null,
   }));
 
   return {

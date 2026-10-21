@@ -132,6 +132,10 @@ class HighlightManager {
       m3u8: isDirectMediaUrl(raw.m3u8) || null,
       headers: raw.headers || null,
       source: raw.source || 'highlight',
+      homeTeam: raw.homeTeam || null,
+      awayTeam: raw.awayTeam || null,
+      homeLogo: raw.homeLogo || null,
+      awayLogo: raw.awayLogo || null,
       league: raw.league || this.parseTeamsFromTitle(title).league || null,
     };
   }
@@ -172,6 +176,10 @@ class HighlightManager {
           headers: item.headers || prev.headers || null,
           img: item.img || prev.img || null,
           title: item.title || prev.title,
+          homeTeam: item.homeTeam || prev.homeTeam || null,
+          awayTeam: item.awayTeam || prev.awayTeam || null,
+          homeLogo: item.homeLogo || prev.homeLogo || null,
+          awayLogo: item.awayLogo || prev.awayLogo || null,
           fromScraped: fromScraped || prev.fromScraped,
         });
         return;
@@ -263,6 +271,10 @@ function sanitizeHighlightPayload(payload) {
         embed_url: copy.embed_url || copy.embedUrl || null,
         m3u8: copy.m3u8 || null,
         source: copy.source || 'highlight',
+        homeTeam: copy.homeTeam || null,
+        awayTeam: copy.awayTeam || null,
+        homeLogo: copy.homeLogo || null,
+        awayLogo: copy.awayLogo || null,
       };
     });
   }
