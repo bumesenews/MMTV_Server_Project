@@ -4,7 +4,7 @@ const {
   formatChannelsDelivery,
 } = require('../../services/deliveryFormats');
 
-const FEED_KEYS = new Set(['highlight1', 'highlight2', 'tips', 'myanmartv']);
+const FEED_KEYS = new Set(['highlight1', 'highlight2', 'tips', 'myanmartv', 'results']);
 
 const FEED_META = {
   highlight1: {
@@ -27,13 +27,18 @@ const FEED_META = {
     githubFile: 'myanmartv.json',
     defaultSource: 'https://www.myanmartvchannels.com/',
   },
+  results: {
+    label: 'Football Results',
+    githubFile: 'results.json',
+    defaultSource: 'https://socolivezu.tv/kqbd/',
+  },
 };
 
 function assertFeedKey(key) {
   const normalized = String(key || '').trim().toLowerCase();
   if (!FEED_KEYS.has(normalized)) {
     throw new Error(
-      `Unknown feed "${key}". Allowed: highlight1, highlight2, tips, myanmartv`
+      `Unknown feed "${key}". Allowed: highlight1, highlight2, tips, myanmartv, results`
     );
   }
   return normalized;
@@ -74,6 +79,20 @@ function normalizeFeed(feedKey, raw) {
       scraped_at: raw.scraped_at || now,
       timezone: raw.timezone || 'Asia/Yangon',
     });
+  }
+
+  if (key === 'results') {
+    const results = Array.isArray(raw) ? raw : raw.results;
+    if (!Array.isArray(results)) {
+      throw new Error('Expected { results: [...] }');
+    }
+    return {
+      source: raw.source || FEED_META.results.defaultSource,
+      timezone: raw.timezone || 'Asia/Yangon',
+      generatedAt: raw.generatedAt || now,
+      count: results.length,
+      results,
+    };
   }
 
   if (key === 'myanmartv') {
@@ -134,6 +153,16 @@ function feedSummary(feedKey, data) {
       count: Number(data.count) || today + tomorrow,
       scraped_at: data.scraped_at || null,
       empty: today + tomorrow === 0,
+    };
+  }
+  if (key === 'results') {
+    const count = Number(data.count) || (data.results || []).length;
+    return {
+      feedKey: key,
+      label: FEED_META.results.label,
+      count,
+      scraped_at: data.generatedAt || null,
+      empty: count === 0,
     };
   }
   if (key === 'myanmartv') {

@@ -6,7 +6,7 @@ const { combineDateAndTime, formatDate, formatTime, formatTime12, formatDateDisp
 const { hashPayload, sanitizeForCompare } = require('../../utils/compare');
 const { toPublicMatch } = require('../../services/jsonGenerator');
 const { encryptPublicMatchesPayload } = require('../../utils/streamUrlCrypto');
-const { looksLikeM3u8 } = require('./mainLiveExtractPolicy');
+const { looksLikeM3u8, matchUrlEntries } = require('./mainLiveExtractPolicy');
 const { fillOriginFromReferer } = require('../../utils/streamHeaders');
 
 /**
@@ -61,16 +61,7 @@ class MainLiveService {
 
     const status = normalizeStatus(input.status);
     let streams = normalizeStreamsInput(input);
-    const matchUrl = String(input.matchUrl || '').trim();
-    const matchUrlSource = String(input.matchUrlSource || input.source || '').trim() || null;
-    if (matchUrl && looksLikeM3u8(matchUrl) && !streams.length) {
-      streams.push(
-        ...normalizeStreamsInput({
-          streamUrl: matchUrl,
-          streamName: 'HD',
-        })
-      );
-    }
+    const matchUrls = normalizeMatchUrlList(input, []);
 
     const match = {
       matchId,
@@ -96,19 +87,21 @@ class MainLiveService {
       streamCount: streams.length,
       streamUrl: streams[0]?.url || null,
       streamHeaders: streams[0]?.headers || null,
-      matchUrl: matchUrl || null,
-      matchUrlSource,
-      matchUrlStatus: matchUrl ? (looksLikeM3u8(matchUrl) ? 'AVAILABLE' : 'SEARCHING') : null,
+      matchUrl: null,
+      matchUrlSource: null,
+      matchUrls: [],
+      matchUrlStatus: null,
       matchUrlExtractAt: null,
       matchUrlExtractAttempts: 0,
       matchUrlExtractError: null,
       originalNames: {},
-      sourcePages: matchUrlSource && matchUrl ? { [matchUrlSource]: matchUrl } : {},
+      sourcePages: {},
       streamAttempts: {},
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
+    assignMatchUrls(match, matchUrls, null);
     existing[matchId] = match;
     this.store.write({ matches: existing });
     return match;
@@ -168,53 +161,14 @@ class MainLiveService {
       }
     }
 
-    if (patch.matchUrl !== undefined || patch.matchUrlSource !== undefined || patch.source !== undefined) {
-      if (patch.matchUrl !== undefined) {
-        const nextUrl = String(patch.matchUrl || patch.url || '').trim();
-        next.matchUrl = nextUrl || null;
-      }
-      if (patch.matchUrlSource !== undefined || patch.source !== undefined) {
-        const src = String(patch.matchUrlSource || patch.source || '').trim();
-        next.matchUrlSource = src || null;
-      }
-      if (!next.matchUrl) {
-        next.matchUrlSource = null;
-        next.matchUrlStatus = null;
-        next.matchUrlExtractAt = null;
-        next.matchUrlExtractAttempts = 0;
-        next.matchUrlExtractError = null;
-      } else if (next.matchUrl !== current.matchUrl) {
-        next.matchUrlStatus = looksLikeM3u8(next.matchUrl) ? 'AVAILABLE' : 'SEARCHING';
-        next.matchUrlExtractAt = null;
-        next.matchUrlExtractAttempts = 0;
-        next.matchUrlExtractError = null;
-        next.streams = (next.streams || []).filter(
-          (s) => String(s.source || '').toLowerCase() === 'manual'
-        );
-        next.hasStreams = next.streams.length > 0;
-        next.streamCount = next.streams.length;
-        next.streamUrl = next.streams[0]?.url || null;
-        next.streamHeaders = next.streams[0]?.headers || null;
-      }
-      if (next.matchUrl && looksLikeM3u8(next.matchUrl)) {
-        const already = (next.streams || []).some(
-          (s) => String(s.url || '').trim() === next.matchUrl
-        );
-        if (!already) {
-          next.streams = [
-            ...(next.streams || []),
-            ...normalizeStreamsInput({ streamUrl: next.matchUrl, streamName: 'HD' }),
-          ];
-          next.hasStreams = next.streams.length > 0;
-          next.streamCount = next.streams.length;
-          next.streamUrl = next.streams[0]?.url || null;
-          next.streamHeaders = next.streams[0]?.headers || null;
-          next.matchUrlStatus = 'AVAILABLE';
-        }
-      }
-      if (next.matchUrlSource && next.matchUrl) {
-        next.sourcePages = { ...(next.sourcePages || {}), [next.matchUrlSource]: next.matchUrl };
-      }
+    if (
+      patch.matchUrls !== undefined ||
+      patch.matchUrl !== undefined ||
+      patch.matchUrlSource !== undefined ||
+      patch.source !== undefined
+    ) {
+      const urls = normalizeMatchUrlList(patch, matchUrlEntries(current));
+      assignMatchUrls(next, urls, current);
     }
 
     if (Array.isArray(patch.streams)) {
@@ -246,15 +200,28 @@ class MainLiveService {
     return next;
   }
 
-  markExtractStatus(matchId, { status, error = null, queued = false, touchExtractAt = true } = {}) {
+  markExtractStatus(matchId, { status, error = null, queued = false, touchExtractAt = true, url = null } = {}) {
     const all = this.all();
     const current = all[matchId];
     if (!current) throw new Error('MainLive match not found');
+    const stamp = touchExtractAt ? new Date().toISOString() : null;
+    const urls = matchUrlEntries(current).map((row) => {
+      if (url && row.url !== url) return row;
+      if (!url && row.status === 'AVAILABLE') return row;
+      return {
+        ...row,
+        status: status || row.status,
+        error,
+        extractedAt: touchExtractAt ? stamp : row.extractedAt,
+      };
+    });
+    const primary = urls.find((row) => row.url === current.matchUrl) || urls[0] || null;
     const next = {
       ...current,
-      matchUrlStatus: status || current.matchUrlStatus,
-      matchUrlExtractError: error,
-      matchUrlExtractAt: touchExtractAt ? new Date().toISOString() : current.matchUrlExtractAt,
+      matchUrls: urls,
+      matchUrlStatus: aggregateMatchUrlStatus(urls) || status || current.matchUrlStatus,
+      matchUrlExtractError: primary ? primary.error : error,
+      matchUrlExtractAt: primary ? primary.extractedAt : current.matchUrlExtractAt,
       matchUrlExtractQueued: Boolean(queued),
       updatedAt: new Date().toISOString(),
     };
@@ -268,20 +235,41 @@ class MainLiveService {
     const current = all[matchId];
     if (!current) throw new Error('MainLive match not found');
 
+    const pageUrl = String(extraction.matchUrl || current.matchUrl || '').trim();
     const found = Array.isArray(extraction.streams) ? extraction.streams.filter((s) => s?.url) : [];
     const sourceName = String(extraction.source || current.matchUrlSource || 'stream').trim();
+    const isManual = (s) => String(s?.source || '').toLowerCase() === 'manual';
     const manual = (current.streams || []).filter(
-      (s) => String(s.source || '').toLowerCase() === 'manual'
+      (s) => isManual(s) && String(s.pageUrl || '') !== pageUrl
     );
+    const kept = (current.streams || []).filter((s) => {
+      if (isManual(s)) return false;
+      if (pageUrl && String(s.pageUrl || '') === pageUrl) return false;
+      if (!s.pageUrl && pageUrl && pageUrl === String(current.matchUrl || '').trim()) return false;
+      return true;
+    });
     const auto = found.map((s) => ({
       ...s,
       id: s.id || newStreamId(),
       source: sourceName,
+      pageUrl: pageUrl || s.pageUrl || null,
       checkedAt: new Date().toISOString(),
     }));
-    const streams = [...manual, ...auto];
+    const streams = [...manual, ...kept, ...auto];
     const ok = found.length > 0;
-    const attempts = Number(current.matchUrlExtractAttempts) || 0;
+    const urls = matchUrlEntries(current).map((row) => {
+      if (pageUrl && row.url !== pageUrl) return row;
+      const attempts = Number(row.attempts) || 0;
+      return {
+        ...row,
+        source: sourceName || row.source,
+        status: ok ? 'AVAILABLE' : 'FAILED',
+        error: ok ? null : extraction.error || 'NOT_FOUND',
+        attempts: ok ? attempts : attempts + 1,
+        extractedAt: new Date().toISOString(),
+      };
+    });
+    const primary = urls.find((row) => row.url === current.matchUrl) || urls[0] || null;
     const next = {
       ...current,
       streams,
@@ -289,16 +277,14 @@ class MainLiveService {
       streamCount: streams.length,
       streamUrl: streams[0]?.url || null,
       streamHeaders: streams[0]?.headers || null,
-      matchUrlSource: sourceName || current.matchUrlSource,
-      matchUrlStatus: ok ? 'AVAILABLE' : 'FAILED',
-      matchUrlExtractError: ok ? null : extraction.error || 'NOT_FOUND',
-      matchUrlExtractAttempts: ok ? attempts : attempts + 1,
-      matchUrlExtractAt: new Date().toISOString(),
+      matchUrls: urls,
+      matchUrlSource: primary?.source || sourceName || current.matchUrlSource,
+      matchUrlStatus: aggregateMatchUrlStatus(urls),
+      matchUrlExtractError: primary?.status === 'FAILED' ? primary.error : null,
+      matchUrlExtractAttempts: primary?.attempts || 0,
+      matchUrlExtractAt: primary?.extractedAt || new Date().toISOString(),
       matchUrlExtractQueued: false,
-      sourcePages: {
-        ...(current.sourcePages || {}),
-        ...(current.matchUrl ? { [sourceName]: current.matchUrl } : {}),
-      },
+      sourcePages: sourcePagesFromUrls(urls),
       updatedAt: new Date().toISOString(),
     };
     all[matchId] = next;
@@ -403,6 +389,149 @@ class MainLiveService {
   }
 }
 
+function aggregateMatchUrlStatus(urls) {
+  if (!urls.length) return null;
+  if (urls.some((row) => row.status === 'SEARCHING')) return 'SEARCHING';
+  if (urls.some((row) => row.status === 'AVAILABLE')) return 'AVAILABLE';
+  if (urls.every((row) => row.status === 'FAILED')) return 'FAILED';
+  if (urls.some((row) => row.status === 'SCHEDULED')) return 'SCHEDULED';
+  return 'SEARCHING';
+}
+
+function sourcePagesFromUrls(urls) {
+  const pages = {};
+  urls.forEach((row, index) => {
+    const key = row.source || `page${index + 1}`;
+    if (!pages[key]) pages[key] = row.url;
+    else pages[`${key}-${index + 1}`] = row.url;
+  });
+  return pages;
+}
+
+function normalizeMatchUrlList(input = {}, previous = []) {
+  const prev = Array.isArray(previous) ? previous : [];
+  const prevByUrl = new Map(prev.map((row) => [row.url, row]));
+  if (Array.isArray(input.matchUrls)) {
+    return dedupeMatchUrls(input.matchUrls, prevByUrl);
+  }
+  if (input.matchUrl !== undefined || input.url !== undefined) {
+    const url = String(input.matchUrl ?? input.url ?? '').trim();
+    if (!url) return [];
+    return dedupeMatchUrls(
+      [{ url, source: input.matchUrlSource || input.source || '' }],
+      prevByUrl
+    );
+  }
+  if (input.matchUrlSource !== undefined || input.source !== undefined) {
+    const source = String(input.matchUrlSource || input.source || '').trim() || null;
+    return prev.map((row, index) => (index === 0 ? { ...row, source } : row));
+  }
+  return prev;
+}
+
+function normalizeAdminPageUrl(raw) {
+  let url = String(raw || '').trim();
+  if (!url) return '';
+  if (/^\/\//.test(url)) return `https:${url}`;
+  if (!/^https?:\/\//i.test(url) && /^[\w.-]+\.[a-z]{2,}([/:?#]|$)/i.test(url)) {
+    return `https://${url}`;
+  }
+  return url;
+}
+
+function postedMatchUrlRows(body = {}) {
+  const rows = [];
+  const push = (raw, fallbackSource) => {
+    if (raw == null || raw === '') return;
+    if (typeof raw === 'string') {
+      rows.push({ url: raw, source: fallbackSource || '' });
+      return;
+    }
+    if (typeof raw === 'object') rows.push(raw);
+  };
+  if (Array.isArray(body.matchUrls)) {
+    for (const row of body.matchUrls) push(row, body.source || body.matchUrlSource);
+  } else {
+    push(body.matchUrls, body.source || body.matchUrlSource);
+  }
+  push(body.matchUrl, body.source || body.matchUrlSource);
+  push(body.url, body.source || body.matchUrlSource);
+  return rows;
+}
+
+function dedupeMatchUrls(rawRows, prevByUrl) {
+  const out = [];
+  for (const raw of rawRows) {
+    const url = normalizeAdminPageUrl(
+      typeof raw === 'string' ? raw : raw?.url || raw?.matchUrl || ''
+    );
+    if (!url || out.some((row) => row.url === url)) continue;
+    const prev = prevByUrl.get(url);
+    const hasSource =
+      raw &&
+      typeof raw === 'object' &&
+      (Object.prototype.hasOwnProperty.call(raw, 'source') ||
+        Object.prototype.hasOwnProperty.call(raw, 'matchUrlSource'));
+    const source = hasSource
+      ? String(raw.source || raw.matchUrlSource || '').trim() || null
+      : prev?.source || null;
+    out.push({
+      url,
+      source,
+      status: looksLikeM3u8(url) ? 'AVAILABLE' : prev?.status || 'SEARCHING',
+      error: prev?.error || null,
+      attempts: prev?.attempts || 0,
+      extractedAt: prev?.extractedAt || null,
+    });
+  }
+  return out;
+}
+
+function assignMatchUrls(next, urls, current) {
+  const previousPrimary = String(current?.matchUrl || '').trim();
+  next.matchUrls = urls;
+  const first = urls[0] || null;
+  next.matchUrl = first?.url || null;
+  next.matchUrlSource = first?.source || null;
+  const primaryChanged = next.matchUrl !== previousPrimary;
+  const kept = new Set(urls.map((row) => row.url));
+  next.streams = (next.streams || []).filter((stream) => {
+    const page = String(stream.pageUrl || '').trim();
+    if (page) return kept.has(page);
+    const manual = String(stream.source || '').toLowerCase() === 'manual';
+    if (manual) return true;
+    return !primaryChanged;
+  });
+  for (const row of urls) {
+    if (!looksLikeM3u8(row.url)) continue;
+    const already = (next.streams || []).some((stream) => String(stream.url || '').trim() === row.url);
+    if (!already) {
+      const added = normalizeStreamsInput({ streamUrl: row.url, streamName: 'HD' });
+      for (const stream of added) stream.pageUrl = row.url;
+      next.streams = [...(next.streams || []), ...added];
+    }
+    row.status = 'AVAILABLE';
+    row.error = null;
+  }
+  next.hasStreams = next.streams.length > 0;
+  next.streamCount = next.streams.length;
+  next.streamUrl = next.streams[0]?.url || null;
+  next.streamHeaders = next.streams[0]?.headers || null;
+  next.sourcePages = sourcePagesFromUrls(urls);
+  next.matchUrlStatus = aggregateMatchUrlStatus(urls);
+  next.matchUrlExtractAttempts = first?.attempts || 0;
+  next.matchUrlExtractAt = first?.extractedAt || null;
+  next.matchUrlExtractError = first?.status === 'FAILED' ? first.error : null;
+  if (primaryChanged && next.matchUrl && !looksLikeM3u8(next.matchUrl)) {
+    const fresh = urls.find((row) => row.url === next.matchUrl);
+    if (fresh && !fresh.extractedAt) {
+      next.matchUrlExtractAttempts = 0;
+      next.matchUrlExtractAt = null;
+      next.matchUrlExtractError = null;
+    }
+  }
+}
+
 function newStreamId() {
   return `ml_${crypto.randomBytes(6).toString('hex')}`;
 }
@@ -504,4 +633,8 @@ function normalizeStatus(raw) {
   return 'Scheduled';
 }
 
-module.exports = { MainLiveService };
+module.exports = {
+  MainLiveService,
+  normalizeAdminPageUrl,
+  postedMatchUrlRows,
+};

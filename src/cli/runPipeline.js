@@ -7,6 +7,7 @@ async function main() {
   const force = process.argv.includes('--force');
   const highlightsOnly = process.argv.includes('--highlights');
   const tipsOnly = process.argv.includes('--tips');
+  const resultsOnly = process.argv.includes('--results');
   const channelsOnly =
     process.argv.includes('--channels') || process.argv.includes('--myanmartv');
   const pipeline = new Pipeline(process.env);
@@ -25,6 +26,25 @@ async function main() {
           stats: result.stats,
           github: result.github,
           count: result.delivery?.count,
+        },
+        null,
+        2
+      )
+    );
+    process.exit(result.ok ? 0 : 1);
+  }
+
+  if (resultsOnly) {
+    logger.info('CLI results job');
+    const result = await pipeline.runResults();
+    console.log(
+      JSON.stringify(
+        {
+          ok: result.ok,
+          reason: result.reason,
+          deferred: result.deferred || false,
+          count: result.delivery?.count ?? 0,
+          github: result.github || null,
         },
         null,
         2

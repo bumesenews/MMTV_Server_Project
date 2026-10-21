@@ -63,6 +63,7 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         highlight1: '/flutter/highlight1.json',
         highlight2: '/flutter/highlight2.json',
         myanmartv: '/flutter/myanmartv.json',
+        results: '/flutter/results.json',
         tips: '/flutter/tips.json',
         appVersion: '/flutter/app-version.json',
       },
@@ -74,6 +75,7 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
         'GET /flutter/highlight1.json',
         'GET /flutter/highlight2.json',
         'GET /flutter/myanmartv.json',
+        'GET /flutter/results.json',
         'GET /flutter/tips.json',
         'GET /flutter/app-version.json',
         'POST /api/pipeline/run',
@@ -111,6 +113,11 @@ function createApp({ pipeline, cache, admin, env = process.env }) {
   app.get('/flutter/highlight2.json', (req, res) => {
     if (!publicJson && !requireApiKey(req, res)) return;
     return sendDelivery(res, 'highlight2');
+  });
+
+  app.get('/flutter/results.json', (req, res) => {
+    if (!publicJson && !requireApiKey(req, res)) return;
+    return sendDelivery(res, 'results');
   });
 
   app.get('/flutter/myanmartv.json', (req, res) => {

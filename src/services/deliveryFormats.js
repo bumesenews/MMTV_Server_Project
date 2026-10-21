@@ -92,6 +92,8 @@ function mapTipRow(tip = {}) {
     league: tip.league || null,
     homeTeam: tip.homeTeam || '',
     awayTeam: tip.awayTeam || '',
+    homeLogo: tip.homeLogo || null,
+    awayLogo: tip.awayLogo || null,
     match: tip.match || `${tip.homeTeam || ''} v ${tip.awayTeam || ''}`.trim(),
     prediction: tip.prediction || '',
     predictionSide: tip.predictionSide || null,

@@ -7,6 +7,10 @@ const {
   isFootballPeakWindow,
   mayRunLowPriorityHeavyJob,
 } = require('../utils/jobSchedule');
+const {
+  morningSlotName,
+  shouldRunMorningSlot,
+} = require('../utils/morningRetry');
 
 /**
  * Job schedule (Asia/Yangon) — 1GB RAM safe:
@@ -15,15 +19,20 @@ const {
  * └── expire kickoff+2h → Match URL (−60/−45/−30) → m3u8 (−30…+10) → publish
  *
  * Peak football window 17:00–03:00 Yangon:
- * └── Matches only. Highlights / Tips / MyanmarTV are skipped (no backlog).
+ * └── Matches only among Highlights and Tips. Those jobs are skipped (no backlog).
+ * Results still runs and waits if a match, highlight, or tips job is in progress.
  *
- * Non-peak (once per day, staggered):
- * └── 03:00 MyanmarTV | 06:00 Highlights | 14:00 Tips
+ * Morning scrapes, Asia/Yangon. The second time runs only when the first
+ * scrape did not store new data:
+ * └── Highlights 05:00, again 08:00
+ * └── Results 06:00, again 10:00
+ * └── Tips 07:00, again 11:00
+ * Results defers while Matches, Highlights, or Tips are actually running.
  *
  * Domain check (DOMAIN_CHECK_CRON, default every hour) — lightweight, not a heavy scrape.
  *
  * At most ONE heavy scraper at a time (pipeline locks). Priority on contention:
- * Matches → Highlights → Tips → MyanmarTV.
+ * Matches → Highlights → Tips → Results.
  */
 class Scheduler {
   constructor(pipeline, env = process.env) {
@@ -45,8 +54,7 @@ class Scheduler {
     const expression = this.env.PIPELINE_CRON || DEFAULT_CRONS.PIPELINE_CRON;
     const highlightExpression =
       this.env.HIGHLIGHT_CRON || DEFAULT_CRONS.HIGHLIGHT_CRON;
-    const channelsExpression =
-      this.env.MYANMARTV_CRON || DEFAULT_CRONS.MYANMARTV_CRON;
+    const resultsExpression = this.env.RESULTS_CRON || DEFAULT_CRONS.RESULTS_CRON;
     const tipsExpression = this.env.TIPS_CRON || DEFAULT_CRONS.TIPS_CRON;
     const domainExpression = this.env.DOMAIN_CHECK_CRON || '0 * * * *';
 
@@ -99,8 +107,15 @@ class Scheduler {
             );
             return;
           }
+          if (!shouldRunMorningSlot('highlights', at)) {
+            logger.info('Highlights already have new data today — skip 08:00 run');
+            return;
+          }
           try {
-            await this.pipeline.runHighlights({ force: false });
+            await this.pipeline.runHighlights({
+              force: false,
+              slot: morningSlotName('highlights', at),
+            });
           } catch (err) {
             logger.error('Scheduled highlight job failed', {
               error: err.message,
@@ -111,30 +126,31 @@ class Scheduler {
       );
     }
 
-    if (!cron.validate(channelsExpression)) {
-      logger.error('Invalid MYANMARTV_CRON expression', {
-        expression: channelsExpression,
+    if (!cron.validate(resultsExpression)) {
+      logger.error('Invalid RESULTS_CRON expression', {
+        expression: resultsExpression,
       });
     } else {
       this.channelsTask = cron.schedule(
-        channelsExpression,
+        resultsExpression,
         async () => {
           const at = nowYangon();
-          logger.info('MyanmarTV scheduler tick', {
+          logger.info('Results scheduler tick', {
             at: at.toISO(),
-            expression: channelsExpression,
+            expression: resultsExpression,
             peak: isFootballPeakWindow(at),
           });
-          if (!mayRunLowPriorityHeavyJob(at)) {
-            logger.info(
-              'Peak football window (17:00–03:00 Yangon) — skip MyanmarTV'
-            );
+          if (!shouldRunMorningSlot('results', at)) {
+            logger.info('Results already have new data today — skip 10:00 run');
             return;
           }
           try {
-            await this.pipeline.runMyanmarTv({ force: false });
+            await this.pipeline.runResults({
+              slot: morningSlotName('results', at),
+            });
           } catch (err) {
-            logger.error('Scheduled MyanmarTV job failed', {
+            logger.error('Scheduled results job failed', {
+              stage: 'results',
               error: err.message,
             });
           }
@@ -163,8 +179,15 @@ class Scheduler {
             );
             return;
           }
+          if (!shouldRunMorningSlot('tips', at)) {
+            logger.info('Tips already have new data today — skip 11:00 run');
+            return;
+          }
           try {
-            await this.pipeline.runTips({ force: false });
+            await this.pipeline.runTips({
+              force: false,
+              slot: morningSlotName('tips', at),
+            });
           } catch (err) {
             logger.error('Scheduled tips job failed', { error: err.message });
           }
@@ -203,12 +226,12 @@ class Scheduler {
     logger.info('Scheduler started', {
       expression,
       highlightExpression,
-      channelsExpression,
+      resultsExpression,
       tipsExpression,
       domainExpression,
       timezone: 'Asia/Yangon',
       peakWindow: '17:00–03:00 Asia/Yangon (Matches only)',
-      heavyJobPriority: 'matches > highlights > tips > myanmartv',
+      heavyJobPriority: 'matches > highlights > tips > results',
     });
   }
 

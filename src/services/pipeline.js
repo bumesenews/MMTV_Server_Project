@@ -5,6 +5,10 @@ const {
   isFootballPeakWindow,
   mayRunLowPriorityHeavyJob,
 } = require('../utils/jobSchedule');
+const {
+  markMorningFeed,
+  morningFeedIsFresh,
+} = require('../utils/morningRetry');
 const { PuppeteerManager } = require('../browser/puppeteerManager');
 const { ConfigLoader } = require('./configLoader');
 const { FixtureService } = require('./fixtureService');
@@ -13,8 +17,9 @@ const { CacheService } = require('./cacheService');
 const { GitHubService } = require('./githubService');
 const { generateFlutterJson } = require('./jsonGenerator');
 const { buildDeliveryBundle, formatChannelsDelivery, formatTipsDelivery } = require('./deliveryFormats');
+const { filterTipsToMatchFixtures } = require('./tipsMatchFilter');
 const { enrichMatchState } = require('./statusService');
-const { hasDataChanged } = require('../utils/compare');
+const { hasDataChanged, hashPayload } = require('../utils/compare');
 const { HighlightSource } = require('../sources/highlight');
 const { isDirectMediaUrl } = require('../sources/highlightMedia');
 const { MyanmarTvSource } = require('../sources/myanmartv');
@@ -33,6 +38,19 @@ const {
 const { adminMatchFileName } = require('../utils/adminMatch');
 const { decryptMatchesList } = require('../utils/streamUrlCrypto');
 
+function tipsHaveNewData(previous, next) {
+  const count = Number(next?.count) || 0;
+  if (!count) return false;
+  if (!previous) return true;
+  const strip = (value) => {
+    const clone = JSON.parse(JSON.stringify(value));
+    delete clone.scraped_at;
+    delete clone.generatedAt;
+    return clone;
+  };
+  return hashPayload(strip(previous)) !== hashPayload(strip(next));
+}
+
 /**
  * Main AWS processing pipeline (matches.json):
  * Load config → FotMob fixtures every run (today+tomorrow, Asia/Yangon) →
@@ -40,10 +58,11 @@ const { decryptMatchesList } = require('../utils/streamUrlCrypto');
  * starting at kickoff−30m; LIVE until +120m, then END + drop streams →
  * sync matches.json (expire kickoff+2h, merge streams) → GitHub PUT if changed
  *
- * Separate jobs (non-peak, once daily by default — see jobSchedule.DEFAULT_CRONS):
- * - Highlights (runHighlights)
+ * Separate jobs (non-peak — see jobSchedule.DEFAULT_CRONS):
+ * - Highlights 05:00, again 08:00 when the 05:00 scrape stored nothing new
+ * - Results 06:00, again 10:00 when the 06:00 scrape stored nothing new
+ * - Tips 07:00, again 11:00 when the 07:00 scrape stored nothing new
  * - Myanmar TV channels (runMyanmarTv)
- * - Tips (runTips)
  * Peak 17:00–03:00 Yangon: Matches only among heavy scrapers.
  */
 class Pipeline {
@@ -64,6 +83,9 @@ class Pipeline {
     this.lastTipsRun = null;
     this.channelsRunning = false;
     this.tipsRunning = false;
+    this.resultsRunning = false;
+    this._resultsSince = 0;
+    this.lastResultsRun = null;
     this._expiring = false;
     this._runningSince = 0;
     this._highlightSince = 0;
@@ -71,7 +93,9 @@ class Pipeline {
     this._tipsSince = 0;
     this._pendingMyanmarTv = false;
     this._pendingTips = false;
+    this._tipsRunOpts = null;
     this._pendingHighlights = false;
+    this._highlightRunOpts = null;
     this._pendingMatches = false;
     /** Next queued Matches run should force stream extract (Admin Match URL). */
     this._pendingForceStreamCheck = false;
@@ -223,7 +247,11 @@ class Pipeline {
    * at kickoff−30, then once more 15 minutes later if that search found nothing.
    */
   async retryPendingMainLiveExtracts({ actor = 'scraper', force = false } = {}) {
-    const { needsMainLiveExtract } = require('../admin/services/mainLiveExtractPolicy');
+    const {
+      needsMainLiveExtract,
+      matchUrlEntries,
+      urlExtractPlan,
+    } = require('../admin/services/mainLiveExtractPolicy');
     const { extractMainLiveStreams } = require('../admin/services/mainLiveExtract');
     const mainLive = this.admin?.mainLive;
     if (!mainLive || !this.admin?.publish) {
@@ -234,15 +262,19 @@ class Pipeline {
 
     let found = 0;
     for (const row of pending) {
-      mainLive.markExtractStatus(row.matchId, { status: 'SEARCHING' });
-      const extraction = await extractMainLiveStreams({
-        pipeline: this,
-        matchUrl: row.matchUrl,
-        sourceName: row.matchUrlSource,
-      });
-      const next = mainLive.applyExtractResult(row.matchId, extraction);
-      if (extraction.ok || (next.streams || []).length > (row.streams || []).length) {
-        found += 1;
+      const due = matchUrlEntries(row).filter((entry) => urlExtractPlan(row, entry, { force }).due);
+      for (const entry of due) {
+        mainLive.markExtractStatus(row.matchId, { status: 'SEARCHING', url: entry.url });
+        const extraction = await extractMainLiveStreams({
+          pipeline: this,
+          matchUrl: entry.url,
+          sourceName: entry.source,
+        });
+        extraction.matchUrl = entry.url;
+        const next = mainLive.applyExtractResult(row.matchId, extraction);
+        if (extraction.ok || (next.streams || []).length > (row.streams || []).length) {
+          found += 1;
+        }
       }
     }
     if (found > 0 || pending.length) {
@@ -777,6 +809,12 @@ class Pipeline {
         .inspectResult(githubResult)
         .catch(() => {});
 
+      try {
+        await this._alignTipsWithMatches(delivery.matches?.matches || []);
+      } catch (err) {
+        logger.warn('Tips were not aligned to matches.json', { error: err.message });
+      }
+
       const durationMs = Date.now() - startedAt;
       this.lastRun = {
         ok: true,
@@ -1190,15 +1228,33 @@ class Pipeline {
     return feed.startsWith('highlight') ? feed : 'highlight1';
   }
 
+  _queueHighlights({ force = false, slot = null } = {}) {
+    this._pendingHighlights = true;
+    this._highlightRunOpts = { force: Boolean(force), slot: slot || null };
+  }
+
+  _queueTips({ force = false, slot = null } = {}) {
+    this._pendingTips = true;
+    this._tipsRunOpts = { force: Boolean(force), slot: slot || null };
+  }
+
   /**
    * Dedicated highlight job (HIGHLIGHT_CRON):
+   * 05:00 Asia/Yangon, and 08:00 when that scrape stored no new highlights.
    * highlight1 (Hoofoot) then highlight2 (Socolive), one after the other on 1GB RAM.
    * If highlight1 hangs or fails, highlight2 still runs.
    */
-  async runHighlights({ force = false } = {}) {
+  async runHighlights({ force = false, slot = null } = {}) {
     this._clearStuckJobLocks();
+    if (slot === 'retry' && morningFeedIsFresh('highlights')) {
+      this._pendingHighlights = false;
+      this._highlightRunOpts = null;
+      logger.info('Highlights already have new data today — skip 08:00 run');
+      return { ok: true, reason: 'already_fresh' };
+    }
     if (!mayRunLowPriorityHeavyJob(null, { force })) {
       this._pendingHighlights = false;
+      this._highlightRunOpts = null;
       logger.info('Peak football window — skip Highlights (no backlog)');
       return { ok: false, reason: 'peak_window' };
     }
@@ -1207,17 +1263,17 @@ class Pipeline {
       return { ok: false, reason: 'already_running' };
     }
     if (this.running) {
-      this._pendingHighlights = true;
+      this._queueHighlights({ force, slot });
       logger.warn('Pipeline active — queue highlight job');
       return { ok: false, reason: 'pipeline_running', queued: true };
     }
     if (this.channelsRunning) {
-      this._pendingHighlights = true;
+      this._queueHighlights({ force, slot });
       logger.warn('MyanmarTV job active — queue highlight job');
       return { ok: false, reason: 'channels_running', queued: true };
     }
     if (this.tipsRunning) {
-      this._pendingHighlights = true;
+      this._queueHighlights({ force, slot });
       logger.warn('Tips job active — queue highlight job');
       return { ok: false, reason: 'tips_running', queued: true };
     }
@@ -1228,9 +1284,12 @@ class Pipeline {
 
     logEvent(events.SCRAPER_START, 'Highlight scraper started', {
       force,
+      slot,
       timezone: 'Asia/Yangon',
     });
 
+    let trackMorning = false;
+    let morningFresh = false;
     try {
       const config = await this.configLoader.load(true);
       const configs = this._highlightConfigs(config.sources);
@@ -1238,6 +1297,7 @@ class Pipeline {
         logger.info('Highlight sources disabled — skip');
         return { ok: true, reason: 'disabled' };
       }
+      trackMorning = true;
 
       const bundle = this.cache.getDeliveryBundle();
       const feedResults = {};
@@ -1355,6 +1415,7 @@ class Pipeline {
           source: (cfg.domains && cfg.domains[0]) || '',
           scraped_at: new Date().toISOString(),
         });
+        if (sourceManager.hasChanged(previousDelivery, nextDelivery)) morningFresh = true;
         bundle[feedKey] = nextDelivery;
         if (feedKey === 'highlight1') {
           lastHighlights = highlights;
@@ -1461,6 +1522,7 @@ class Pipeline {
       };
       return { ok: false, reason: err.message };
     } finally {
+      if (trackMorning) markMorningFeed('highlights', { fresh: morningFresh });
       this.highlightRunning = false;
       this._highlightSince = 0;
       await this._drainQueuedJobs().catch((err) => {
@@ -1715,7 +1777,9 @@ class Pipeline {
             logger.info('Peak window — dropping queued Highlights/Tips/MyanmarTV');
           }
           this._pendingHighlights = false;
+          this._highlightRunOpts = null;
           this._pendingTips = false;
+          this._tipsRunOpts = null;
           this._pendingMyanmarTv = false;
         }
 
@@ -1736,15 +1800,19 @@ class Pipeline {
         // P1 → P2 → P3 (only outside peak)
         if (!isFootballPeakWindow()) {
           if (this._pendingHighlights) {
+            const opts = this._highlightRunOpts || { force: false };
             this._pendingHighlights = false;
+            this._highlightRunOpts = null;
             logger.info('Running queued highlight job');
-            await this.runHighlights({ force: false });
+            await this.runHighlights(opts);
             continue;
           }
           if (this._pendingTips) {
+            const opts = this._tipsRunOpts || { force: false };
             this._pendingTips = false;
+            this._tipsRunOpts = null;
             logger.info('Running queued tips job');
-            await this.runTips({ force: false });
+            await this.runTips(opts);
             continue;
           }
           if (this._pendingMyanmarTv) {
@@ -1779,13 +1847,57 @@ class Pipeline {
   }
 
   /**
-   * Dedicated PredictZ tips job (today + tomorrow).
-   * Axios first, Puppeteer if blocked. Never overwrite with empty on failure.
+   * Drop tips whose fixture is no longer in matches.json.
+   * A failed tips scrape is left untouched. Match publish calls this so an
+   * expired fixture disappears from tips.json before the next tips run.
    */
-  async runTips({ force = false } = {}) {
+  async _alignTipsWithMatches(matches) {
+    if (!Array.isArray(matches)) return;
+    const previous = this.cache.getDelivery('tips');
+    if (!previous) return;
+    const next = filterTipsToMatchFixtures(previous, matches, this.normalizer);
+    const signature = (payload) =>
+      ['today', 'tomorrow']
+        .map((day) =>
+          (payload[day]?.tips || [])
+            .map(
+              (tip) =>
+                `${tip.id || `${tip.homeTeam}|${tip.awayTeam}|${tip.date}`}|${tip.homeLogo || ''}|${tip.awayLogo || ''}`
+            )
+            .join(',')
+        )
+        .join(';');
+    if (signature(previous) === signature(next)) return;
+
+    this.cache.saveDeliveryBundle({ tips: next });
+    const github = await this.github.uploadJsonIfChanged(this.github.paths.tips, next, {
+      previousLocal: previous,
+      feedKey: 'tips',
+      allowEmpty: true,
+    });
+    logger.info('Tips realigned to matches.json', {
+      kept: next.count,
+      github: github.reason || (github.uploaded ? 'changed' : 'skipped'),
+    });
+  }
+
+  /**
+   * Dedicated PredictZ tips job (today + tomorrow).
+   * 07:00 Asia/Yangon, and 11:00 when that scrape stored no new tips.
+   * Axios first, Puppeteer if blocked. Never overwrite with empty on failure.
+   * Published tips are limited to fixtures present in matches.json.
+   */
+  async runTips({ force = false, slot = null } = {}) {
     this._clearStuckJobLocks();
+    if (slot === 'retry' && morningFeedIsFresh('tips')) {
+      this._pendingTips = false;
+      this._tipsRunOpts = null;
+      logger.info('Tips already have new data today — skip 11:00 run');
+      return { ok: true, reason: 'already_fresh' };
+    }
     if (!mayRunLowPriorityHeavyJob(null, { force })) {
       this._pendingTips = false;
+      this._tipsRunOpts = null;
       logger.info('Peak football window — skip Tips (no backlog)');
       return { ok: false, reason: 'peak_window' };
     }
@@ -1794,17 +1906,17 @@ class Pipeline {
       return { ok: false, reason: 'already_running' };
     }
     if (this.running) {
-      this._pendingTips = true;
+      this._queueTips({ force, slot });
       logger.warn('Pipeline active — queue tips job');
       return { ok: false, reason: 'pipeline_running', queued: true };
     }
     if (this.highlightRunning) {
-      this._pendingTips = true;
+      this._queueTips({ force, slot });
       logger.warn('Highlight job active — queue tips job');
       return { ok: false, reason: 'highlight_running', queued: true };
     }
     if (this.channelsRunning) {
-      this._pendingTips = true;
+      this._queueTips({ force, slot });
       logger.warn('MyanmarTV job active — queue tips job');
       return { ok: false, reason: 'channels_running', queued: true };
     }
@@ -1814,11 +1926,18 @@ class Pipeline {
     const startedAt = Date.now();
     logEvent(events.SCRAPER_START, 'PredictZ tips scraper started', {
       force,
+      slot,
       timezone: 'Asia/Yangon',
     });
 
+    let trackMorning = false;
+    let morningFresh = false;
     try {
       const config = await this.configLoader.load(true);
+      this.normalizer.reload({
+        leagues: config.leagues?.allowedLeagues || config.leagues?.leagues || [],
+        teams: config.teams?.teams || [],
+      });
       if (!this._isSourceEnabled(config.sources, 'tips')) {
         logger.info('Tips source disabled — skip');
         return { ok: true, reason: 'disabled' };
@@ -1830,6 +1949,7 @@ class Pipeline {
       };
 
       const previousDelivery = this.cache.getDelivery('tips');
+      trackMorning = true;
 
       let scraped = null;
       try {
@@ -1896,6 +2016,7 @@ class Pipeline {
           tomorrow: 0,
           at: new Date().toISOString(),
         };
+        morningFresh = false;
         return {
           ok: false,
           reason: 'today_page_unavailable',
@@ -1918,19 +2039,42 @@ class Pipeline {
         count: 0,
         tips: [],
       };
-      const nextDelivery = {
+      const scrapedDelivery = {
         ...formatted,
         today: todayBlock,
         tomorrow: tomorrowBlock,
         count: (todayBlock.tips?.length || 0) + (tomorrowBlock.tips?.length || 0),
       };
-      if (!nextDelivery.count && previousDelivery?.count) {
+      if (!scrapedDelivery.count && previousDelivery?.count) {
         logger.warn('Tips scrape returned empty — keep previous tips.json');
         logEvent(events.GITHUB_SKIPPED, 'No tips changes detected. GitHub upload skipped.', {
           feed: 'tips',
         });
+        morningFresh = false;
         return { ok: true, reason: 'empty_keep_previous', kept: previousDelivery };
       }
+
+      const matchesPayload = this.cache.getDelivery('matches');
+      if (!matchesPayload || !Array.isArray(matchesPayload.matches)) {
+        logger.warn('matches.json unavailable — skip tips publish');
+        this.lastTipsRun = {
+          ok: false,
+          reason: 'matches_unavailable',
+          at: new Date().toISOString(),
+        };
+        morningFresh = false;
+        return { ok: false, reason: 'matches_unavailable', kept: previousDelivery };
+      }
+
+      const nextDelivery = filterTipsToMatchFixtures(
+        scrapedDelivery,
+        matchesPayload.matches,
+        this.normalizer
+      );
+      logger.info('Tips limited to matches.json fixtures', {
+        scraped: scrapedDelivery.count,
+        kept: nextDelivery.count,
+      });
 
       if (!nextDelivery.count && !previousDelivery?.count) {
         logger.warn('Tips scrape returned empty and no previous data — skip upload');
@@ -1946,6 +2090,7 @@ class Pipeline {
         github = await this.github.uploadJsonIfChanged(this.github.paths.tips, nextDelivery, {
           previousLocal: previousDelivery,
           feedKey: 'tips',
+          allowEmpty: scrapedDelivery.count > 0 && nextDelivery.count === 0,
         });
         if (!github.uploaded) {
           logEvent(
@@ -1976,6 +2121,7 @@ class Pipeline {
       };
 
       logEvent(events.SCRAPER_SUCCESS, 'Tips job completed', this.lastTipsRun);
+      morningFresh = tipsHaveNewData(previousDelivery, nextDelivery);
       return {
         ok: true,
         uploaded: Boolean(github.uploaded),
@@ -1989,8 +2135,10 @@ class Pipeline {
         reason: err.message,
         at: new Date().toISOString(),
       };
+      morningFresh = false;
       return { ok: false, reason: err.message };
     } finally {
+      if (trackMorning) markMorningFeed('tips', { fresh: morningFresh });
       this.tipsRunning = false;
       this._tipsSince = 0;
       await this._drainQueuedJobs().catch((err) => {
@@ -2003,6 +2151,60 @@ class Pipeline {
           // ignore
         }
       }
+    }
+  }
+
+  /**
+   * Football results from socolivezu.tv/kqbd.
+   * 06:00 Asia/Yangon, and 10:00 when that scrape stored no new results.
+   * Defers while match, highlight, MyanmarTV, or tips locks are held.
+   */
+  async runResults({ slot = null } = {}) {
+    if (slot === 'retry' && morningFeedIsFresh('results')) {
+      logger.info('Results already have new data today — skip 10:00 run');
+      return { ok: true, reason: 'already_fresh' };
+    }
+    if (this.resultsRunning) {
+      return { ok: false, reason: 'already_running' };
+    }
+    const { createResultsPipeline } = require('./results/resultsPipeline');
+    if (!this._resultsPipeline) {
+      this._resultsPipeline = createResultsPipeline({
+        env: this.env,
+        cache: this.cache,
+        github: this.github,
+      });
+    }
+    this.resultsRunning = true;
+    this._resultsSince = Date.now();
+    try {
+      const result = await this._resultsPipeline.run({
+        isHigherPriorityBusy: () =>
+          Boolean(
+            this.running ||
+              this.highlightRunning ||
+              this.channelsRunning ||
+              this.tipsRunning
+          ),
+      });
+      this.lastResultsRun = {
+        ok: Boolean(result.ok),
+        reason: result.reason || null,
+        deferred: Boolean(result.deferred),
+        at: new Date().toISOString(),
+      };
+      if (result.reason !== 'deferred' && result.reason !== 'already_running') {
+        markMorningFeed('results', { fresh: Boolean(result.changed) });
+      }
+      return result;
+    } catch (err) {
+      logger.error('Results job failed', { stage: 'results', error: err.message });
+      this.lastResultsRun = { ok: false, reason: err.message, at: new Date().toISOString() };
+      markMorningFeed('results', { fresh: false });
+      return { ok: false, reason: err.message };
+    } finally {
+      this.resultsRunning = false;
+      this._resultsSince = 0;
     }
   }
 }

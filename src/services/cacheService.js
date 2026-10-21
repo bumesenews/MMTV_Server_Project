@@ -17,6 +17,7 @@ class CacheService {
       highlight2: path.join(this.deliveryDir, 'highlight2.json'),
       myanmartv: path.join(this.deliveryDir, 'myanmartv.json'),
       tips: path.join(this.deliveryDir, 'tips.json'),
+      results: path.join(this.deliveryDir, 'results.json'),
     };
     this.ensureDir();
   }
@@ -63,6 +64,7 @@ class CacheService {
       highlight2: this.readJson(this.deliveryFiles.highlight2),
       myanmartv: this.readJson(this.deliveryFiles.myanmartv),
       tips: this.readJson(this.deliveryFiles.tips),
+      results: this.readJson(this.deliveryFiles.results),
     };
   }
 
@@ -88,6 +90,7 @@ class CacheService {
       'highlight2',
       'myanmartv',
       'tips',
+      'results',
     ];
 
     for (const key of keys) {
@@ -120,6 +123,7 @@ class CacheService {
         : 0,
       channels: Array.isArray(bundle.myanmartv) ? bundle.myanmartv.length : 0,
       tips: Number(bundle.tips?.count) || 0,
+      results: Number(bundle.results?.count) || 0,
     });
 
     return { previous, changed };

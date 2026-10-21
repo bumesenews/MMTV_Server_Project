@@ -6,12 +6,17 @@ const { DateTime } = require('luxon');
 const {
   ZONE,
   HEAVY_JOBS,
+  MORNING_FEEDS,
   DEFAULT_CRONS,
   isFootballPeakWindow,
   mayRunLowPriorityHeavyJob,
   prioritizeHeavyJobs,
   selectNextHeavyJob,
 } = require('../src/utils/jobSchedule');
+const {
+  applyMorningResult,
+  morningSlotShouldRun,
+} = require('../src/utils/morningRetry');
 const { Pipeline } = require('../src/services/pipeline');
 
 let passed = 0;
@@ -37,8 +42,9 @@ function yangonAt(hour, minute = 0) {
 console.log('\n=== Phase 3: default crons ===');
 assert('Matches cron every 5 min', DEFAULT_CRONS.PIPELINE_CRON === '*/5 * * * *');
 assert('MyanmarTV once daily 03:00', DEFAULT_CRONS.MYANMARTV_CRON === '0 3 * * *');
-assert('Highlights once daily 06:00', DEFAULT_CRONS.HIGHLIGHT_CRON === '0 6 * * *');
-assert('Tips once daily 14:00', DEFAULT_CRONS.TIPS_CRON === '0 14 * * *');
+assert('Highlights 05:00 and 08:00', DEFAULT_CRONS.HIGHLIGHT_CRON === '0 5,8 * * *');
+assert('Results 06:00 and 10:00', DEFAULT_CRONS.RESULTS_CRON === '0 6,10 * * *');
+assert('Tips 07:00 and 11:00', DEFAULT_CRONS.TIPS_CRON === '0 7,11 * * *');
 assert('Timezone Asia/Yangon', ZONE === 'Asia/Yangon');
 
 console.log('\n=== Phase 3: peak window 17:00–03:00 ===');
@@ -241,6 +247,69 @@ console.log('\n=== Phase 3: drain priority order (Matches before Highlights) ===
   assert('Then Highlights', rest[0] === HEAVY_JOBS.HIGHLIGHTS);
   assert('Then Tips', rest[1] === HEAVY_JOBS.TIPS);
   assert('Then MyanmarTV', rest[2] === HEAVY_JOBS.MYANMARTV);
+}
+
+console.log('\n=== Phase 3: morning retry ===');
+assert('Highlights primary 05:00', MORNING_FEEDS.highlights.primaryHour === 5);
+assert('Highlights retry 08:00', MORNING_FEEDS.highlights.retryHour === 8);
+assert('Results primary 06:00', MORNING_FEEDS.results.primaryHour === 6);
+assert('Results retry 10:00', MORNING_FEEDS.results.retryHour === 10);
+assert('Tips primary 07:00', MORNING_FEEDS.tips.primaryHour === 7);
+assert('Tips retry 11:00', MORNING_FEEDS.tips.retryHour === 11);
+{
+  const at5 = yangonAt(5);
+  const at8 = yangonAt(8);
+  assert('05:00 highlights always runs', morningSlotShouldRun('highlights', at5, {}) === true);
+  let state = applyMorningResult({}, 'highlights', at5, false);
+  assert(
+    '08:00 highlights runs when 05:00 stored nothing new',
+    morningSlotShouldRun('highlights', at8, state) === true
+  );
+  state = applyMorningResult({}, 'highlights', at5, true);
+  assert(
+    '08:00 highlights skips after new data',
+    morningSlotShouldRun('highlights', at8, state) === false
+  );
+  state = applyMorningResult(state, 'highlights', at8, false);
+  assert(
+    'A later empty run keeps the fresh flag',
+    morningSlotShouldRun('highlights', at8, state) === false
+  );
+  assert(
+    '08:00 highlights runs when the 05:00 job never recorded',
+    morningSlotShouldRun('highlights', at8, {}) === true
+  );
+  assert(
+    'Next day 08:00 runs again',
+    morningSlotShouldRun('highlights', at8.plus({ days: 1 }), state) === true
+  );
+
+  const at6 = yangonAt(6);
+  const at10 = yangonAt(10);
+  state = applyMorningResult({}, 'results', at6, false);
+  assert(
+    '10:00 results runs when 06:00 stored nothing new',
+    morningSlotShouldRun('results', at10, state) === true
+  );
+  state = applyMorningResult({}, 'results', at6, true);
+  assert(
+    '10:00 results skips after new data',
+    morningSlotShouldRun('results', at10, state) === false
+  );
+  assert('06:00 results still runs after fresh data', morningSlotShouldRun('results', at6, state) === true);
+
+  const at7 = yangonAt(7);
+  const at11 = yangonAt(11);
+  state = applyMorningResult({}, 'tips', at7, false);
+  assert(
+    '11:00 tips runs when 07:00 stored nothing new',
+    morningSlotShouldRun('tips', at11, state) === true
+  );
+  state = applyMorningResult({}, 'tips', at7, true);
+  assert(
+    '11:00 tips skips after new data',
+    morningSlotShouldRun('tips', at11, state) === false
+  );
 }
 
 console.log(`\nPhase 3 results: ${passed} passed, ${failed} failed`);

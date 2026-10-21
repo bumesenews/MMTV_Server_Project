@@ -62,9 +62,42 @@ function hasAutomaticStream(match) {
  * Page Match URLs: first search at kickoff−30, one more search 15 minutes
  * after that attempt if it found nothing. A pasted .m3u8 is stored immediately.
  */
-function mainLiveExtractPlan(match, { force = false, nowSec = nowUtcUnixSeconds() } = {}) {
+function matchUrlEntries(match) {
+  const rows = [];
+  const push = (row, fallback = {}) => {
+    const url = String(
+      typeof row === 'string' ? row : row?.url || row?.matchUrl || ''
+    ).trim();
+    if (!url || rows.some((item) => item.url === url)) return;
+    rows.push({
+      url,
+      source: String(row?.source || row?.matchUrlSource || fallback.source || '').trim() || null,
+      status: row?.status || fallback.status || null,
+      error: row?.error || fallback.error || null,
+      attempts: Number(row?.attempts ?? fallback.attempts) || 0,
+      extractedAt: row?.extractedAt || fallback.extractedAt || null,
+    });
+  };
+  if (Array.isArray(match?.matchUrls)) {
+    for (const row of match.matchUrls) push(row);
+  }
+  const primary = String(match?.matchUrl || '').trim();
+  if (primary && !rows.some((item) => item.url === primary)) {
+    rows.unshift({
+      url: primary,
+      source: match?.matchUrlSource || null,
+      status: match?.matchUrlStatus || null,
+      error: match?.matchUrlExtractError || null,
+      attempts: Number(match?.matchUrlExtractAttempts) || 0,
+      extractedAt: match?.matchUrlExtractAt || null,
+    });
+  }
+  return rows;
+}
+
+function urlExtractPlan(match, entry, { force = false, nowSec = nowUtcUnixSeconds() } = {}) {
   if (!match) return { due: false, reason: 'no_match' };
-  const url = String(match.matchUrl || '').trim();
+  const url = String(entry?.url || '').trim();
   if (!url) return { due: false, reason: 'no_match_url' };
   if (String(match.status || '') === 'END') return { due: false, reason: 'ended' };
   if (looksLikeM3u8(url)) {
@@ -73,7 +106,12 @@ function mainLiveExtractPlan(match, { force = false, nowSec = nowUtcUnixSeconds(
       ? { due: false, reason: 'already_m3u8' }
       : { due: true, reason: 'already_m3u8' };
   }
-  if (hasAutomaticStream(match) && !force) return { due: false, reason: 'found' };
+  const listed = Array.isArray(match.matchUrls) ? match.matchUrls.length : 0;
+  const single = listed <= 1;
+  if (single && hasAutomaticStream(match) && !force) return { due: false, reason: 'found' };
+  if (!single && String(entry.status || '') === 'AVAILABLE' && !force) {
+    return { due: false, reason: 'found' };
+  }
 
   const mins = minutesUntilKickoff(match.kickoff, nowSec);
   if (mins == null || mins > MAINLIVE_EXTRACT_LEAD_MIN) {
@@ -81,18 +119,32 @@ function mainLiveExtractPlan(match, { force = false, nowSec = nowUtcUnixSeconds(
   }
   if (force) return { due: true, reason: 'force' };
 
-  const attempts = Number(match.matchUrlExtractAttempts) || 0;
+  const attempts = single
+    ? Number(match.matchUrlExtractAttempts) || Number(entry.attempts) || 0
+    : Number(entry.attempts) || 0;
   if (attempts <= 0) return { due: true, reason: 'lead' };
   if (attempts >= MAINLIVE_EXTRACT_MAX_ATTEMPTS) {
     return { due: false, reason: 'attempts_done' };
   }
-  const at = Date.parse(match.matchUrlExtractAt || '');
+  const at = Date.parse((single ? match.matchUrlExtractAt : entry.extractedAt) || '');
   if (!Number.isFinite(at)) return { due: true, reason: 'retry' };
   const waitedMs = nowSec * 1000 - at;
   if (waitedMs < MAINLIVE_EXTRACT_RETRY_MIN * 60 * 1000) {
     return { due: false, reason: 'retry_wait' };
   }
   return { due: true, reason: 'retry' };
+}
+
+function mainLiveExtractPlan(match, options = {}) {
+  const entries = matchUrlEntries(match);
+  if (!entries.length) return { due: false, reason: 'no_match_url' };
+  let blocked = null;
+  for (const entry of entries) {
+    const plan = urlExtractPlan(match, entry, options);
+    if (plan.due) return { ...plan, url: entry.url };
+    if (!blocked) blocked = plan;
+  }
+  return blocked || { due: false, reason: 'no_match_url' };
 }
 
 function needsMainLiveExtract(match, options) {
@@ -103,6 +155,8 @@ module.exports = {
   looksLikeM3u8,
   hostOf,
   resolveSourceFromUrl,
+  matchUrlEntries,
+  urlExtractPlan,
   mainLiveExtractPlan,
   needsMainLiveExtract,
   MAINLIVE_EXTRACT_LEAD_MIN,

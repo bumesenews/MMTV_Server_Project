@@ -128,9 +128,9 @@ All crons use timezone **`Asia/Yangon`**. Module: `src/services/scheduler.js`.
 | Job | Env | Cron | Output |
 |-----|-----|------|--------|
 | Main pipeline | `PIPELINE_CRON` | `*/5 * * * *` | `matches.json` (fixtures + Match URL + extract + status + publish) |
-| Highlights | `HIGHLIGHT_CRON` | `0 */6 * * *` | `highlight1.json` + `highlight2.json` |
+| Highlights | `HIGHLIGHT_CRON` | `0 5,8 * * *` | `highlight1.json` + `highlight2.json` (08:00 only if 05:00 stored nothing new) |
 | MyanmarTV | `MYANMARTV_CRON` | `*/8 * * * *` | `myanmartv.json` |
-| Tips | `TIPS_CRON` | `0 14 * * *` | `tips.json` (14:00) |
+| Tips | `TIPS_CRON` | `0 7,11 * * *` | `tips.json` (07:00, and 11:00 only if 07:00 stored nothing new) |
 | Domain check | `DOMAIN_CHECK_CRON` | `0 * * * *` | Telegram only |
 
 Each pipeline tick also calls `expireStaleMatches()` (remove matches past kickoff+2h) before scrape.
@@ -390,14 +390,14 @@ Helper script to verify sites vs today’s fixtures: `node scripts/checkTodayMat
 
 ### Highlights — `Pipeline.runHighlights`
 
-- Cron: every 6 hours in production (`HIGHLIGHT_CRON`)
+- Cron: 05:00 Asia/Yangon, and 08:00 when that scrape stored no new highlights (`HIGHLIGHT_CRON`)
 - Runs **highlight1** (Hoofoot) then **highlight2** (Socolive video-highlight) sequentially
 - Writes `highlight1.json` (+ legacy `highlight.json` mirror) and `highlight2.json`
 - Empty / failed scrape → keep previous; GitHub `refuse_empty`
 
 ### Tips — `Pipeline.runTips`
 
-- Cron: **14:00** Yangon, once a day (PredictZ publishes today's table in the UK morning; 08:00 Yangon is still the UK night)
+- Cron: **07:00** Yangon, and **11:00** when that scrape stored no new tips
 - PredictZ today + tomorrow → `tips.json`
 - Axios first, Puppeteer if blocked
 - Queued if pipeline / highlights / TV busy

@@ -13,6 +13,7 @@
     "test:stream-extract": "node scripts/testStreamExtraction.js",
     "test:stream-validate": "node scripts/testStreamValidation.js",
     "test:config-state": "node scripts/testConfigState.js",
+    "test:results": "node scripts/testResultsParse.js",
     "pm2:start": "pm2 start ecosystem.config.js",
     "pm2:stop": "pm2 stop football-streaming",
     "pm2:restart": "pm2 restart football-streaming",

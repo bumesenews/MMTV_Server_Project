@@ -9,6 +9,8 @@ const {
   resolveTipsDay,
 } = require('../src/sources/tips');
 const { formatTipsDelivery } = require('../src/services/deliveryFormats');
+const { filterTipsToMatchFixtures } = require('../src/services/tipsMatchFilter');
+const { Normalizer } = require('../src/utils/normalize');
 
 let passed = 0;
 let failed = 0;
@@ -130,6 +132,67 @@ const legitEmptyKept = resolveTipsDay({
   day: 'today',
 });
 assert('real empty page is kept', legitEmptyKept?.label?.includes('Football Tips Today') && legitEmptyKept.tips.length === 0);
+
+const normalizer = new Normalizer({
+  teams: [
+    { standardName: 'Manchester City', aliases: ['Man City', 'Manchester City'] },
+    { standardName: 'Arsenal', aliases: ['Arsenal'] },
+  ],
+});
+const tipsDelivery = {
+  today: {
+    date: '2026-10-20',
+    tips: [
+      { id: 'city', homeTeam: 'Man City', awayTeam: 'Arsenal', date: '2026-10-20', prediction: 'Home 2-1' },
+      { id: 'other', homeTeam: 'Espanyol', awayTeam: 'Levante', date: '2026-10-20', prediction: 'Draw 1-1' },
+      { id: 'old-day', homeTeam: 'Man City', awayTeam: 'Arsenal', date: '2026-10-19', prediction: 'Away 1-0' },
+    ],
+    count: 3,
+  },
+  tomorrow: {
+    date: '2026-10-21',
+    tips: [
+      { id: 'swap', homeTeam: 'Arsenal', awayTeam: 'Manchester City', date: '2026-10-21', prediction: 'Home 1-0' },
+    ],
+    count: 1,
+  },
+  count: 4,
+};
+const matches = [
+  {
+    homeTeam: 'Manchester City',
+    awayTeam: 'Arsenal',
+    homeLogo: 'https://cdn.example/city.png',
+    awayLogo: null,
+    kickoff: '2026-10-20T13:30:00.000Z',
+  },
+  {
+    homeTeam: 'Manchester City',
+    awayTeam: 'Arsenal',
+    homeLogo: 'https://cdn.example/city.png',
+    awayLogo: 'https://cdn.example/arsenal.png',
+    kickoff: '2026-10-21T13:30:00.000Z',
+  },
+];
+const filtered = filterTipsToMatchFixtures(tipsDelivery, matches, normalizer);
+assert('fixture in matches.json is kept', filtered.today.tips.map((tip) => tip.id).join(',') === 'city', filtered.today.tips.map((tip) => tip.id).join(','));
+assert('tip for teams outside matches.json is dropped', !filtered.today.tips.some((tip) => tip.id === 'other'));
+assert('swapped home and away still match', filtered.tomorrow.tips.map((tip) => tip.id).join(',') === 'swap');
+const city = filtered.today.tips[0];
+assert(
+  'logo follows the tip home team',
+  city.homeLogo === 'https://cdn.example/city.png' && city.awayLogo == null
+);
+const swapped = filtered.tomorrow.tips[0];
+assert(
+  'swapped fixture still gives each team its own logo',
+  swapped.homeTeam === 'Arsenal' &&
+    swapped.homeLogo === 'https://cdn.example/arsenal.png' &&
+    swapped.awayLogo === 'https://cdn.example/city.png'
+);
+assert('filtered count', filtered.count === 2, String(filtered.count));
+const none = filterTipsToMatchFixtures(tipsDelivery, [], normalizer);
+assert('no matches means no tips', none.count === 0 && none.today.tips.length === 0);
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

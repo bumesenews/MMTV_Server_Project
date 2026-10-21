@@ -13,6 +13,7 @@ const { clearSourceMatchUrl, inMatchUrlHuntWindow } = require('../../utils/match
 const { assertFeedKey } = require('../services/feedAdminService');
 const { collectSourceFailuresFromMatches } = require('../services/dashboardService');
 const { toAdminMatchDoc, listAdminEntries } = require('../../utils/adminMatch');
+const { postedMatchUrlRows } = require('../services/mainLiveService');
 
 function extractAndPublishMainLive(ctx, matchId, options) {
   return require('../services/mainLiveExtract').extractAndPublishMainLive(
@@ -81,6 +82,15 @@ function createAdminRouter(ctx) {
   // ---------- Dashboard ----------
   router.get('/dashboard', auth, (_req, res) => {
     res.json({ ok: true, dashboard: ctx.dashboard.get() });
+  });
+
+  router.get('/results/status', auth, (_req, res) => {
+    try {
+      const { readResultsStatus } = require('../../services/results/resultsPipeline');
+      res.json({ ok: true, results: readResultsStatus(process.env) });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
   });
 
   // ---------- MainLive (admin-owned mainlive.json — separate from matches.json) ----------
@@ -217,10 +227,10 @@ function createAdminRouter(ctx) {
     try {
       const { matchId } = req.params;
       const body = req.body || {};
-      const matchUrl = String(body.matchUrl || body.url || '').trim();
-      if (!matchUrl) throw new Error('Match URL is required');
+      const matchUrls = postedMatchUrlRows(body);
+      if (!matchUrls.length) throw new Error('Match URL is required');
       ctx.mainLive.update(matchId, {
-        matchUrl,
+        matchUrls,
         matchUrlSource: body.source || body.matchUrlSource || undefined,
       });
       const publishedInitial = await ctx.publish.publishMainLive({
@@ -235,7 +245,11 @@ function createAdminRouter(ctx) {
         action: 'mainlive_match_url',
         message: `MainLive match URL saved for ${matchId}`,
         actor: req.admin.username,
-        meta: { matchId, matchUrl, queued: extracted.extraction?.queued === true },
+        meta: {
+          matchId,
+          matchUrl: matchUrls[0]?.url || matchUrls[0]?.matchUrl || null,
+          queued: extracted.extraction?.queued === true,
+        },
       });
       res.json({
         ok: true,
@@ -1265,7 +1279,7 @@ function createAdminRouter(ctx) {
   router.get('/feeds', auth, async (_req, res) => {
     try {
       const feeds = await Promise.all(
-        ['highlight1', 'highlight2', 'tips', 'myanmartv'].map((key) => ctx.publish.readFeed(key))
+        ['highlight1', 'highlight2', 'tips', 'myanmartv', 'results'].map((key) => ctx.publish.readFeed(key))
       );
       res.json({ ok: true, feeds });
     } catch (err) {
@@ -1321,6 +1335,41 @@ function createAdminRouter(ctx) {
         });
       }
       res.json({ ok: Boolean(result.ok), ...result });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.post('/pipeline/results', auth, editor, async (req, res) => {
+    try {
+      const result = await ctx.pipeline.runResults();
+      ctx.logService.add({
+        category: 'scraper',
+        action: 'results_run',
+        message: `Results job ok=${Boolean(result.ok)} reason=${result.reason || 'ok'}`,
+        actor: req.admin.username,
+        meta: {
+          ok: Boolean(result.ok),
+          reason: result.reason || null,
+          deferred: Boolean(result.deferred),
+          count: result.delivery?.count ?? null,
+          github: result.github?.reason || null,
+        },
+      });
+      if (result.reason === 'deferred' || result.reason === 'already_running') {
+        return res.status(409).json({
+          ok: false,
+          error: 'A higher-priority job is running. Results stayed queued.',
+          reason: result.reason,
+        });
+      }
+      res.json({
+        ok: Boolean(result.ok),
+        reason: result.reason || null,
+        deferred: Boolean(result.deferred),
+        github: result.github || null,
+        count: result.delivery?.count ?? 0,
+      });
     } catch (err) {
       res.status(500).json({ ok: false, error: err.message });
     }

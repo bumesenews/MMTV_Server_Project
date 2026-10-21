@@ -260,9 +260,37 @@
     }
   }
 
+  function resultsStat(label, value, kind) {
+    const cls = kind === 'ok' ? 'ok' : kind === 'bad' ? 'error' : 'muted';
+    return `<p>${esc(label)}: <span class="${cls}">${esc(value ?? '—')}</span></p>`;
+  }
+
+  function resultsPanel(results) {
+    if (!results) return '<p class="muted">Results status is not available.</p>';
+    const err = results.lastError;
+    const sourceBad = results.sourceStatus === 'error';
+    return `
+      <div>
+        ${resultsStat('Matches', results.count, 'ok')}
+        ${resultsStat('Source', results.sourceStatus, sourceBad ? 'bad' : 'ok')}
+        ${resultsStat('Latest scrape', results.lastScrapeAt)}
+        ${resultsStat('Latest GitHub delivery', results.lastGithubDeliveryAt)}
+        ${resultsStat('GitHub result', results.lastGithubStatus)}
+        ${resultsStat('Last run', results.lastRunAt)}
+        ${resultsStat('Last run result', results.lastRunStatus, results.lastRunStatus === 'error' ? 'bad' : results.lastRunStatus === 'ok' ? 'ok' : '')}
+        <p class="muted">Latest error: ${err ? `${esc(err.stage)} — ${esc(err.message)} (${esc(err.at)})` : 'none'}</p>
+        <p class="muted">${esc(results.source || '')}</p>
+      </div>`;
+  }
+
   async function renderDashboard() {
     setTitle('Dashboard');
-    const { dashboard: d } = await api('/dashboard');
+    const [{ dashboard: d }, resultsResult] = await Promise.all([
+      api('/dashboard'),
+      api('/results/status').catch((err) => ({ results: null, error: err.message })),
+    ]);
+    const results = resultsResult.results || null;
+    const resultsError = resultsResult.error || null;
     pageEl.innerHTML = `
       <div class="cards">
         ${card('Total Matches', d.totalMatches)}
@@ -286,6 +314,11 @@
           <pre class="muted" style="white-space:pre-wrap;margin:0">${esc(JSON.stringify(d.lastGithubUpload || {}, null, 2))}</pre>
         </div>
       </div>
+      <div class="panel" id="results-status">
+        <h3>Football Results</h3>
+        ${resultsError ? `<p class="error">${esc(resultsError)}</p>` : ''}
+        ${resultsPanel(results)}
+      </div>
       <div class="panel">
         <h3>Sources</h3>
         <div class="table-wrap">
@@ -304,6 +337,85 @@
           </table>
         </div>
       </div>`;
+  }
+
+  function mainLivePageUrls(match) {
+    if (Array.isArray(match?.matchUrls) && match.matchUrls.length) {
+      return match.matchUrls
+        .map((row) => ({
+          url: String(row?.url || row?.matchUrl || '').trim(),
+          source: String(row?.source || row?.matchUrlSource || '').trim(),
+        }))
+        .filter((row) => row.url);
+    }
+    if (match?.matchUrl) {
+      return [{ url: String(match.matchUrl), source: String(match.matchUrlSource || '') }];
+    }
+    return [];
+  }
+
+  function matchUrlSourceOptions(selected) {
+    return ['', 'cakhia', 'xoilac', 'socolive', 'mitomtm']
+      .map((s) => `<option value="${s}" ${selected === s ? 'selected' : ''}>${s || 'Auto'}</option>`)
+      .join('');
+  }
+
+  function mountMatchUrlEditor(box, rows) {
+    const list = rows?.length ? rows : [{ url: '', source: '' }];
+    const addRow = (url = '', source = '') => {
+      const wrap = document.createElement('div');
+      wrap.className = 'ml-url-row';
+      wrap.style.cssText = 'display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px';
+      wrap.innerHTML = `
+        <label style="flex:0 0 110px">Source
+          <select data-ml-source>${matchUrlSourceOptions(source)}</select>
+        </label>
+        <label style="flex:1;min-width:160px">Match page URL
+          <input data-ml-url type="text" value="${esc(url)}" placeholder="https://…/truc-tiep/…" />
+        </label>
+        <button type="button" class="danger" data-remove-url>Remove</button>`;
+      wrap.querySelector('[data-remove-url]').addEventListener('click', () => {
+        if (box.querySelectorAll('.ml-url-row').length <= 1) {
+          wrap.querySelector('[data-ml-url]').value = '';
+          wrap.querySelector('[data-ml-source]').value = '';
+          return;
+        }
+        wrap.remove();
+      });
+      box.insertBefore(wrap, box.querySelector('[data-add-url]'));
+    };
+    box.innerHTML = '<button type="button" class="secondary" data-add-url>+ Add URL</button>';
+    box.querySelector('[data-add-url]').addEventListener('click', () => addRow());
+    list.forEach((row) => addRow(row.url, row.source));
+  }
+
+  function normalizePageUrl(raw) {
+    let url = String(raw || '').trim();
+    if (!url) return '';
+    if (/^\/\//.test(url)) return `https:${url}`;
+    if (!/^https?:\/\//i.test(url) && /^[\w.-]+\.[a-z]{2,}([/:?#]|$)/i.test(url)) {
+      return `https://${url}`;
+    }
+    return url;
+  }
+
+  function readMatchUrls(box) {
+    if (!box) return [];
+    return [...box.querySelectorAll('.ml-url-row')]
+      .map((row) => ({
+        url: normalizePageUrl(row.querySelector('[data-ml-url]')?.value || ''),
+        source: row.querySelector('[data-ml-source]')?.value || '',
+      }))
+      .filter((row) => row.url);
+  }
+
+  function matchUrlSaveBody(matchUrls) {
+    const first = matchUrls[0] || {};
+    return {
+      matchUrls,
+      matchUrl: first.url || '',
+      source: first.source || '',
+    };
   }
 
   function mainLiveExtractToast(result, { saved = true } = {}) {
@@ -372,24 +484,17 @@
               <option>END</option>
             </select>
           </label>
-          <label>Match page source
-            <select name="matchUrlSource">
-              <option value="">Auto</option>
-              <option value="cakhia">cakhia</option>
-              <option value="xoilac">xoilac</option>
-              <option value="socolive">socolive</option>
-              <option value="mitomtm">mitomtm</option>
-            </select>
-          </label>
-          <label style="grid-column:1/-1">Match page URL (auto-find m3u8)
-            <input name="matchUrl" type="url" placeholder="https://…/truc-tiep/…" />
-          </label>
+          <div style="grid-column:1/-1">
+            <strong>Match page URLs</strong>
+            <p class="muted" style="margin:4px 0 8px">Add as many streaming-site pages as you need. Each one is searched for an m3u8.</p>
+            <div id="mainlive-match-urls"></div>
+          </div>
           <div style="grid-column:1/-1">
             <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
               <strong>Stream URLs</strong>
               <button type="button" class="secondary" id="mainlive-add-stream">+ Add stream</button>
             </div>
-            <p class="muted" style="margin:0 0 8px">Paste a streaming site match page above — the server finds the m3u8 and uploads <code>mainlive.json</code>. You can still add m3u8s by hand below. Each hand-entered stream saves User-Agent, Referer, Cookie, and Origin.</p>
+            <p class="muted" style="margin:0 0 8px">Each match page above is searched for an m3u8. You can still add m3u8s by hand below. Each hand-entered stream saves User-Agent, Referer, Cookie, and Origin.</p>
             <div id="mainlive-streams"></div>
           </div>
           <div style="grid-column:1/-1"><button type="submit">Create MainLive Match</button></div>
@@ -400,7 +505,7 @@
           <table>
             <thead>
               <tr>
-                <th>Match</th><th>League</th><th>Kickoff</th><th>Status</th><th>Match URL</th><th>Streams</th><th>Flags</th><th>Actions</th>
+                <th>Match</th><th>League</th><th>Kickoff</th><th>Status</th><th>Match URLs</th><th>Streams</th><th>Flags</th><th>Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -414,17 +519,8 @@
                   <td>${esc(m.date || '')} ${esc(formatClock12(m.time || m.kickoff))} <span class="muted" style="font-size:0.7rem">Yangon</span></td>
                   <td><span class="badge ${m.status === 'LIVE' ? 'live' : ''}">${esc(m.status || '')}</span></td>
                   <td>
-                    ${m.matchUrl ? `<div class="muted" style="font-size:0.75rem;word-break:break-all">${esc(m.matchUrl)}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}</div>` : '<span class="muted">None yet</span>'}
-                    <div class="row" style="gap:6px;margin-top:6px;flex-wrap:wrap">
-                      <select data-act="ml-match-source" style="width:auto;min-width:88px">
-                        <option value="">Auto</option>
-                        ${['cakhia', 'xoilac', 'socolive', 'mitomtm'].map((s) =>
-                          `<option value="${s}" ${m.matchUrlSource === s ? 'selected' : ''}>${s}</option>`
-                        ).join('')}
-                      </select>
-                      <input data-act="ml-match-url" type="url" value="${esc(m.matchUrl || '')}" placeholder="https://…/truc-tiep/…" style="flex:1;min-width:140px" />
-                      <button class="secondary" data-act="save-match-url" title="Save page URL. m3u8 search starts 30 minutes before kickoff">Add URL</button>
-                    </div>
+                    <div class="ml-url-box"></div>
+                    <button type="button" class="secondary" data-act="save-match-url" title="Save page URLs. m3u8 search starts 30 minutes before kickoff">Save URLs</button>
                   </td>
                   <td>${(m.streams || []).length}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}</td>
                   <td>
@@ -518,6 +614,12 @@
     }
     addStreamRow('HD');
     $('#mainlive-add-stream').addEventListener('click', () => addStreamRow('SD'));
+    mountMatchUrlEditor($('#mainlive-match-urls'), []);
+    pageEl.querySelectorAll('tr[data-id] .ml-url-box').forEach((box) => {
+      const id = box.closest('tr')?.dataset.id;
+      const match = state.mainlive.find((item) => item.matchId === id);
+      mountMatchUrlEditor(box, mainLivePageUrls(match));
+    });
 
     const fillLeagueIcon = () => {
       const name = String(form.league.value || '').trim().toLowerCase();
@@ -566,8 +668,7 @@
             date: fd.get('date'),
             time: time12FromFields(fd.get('timeHour'), fd.get('timeMinute'), fd.get('timePeriod')),
             status: fd.get('status'),
-            matchUrl: String(fd.get('matchUrl') || '').trim() || undefined,
-            matchUrlSource: String(fd.get('matchUrlSource') || '').trim() || undefined,
+            matchUrls: readMatchUrls($('#mainlive-match-urls')),
             streams,
           }),
         });
@@ -575,7 +676,7 @@
           created?.match?.time ||
             time12FromFields(fd.get('timeHour'), fd.get('timeMinute'), fd.get('timePeriod'))
         );
-        const extractNote = created?.match?.matchUrl
+        const extractNote = (created?.match?.matchUrls || []).length || created?.match?.matchUrl
           ? ` · ${mainLiveExtractToast(created, { saved: false })}`
           : '';
         toast(`MainLive created · kickoff ${t} Asia/Yangon · ${streams.length} stream(s)${extractNote}`);
@@ -607,14 +708,13 @@
         await manageMainLiveStreams(id);
       });
       tr.querySelector('[data-act="save-match-url"]')?.addEventListener('click', async () => {
-        const matchUrl = tr.querySelector('[data-act="ml-match-url"]')?.value?.trim();
-        const source = tr.querySelector('[data-act="ml-match-source"]')?.value;
-        if (!matchUrl) return toast('Enter a match page URL', 'error');
+        const matchUrls = readMatchUrls(tr.querySelector('.ml-url-box'));
+        if (!matchUrls.length) return toast('Enter a match page URL', 'error');
         try {
-          toast('Saving match URL…');
+          toast('Saving match URLs…');
           const result = await api(`/mainlive/${encodeURIComponent(id)}/match-url`, {
             method: 'POST',
-            body: JSON.stringify({ matchUrl, source }),
+            body: JSON.stringify(matchUrlSaveBody(matchUrls)),
           });
           toast(mainLiveExtractToast(result));
           renderMainLive();
@@ -713,24 +813,18 @@
       });
     };
 
+    let pageUrls = mainLivePageUrls(m);
+    const capturePageUrls = () => {
+      const box = card.querySelector('#ml-match-urls');
+      if (box) pageUrls = readMatchUrls(box);
+    };
+
     const renderList = () => {
       card.innerHTML = `
         <h3>Streams · ${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</h3>
-        <p class="muted" style="margin-top:0">Paste a match page URL to auto-find m3u8, or enter m3u8s by hand. Origin is saved with User-Agent, Referer, and Cookie.</p>
-        <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:12px">
-          <label style="flex:0 0 120px">Source
-            <select id="ml-match-source">
-              <option value="" ${!m.matchUrlSource ? 'selected' : ''}>Auto</option>
-              ${['cakhia', 'xoilac', 'socolive', 'mitomtm'].map((s) =>
-                `<option value="${s}" ${m.matchUrlSource === s ? 'selected' : ''}>${s}</option>`
-              ).join('')}
-            </select>
-          </label>
-          <label style="flex:1;min-width:220px">Match page URL
-            <input id="ml-match-url" type="url" value="${esc(m.matchUrl || '')}" placeholder="https://…/truc-tiep/…" />
-          </label>
-          <button type="button" class="secondary" id="ml-find-m3u8">Find m3u8</button>
-        </div>
+        <p class="muted" style="margin-top:0">Paste match page URLs to auto-find m3u8, or enter m3u8s by hand. Origin is saved with User-Agent, Referer, and Cookie.</p>
+        <div id="ml-match-urls" style="margin-bottom:8px"></div>
+        <button type="button" class="secondary" id="ml-find-m3u8">Find m3u8</button>
         <p class="muted" style="margin-top:0">${m.matchUrlStatus ? `Extract: ${esc(m.matchUrlStatus)}${m.matchUrlExtractError ? ` (${esc(m.matchUrlExtractError)})` : ''}` : ''}</p>
         <div id="ml-stream-list">
           ${streams.map((s, i) => `
@@ -755,8 +849,10 @@
           <button type="button" class="ghost" id="ml-close">Close</button>
         </div>
       `;
+      mountMatchUrlEditor(card.querySelector('#ml-match-urls'), pageUrls);
       card.querySelectorAll('[data-del]').forEach((btn) => {
         btn.addEventListener('click', () => {
+          capturePageUrls();
           syncFromDom();
           const i = Number(btn.closest('[data-i]').dataset.i);
           streams.splice(i, 1);
@@ -764,6 +860,7 @@
         });
       });
       card.querySelector('#ml-add')?.addEventListener('click', () => {
+        capturePageUrls();
         syncFromDom();
         streams.push({
           name: 'SD',
@@ -774,17 +871,16 @@
       });
       card.querySelector('#ml-close')?.addEventListener('click', () => overlay.remove());
       card.querySelector('#ml-find-m3u8')?.addEventListener('click', async () => {
-        const matchUrl = card.querySelector('#ml-match-url')?.value?.trim();
-        const source = card.querySelector('#ml-match-source')?.value;
-        if (!matchUrl) {
+        const matchUrls = readMatchUrls(card.querySelector('#ml-match-urls'));
+        if (!matchUrls.length) {
           toast('Enter a match page URL', 'error');
           return;
         }
         try {
-          toast('Saving match URL…');
+          toast('Saving match URLs…');
           const result = await api(`/mainlive/${encodeURIComponent(matchId)}/match-url`, {
             method: 'POST',
-            body: JSON.stringify({ matchUrl, source }),
+            body: JSON.stringify(matchUrlSaveBody(matchUrls)),
           });
           const extraction = result?.extraction;
           const quiet = extraction?.ok || extraction?.queued || extraction?.skipped;
@@ -819,7 +915,15 @@
     document.body.appendChild(overlay);
   }
 
-  async function renderMatches() {
+  async function renderMatches(arg) {
+    const focusId = arg && typeof arg === 'object' ? arg.focusId || null : null;
+    const alreadyHere =
+      ($('#page-title')?.textContent || '') === 'Match (admin-match.json)';
+    const keepScroll = alreadyHere && Boolean(pageEl.querySelector('table'));
+    const scrollY = keepScroll ? window.scrollY : 0;
+    const tableScroll = keepScroll
+      ? pageEl.querySelector('.table-wrap')?.scrollTop || 0
+      : 0;
     setTitle('Match (admin-match.json)');
     const [matchData, sourceData] = await Promise.all([
       api('/matches'),
@@ -880,7 +984,7 @@
                       <select data-act="match-url-source" style="width:auto;min-width:88px">
                         ${sourceOpts}
                       </select>
-                      <input data-act="match-url" type="url" placeholder="https://.../truc-tiep/..." style="flex:1;min-width:140px" />
+                      <input data-act="match-url" type="text" placeholder="https://.../truc-tiep/..." style="flex:1;min-width:140px" />
                       <button class="secondary" data-act="save-match-url" title="Save page URL — scraper will extract m3u8">Add URL</button>
                     </div>
                   </td>
@@ -909,6 +1013,21 @@
           </table>
         </div>
       </div>`;
+
+    if (keepScroll) {
+      const restore = () => {
+        window.scrollTo(0, scrollY);
+        const wrap = pageEl.querySelector('.table-wrap');
+        if (wrap) wrap.scrollTop = tableScroll;
+        if (focusId) {
+          const row = pageEl.querySelector(
+            `tr[data-id="${CSS.escape(focusId)}"]`
+          );
+          row?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        }
+      };
+      requestAnimationFrame(() => requestAnimationFrame(restore));
+    }
 
     pageEl.querySelectorAll('tr[data-id]').forEach((tr) => {
       const id = tr.dataset.id;
@@ -969,7 +1088,7 @@
       });
       tr.querySelector('[data-act="save-match-url"]')?.addEventListener('click', async () => {
         const source = tr.querySelector('[data-act="match-url-source"]')?.value;
-        const matchUrl = tr.querySelector('[data-act="match-url"]')?.value?.trim();
+        const matchUrl = normalizePageUrl(tr.querySelector('[data-act="match-url"]')?.value);
         if (!source) return toast('Select a source', 'error');
         if (!matchUrl) return toast('Enter a match page URL', 'error');
         try {
@@ -986,7 +1105,7 @@
           } else {
             toast('Match URL saved');
           }
-          renderMatches();
+          renderMatches({ focusId: id });
         } catch (err) {
           toast(err.message, 'error');
         }
@@ -1128,7 +1247,7 @@
     { key: 'highlight1', label: 'Highlight 1', file: 'highlight1.json', scraper: '/pipeline/highlights' },
     { key: 'highlight2', label: 'Highlight 2', file: 'highlight2.json', scraper: '/pipeline/highlights' },
     { key: 'tips', label: 'Tips', file: 'tips.json', scraper: '/pipeline/tips' },
-    { key: 'myanmartv', label: 'Myanmar TV', file: 'myanmartv.json', scraper: '/pipeline/channels' },
+    { key: 'results', label: 'Results', file: 'results.json', scraper: '/pipeline/results' },
   ];
 
   async function renderFeeds() {

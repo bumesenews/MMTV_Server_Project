@@ -15,6 +15,8 @@ const {
   looksLikeM3u8,
   resolveSourceFromUrl,
   mainLiveExtractPlan,
+  urlExtractPlan,
+  matchUrlEntries,
   needsMainLiveExtract,
 } = require('./mainLiveExtractPolicy');
 
@@ -149,30 +151,33 @@ async function extractMainLiveStreams({ pipeline, matchUrl, sourceName } = {}) {
 async function extractAndPublishMainLive(ctx, matchId, { actor = 'admin', force = true } = {}) {
   const current = ctx.mainLive.get(matchId);
   if (!current) throw new Error('MainLive match not found');
-  if (!String(current.matchUrl || '').trim()) {
+  const entries = matchUrlEntries(current);
+  if (!entries.length) {
     return { match: current, extraction: { skipped: true, reason: 'no_match_url' }, published: null };
   }
-  if (looksLikeM3u8(current.matchUrl) && (current.streams || []).some((s) => s?.url)) {
-    return { match: current, extraction: { skipped: true, reason: 'already_m3u8' }, published: null };
-  }
 
-  if (!looksLikeM3u8(current.matchUrl)) {
-    const plan = mainLiveExtractPlan(current, { force });
-    if (!plan.due) {
-      const match =
-        plan.reason === 'before_lead'
-          ? ctx.mainLive.markExtractStatus(matchId, {
-              status: 'SCHEDULED',
-              error: null,
-              touchExtractAt: false,
-            })
-          : current;
-      return {
-        match,
-        extraction: { skipped: true, reason: plan.reason },
-        published: null,
-      };
-    }
+  const planned = entries.map((entry) => ({
+    entry,
+    plan: urlExtractPlan(current, entry, { force }),
+  }));
+  const due = planned.filter((item) => item.plan.due);
+  if (!due.length) {
+    const reason = planned.find((item) => item.plan.reason === 'before_lead')?.plan.reason
+      || planned[0]?.plan.reason
+      || 'not_due';
+    const match =
+      reason === 'before_lead'
+        ? ctx.mainLive.markExtractStatus(matchId, {
+            status: 'SCHEDULED',
+            error: null,
+            touchExtractAt: false,
+          })
+        : current;
+    return {
+      match,
+      extraction: { skipped: true, reason },
+      published: null,
+    };
   }
 
   if (ctx.pipeline?.running) {
@@ -184,19 +189,31 @@ async function extractAndPublishMainLive(ctx, matchId, { actor = 'admin', force 
     });
     return {
       match,
-      extraction: { queued: true, reason: 'pipeline_busy' },
+      extraction: { queued: true, reason: 'pipeline_busy', urls: due.map((item) => item.entry.url) },
       published: null,
     };
   }
 
-  ctx.mainLive.markExtractStatus(matchId, { status: 'SEARCHING', error: null });
-  const extraction = await extractMainLiveStreams({
-    pipeline: ctx.pipeline,
-    matchUrl: current.matchUrl,
-    sourceName: current.matchUrlSource,
-  });
-  const match = ctx.mainLive.applyExtractResult(matchId, extraction);
+  let match = current;
+  const results = [];
+  for (const item of due) {
+    ctx.mainLive.markExtractStatus(matchId, { status: 'SEARCHING', error: null, url: item.entry.url });
+    const extraction = await extractMainLiveStreams({
+      pipeline: ctx.pipeline,
+      matchUrl: item.entry.url,
+      sourceName: item.entry.source,
+    });
+    extraction.matchUrl = item.entry.url;
+    match = ctx.mainLive.applyExtractResult(matchId, extraction);
+    results.push(extraction);
+  }
   const published = await ctx.publish.publishMainLive({ actor });
+  const extraction = {
+    ok: results.some((item) => item.ok),
+    streams: results.flatMap((item) => item.streams || []),
+    urls: due.map((item) => item.entry.url),
+    error: results.every((item) => item.ok) ? null : results.find((item) => !item.ok)?.error || null,
+  };
   return { match, extraction, published };
 }
 
@@ -204,6 +221,8 @@ module.exports = {
   looksLikeM3u8,
   resolveSourceFromUrl,
   mainLiveExtractPlan,
+  urlExtractPlan,
+  matchUrlEntries,
   needsMainLiveExtract,
   extractMainLiveStreams,
   extractAndPublishMainLive,

@@ -185,7 +185,17 @@ class PublishService {
    */
   async publishFeed(feedKey, rawPayload, { actor = 'admin' } = {}) {
     const key = assertFeedKey(feedKey);
-    const delivery = normalizeFeed(key, rawPayload);
+    let delivery = normalizeFeed(key, rawPayload);
+    if (key === 'tips') {
+      const matches = this.cache.getDelivery('matches')?.matches;
+      if (Array.isArray(matches)) {
+        const { filterTipsToMatchFixtures } = require('../../services/tipsMatchFilter');
+        const { Normalizer } = require('../../utils/normalize');
+        const teams = this.teams?.list?.() || [];
+        const matcher = teams.length ? new Normalizer({ teams }) : this.normalizer;
+        delivery = filterTipsToMatchFixtures(delivery, matches, matcher);
+      }
+    }
     const previous = this.cache.getDelivery(key);
 
     const bundle = { [key]: delivery };

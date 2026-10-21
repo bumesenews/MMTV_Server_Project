@@ -24,12 +24,23 @@ const HEAVY_JOB_PRIORITY = Object.freeze({
   [HEAVY_JOBS.MYANMARTV]: 3,
 });
 
+/**
+ * Morning scrapes (Asia/Yangon). The later hour runs only when the first
+ * scrape stored no new data. See morningRetry.js.
+ */
+const MORNING_FEEDS = Object.freeze({
+  highlights: Object.freeze({ primaryHour: 5, retryHour: 8 }),
+  results: Object.freeze({ primaryHour: 6, retryHour: 10 }),
+  tips: Object.freeze({ primaryHour: 7, retryHour: 11 }),
+});
+
 /** Recommended production crons (Asia/Yangon). Matches stays every 5 minutes. */
 const DEFAULT_CRONS = Object.freeze({
   PIPELINE_CRON: '*/5 * * * *',
   MYANMARTV_CRON: '0 3 * * *',
-  HIGHLIGHT_CRON: '0 6 * * *',
-  TIPS_CRON: '0 14 * * *',
+  HIGHLIGHT_CRON: '0 5,8 * * *',
+  RESULTS_CRON: '0 6,10 * * *',
+  TIPS_CRON: '0 7,11 * * *',
 });
 
 /**
@@ -93,6 +104,7 @@ module.exports = {
   ZONE,
   HEAVY_JOBS,
   HEAVY_JOB_PRIORITY,
+  MORNING_FEEDS,
   DEFAULT_CRONS,
   isFootballPeakWindow,
   mayRunLowPriorityHeavyJob,

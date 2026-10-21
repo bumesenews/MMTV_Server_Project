@@ -43,6 +43,16 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
     return res.status(result.ok ? 200 : 500).json(result);
   });
 
+  router.post('/pipeline/results', async (req, res) => {
+    if (!requireApiKey(req, res)) return;
+    try {
+      const result = await pipeline.runResults();
+      return res.status(result.ok || result.deferred ? 200 : 500).json(result);
+    } catch (err) {
+      return res.status(500).json({ ok: false, reason: err.message });
+    }
+  });
+
   router.post('/pipeline/channels', async (req, res) => {
     if (!requireApiKey(req, res)) return;
     const force = Boolean(req.body?.force || req.query.force);
@@ -116,6 +126,7 @@ function createApiRouter({ pipeline, cache, requireApiKey }) {
       channels: 'myanmartv',
       myanmartv: 'myanmartv',
       tips: 'tips',
+      results: 'results',
     };
     const key = map[name];
     if (!key) return res.status(404).json({ ok: false, error: 'Unknown feed' });
