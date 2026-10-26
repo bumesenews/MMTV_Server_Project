@@ -175,21 +175,30 @@ class MainLiveService {
       next.streams = normalizeStreamsInput({ streams: patch.streams });
       next.hasStreams = next.streams.length > 0;
       next.streamCount = next.streams.length;
+      next.streamUrl = next.streams[0]?.url || null;
+      next.streamHeaders = next.streams[0]?.headers || null;
     } else if (patch.streamUrl !== undefined || patch.streamName !== undefined) {
       // Legacy single-stream patch — replace first / set one stream
-      next.streams = normalizeStreamsInput({
-        streamUrl: patch.streamUrl !== undefined ? patch.streamUrl : next.streams?.[0]?.url,
-        streamName:
-          patch.streamName !== undefined
-            ? patch.streamName
-            : next.streams?.[0]?.name || next.streams?.[0]?.quality || 'HD',
-        userAgent: next.streams?.[0]?.headers?.['User-Agent'],
-        referer: next.streams?.[0]?.headers?.Referer,
-        origin: next.streams?.[0]?.headers?.Origin,
-        cookie: next.streams?.[0]?.headers?.Cookie,
-      });
+      // Empty streamUrl clears all streams (same as clearStreams).
+      if (patch.streamUrl !== undefined && !String(patch.streamUrl || '').trim()) {
+        next.streams = [];
+      } else {
+        next.streams = normalizeStreamsInput({
+          streamUrl: patch.streamUrl !== undefined ? patch.streamUrl : next.streams?.[0]?.url,
+          streamName:
+            patch.streamName !== undefined
+              ? patch.streamName
+              : next.streams?.[0]?.name || next.streams?.[0]?.quality || 'HD',
+          userAgent: next.streams?.[0]?.headers?.['User-Agent'],
+          referer: next.streams?.[0]?.headers?.Referer,
+          origin: next.streams?.[0]?.headers?.Origin,
+          cookie: next.streams?.[0]?.headers?.Cookie,
+        });
+      }
       next.hasStreams = next.streams.length > 0;
       next.streamCount = next.streams.length;
+      next.streamUrl = next.streams[0]?.url || null;
+      next.streamHeaders = next.streams[0]?.headers || null;
     }
 
     next.manual = true;
@@ -343,6 +352,28 @@ class MainLiveService {
       streams,
       hasStreams: streams.length > 0,
       streamCount: streams.length,
+      streamUrl: streams[0]?.url || null,
+      streamHeaders: streams[0]?.headers || null,
+      updatedAt: new Date().toISOString(),
+    };
+    all[matchId] = next;
+    this.store.write({ matches: all });
+    return next;
+  }
+
+  /** Remove every m3u8 / streamUrl from a MainLive match and republish-ready store. */
+  clearStreams(matchId) {
+    const all = this.all();
+    const current = all[matchId];
+    if (!current) throw new Error('MainLive match not found');
+
+    const next = {
+      ...current,
+      streams: [],
+      hasStreams: false,
+      streamCount: 0,
+      streamUrl: null,
+      streamHeaders: null,
       updatedAt: new Date().toISOString(),
     };
     all[matchId] = next;

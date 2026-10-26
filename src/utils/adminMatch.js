@@ -170,6 +170,41 @@ function removeAdminEntry(doc, matchId) {
   };
 }
 
+/** Clear stored streamUrl / streams for one admin-match row (keeps Match URL). */
+function clearAdminStreamUrl(doc, matchId) {
+  const id = String(matchId || '').trim();
+  const matches = listAdminEntries(doc);
+  let changed = false;
+  const next = matches.map((m) => {
+    if (m.matchId !== id) return m;
+    changed = true;
+    if (isFullAdminMatch(m)) {
+      const copy = {
+        ...m,
+        streams: [],
+        streamUrl: null,
+        streamHeaders: null,
+        hasStreams: false,
+        streamCount: 0,
+      };
+      if (copy.adminManual && typeof copy.adminManual === 'object') {
+        copy.adminManual = { ...copy.adminManual, streamUrl: '' };
+      }
+      delete copy.adminSkipExtract;
+      return copy;
+    }
+    return {
+      ...m,
+      streamUrl: '',
+      quality: m.quality || 'HD',
+      headers: m.headers || { 'User-Agent': '', Referer: '' },
+      updatedAt: new Date().toISOString(),
+    };
+  });
+  if (!changed) return doc;
+  return toAdminMatchDoc({ ...doc, matches: next, matchCount: next.length });
+}
+
 function findAdminEntry(doc, matchId) {
   const id = String(matchId || '').trim();
   return listAdminEntries(doc).find((e) => e.matchId === id) || null;
@@ -339,6 +374,7 @@ module.exports = {
   mergeAdminMatchDocs,
   upsertAdminEntry,
   removeAdminEntry,
+  clearAdminStreamUrl,
   findAdminEntry,
   adminManualStream,
   applyAdminEntryToFixture,

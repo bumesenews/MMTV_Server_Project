@@ -521,7 +521,13 @@
                     <div class="ml-url-box"></div>
                     <button type="button" class="secondary" data-act="save-match-url" title="Save page URLs. m3u8 search starts 30 minutes before kickoff">Save URLs</button>
                   </td>
-                  <td>${(m.streams || []).length}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}</td>
+                  <td>
+                    ${(m.streams || []).length}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}
+                    ${m.streamUrl || (m.streams || []).length
+                      ? `<div class="muted" style="font-size:0.72rem;word-break:break-all;max-width:220px">${esc(m.streamUrl || (m.streams[0] && m.streams[0].url) || '')}</div>
+                         <button type="button" class="danger" style="padding:2px 6px;font-size:0.7rem;margin-top:4px" data-act="clear-stream-url">Delete stream URL</button>`
+                      : ''}
+                  </td>
                   <td>
                     ${m.pinned ? '<span class="badge">PIN</span>' : ''}
                     ${m.featured ? '<span class="badge">FEAT</span>' : ''}
@@ -705,6 +711,16 @@
       });
       tr.querySelector('[data-act="streams"]')?.addEventListener('click', async () => {
         await manageMainLiveStreams(id);
+      });
+      tr.querySelector('[data-act="clear-stream-url"]')?.addEventListener('click', async () => {
+        if (!confirm('Delete all stream URL(s) for this MainLive match?')) return;
+        try {
+          await api(`/mainlive/${encodeURIComponent(id)}/stream-url`, { method: 'DELETE' });
+          toast('Stream URL deleted · mainlive.json published');
+          renderMainLive();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
       });
       tr.querySelector('[data-act="save-match-url"]')?.addEventListener('click', async () => {
         const matchUrls = readMatchUrls(tr.querySelector('.ml-url-box'));
@@ -987,7 +1003,13 @@
                       <button class="secondary" data-act="save-match-url" title="Save page URL — scraper will extract m3u8">Add URL</button>
                     </div>
                   </td>
-                  <td>${esc(m.streamStatus || '—')}</td>
+                  <td>
+                    <div>${esc(m.streamStatus || '—')}</div>
+                    ${m.streamUrl || (m.streams || []).length
+                      ? `<div class="muted" style="font-size:0.72rem;word-break:break-all;max-width:220px">${esc(m.streamUrl || (m.streams[0] && m.streams[0].url) || '')}</div>
+                         <button type="button" class="danger" style="padding:2px 6px;font-size:0.7rem;margin-top:4px" data-act="clear-stream-url">Delete stream URL</button>`
+                      : ''}
+                  </td>
                   <td>${(m.streams || []).length}</td>
                   <td>
                     ${m.pinned ? '<span class="badge">PIN</span>' : ''}
@@ -1124,6 +1146,16 @@
             toast(err.message, 'error');
           }
         });
+      });
+      tr.querySelector('[data-act="clear-stream-url"]')?.addEventListener('click', async () => {
+        if (!confirm('Delete stream URL(s) for this match (SecondLive / matches.json)?')) return;
+        try {
+          await api(`/matches/${encodeURIComponent(id)}/stream-url`, { method: 'DELETE' });
+          toast('Stream URL deleted · matches.json published');
+          renderMatches({ focusId: id });
+        } catch (err) {
+          toast(err.message, 'error');
+        }
       });
     });
   }

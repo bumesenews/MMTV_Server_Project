@@ -137,6 +137,17 @@ class OverrideService {
     return true;
   }
 
+  /** Drop every manual m3u8 for a SecondLive / matches.json row. */
+  clearManualStreams(matchId) {
+    const all = this.all();
+    const current = all[matchId] || defaultOverride();
+    current.manualStreams = [];
+    current.updatedAt = new Date().toISOString();
+    all[matchId] = current;
+    this.store.write({ matches: all });
+    return true;
+  }
+
   addManualMatchUrl(matchId, input = {}) {
     const source = String(input.source || '').trim().toLowerCase();
     const url = String(input.url || input.matchUrl || '').trim();

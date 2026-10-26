@@ -326,6 +326,25 @@ function createAdminRouter(ctx) {
     }
   });
 
+  /** Clear every stream URL on a MainLive match (streams[] + streamUrl). */
+  router.delete('/mainlive/:matchId/stream-url', auth, editor, async (req, res) => {
+    try {
+      const match = ctx.mainLive.clearStreams(req.params.matchId);
+      const published = await ctx.publish.publishMainLive({
+        actor: req.admin.username,
+      });
+      ctx.logService.add({
+        category: 'admin',
+        action: 'mainlive_stream_url_clear',
+        message: `Cleared stream URL(s) for MainLive ${req.params.matchId}`,
+        actor: req.admin.username,
+      });
+      res.json({ ok: true, match, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
   // ---------- Matches (scraped matches.json) ----------
   router.post('/matches/restore-from-github', auth, editor, async (req, res) => {
     try {
@@ -682,6 +701,65 @@ function createAdminRouter(ctx) {
         actor: req.admin.username,
       });
       res.json({ ok: true, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  /**
+   * Clear stream URL(s) on SecondLive / matches.json for one fixture:
+   * cache streams + streamUrl, manual streams, and admin-match streamUrl.
+   */
+  router.delete('/matches/:matchId/stream-url', auth, editor, async (req, res) => {
+    try {
+      const { matchId } = req.params;
+      ctx.overrides.clearManualStreams(matchId);
+
+      if (ctx.adminMatches) {
+        await ctx.adminMatches.clearStreamUrl(matchId, {
+          actor: req.admin.username,
+        });
+      }
+
+      const current = ctx.cache.getCurrent();
+      let match = null;
+      if (current?.matches) {
+        const idx = current.matches.findIndex((m) => m.matchId === matchId);
+        if (idx >= 0) {
+          const prev = current.matches[idx];
+          match = {
+            ...prev,
+            streams: [],
+            streamUrl: null,
+            streamHeaders: null,
+            hasStreams: false,
+            streamCount: 0,
+            streamStatus: null,
+            validationStatus: null,
+            validationReason: null,
+          };
+          if (match.adminManual && typeof match.adminManual === 'object') {
+            match.adminManual = { ...match.adminManual, streamUrl: '' };
+          }
+          delete match.adminSkipExtract;
+          current.matches[idx] = match;
+          ctx.cache.writeJson(ctx.cache.currentPath, current);
+        }
+      }
+
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'stream_url_clear', matchId },
+      });
+
+      ctx.logService.add({
+        category: 'admin',
+        action: 'match_stream_url_clear',
+        message: `Cleared stream URL(s) for match ${matchId}`,
+        actor: req.admin.username,
+      });
+
+      res.json({ ok: true, match, published });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
     }

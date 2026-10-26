@@ -5,6 +5,7 @@ const {
   listOverrideEntries,
   upsertAdminEntry,
   removeAdminEntry,
+  clearAdminStreamUrl,
   findAdminEntry,
   applyAdminMatchDocToMatches,
 } = require('../../utils/adminMatch');
@@ -69,6 +70,18 @@ class AdminMatchService {
     });
     this._doc = next;
     return { doc: next, saved };
+  }
+
+  async clearStreamUrl(matchId, { actor } = {}) {
+    const doc = await this.load(true);
+    const next = clearAdminStreamUrl(doc, matchId);
+    if (next === doc) return { doc, saved: null, changed: false };
+    const saved = await this.config.saveAdminMatchConfig(next, {
+      actor,
+      message: `chore: clear stream URL for admin-match ${matchId}`,
+    });
+    this._doc = next;
+    return { doc: next, saved, changed: true };
   }
 
   applyToMatches(matches) {
