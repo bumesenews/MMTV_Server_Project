@@ -50,6 +50,98 @@ function originFromUrl(url) {
   }
 }
 
+function playlistIdentity(url) {
+  try {
+    const parsed = new URL(String(url || '').trim());
+    return `${parsed.origin}${parsed.pathname}`.toLowerCase();
+  } catch {
+    return String(url || '').split('?')[0].toLowerCase();
+  }
+}
+
+/**
+ * Cookie header the browser would send to targetUrl.
+ * Puppeteer request.headers() omits Cookie, so playback uses page.cookies().
+ */
+function cookieHeaderForUrl(cookies, targetUrl) {
+  let target;
+  try {
+    target = new URL(String(targetUrl || '').trim());
+  } catch {
+    return '';
+  }
+  const host = target.hostname.toLowerCase();
+  const path = target.pathname || '/';
+  const secure = target.protocol === 'https:';
+  const pairs = [];
+  const seen = new Set();
+  for (const cookie of cookies || []) {
+    const name = String(cookie?.name || '').trim();
+    const value = cookie?.value == null ? '' : String(cookie.value);
+    if (!name || !value) continue;
+    const domain = String(cookie.domain || '').replace(/^\./, '').toLowerCase();
+    if (domain && host !== domain && !host.endsWith(`.${domain}`)) continue;
+    if (cookie.secure && !secure) continue;
+    const cookiePath = String(cookie.path || '/') || '/';
+    const pathOk =
+      cookiePath === '/' ||
+      path === cookiePath ||
+      path.startsWith(cookiePath.endsWith('/') ? cookiePath : `${cookiePath}/`);
+    if (!pathOk) continue;
+    if (seen.has(name)) continue;
+    seen.add(name);
+    pairs.push(`${name}=${value}`);
+  }
+  return pairs.join('; ');
+}
+
+/** Site cookies plus playlist-host cookies. The app sends this on every segment. */
+function cookieHeaderForPlayback(cookies, urls) {
+  const pairs = [];
+  const seen = new Set();
+  for (const url of urls || []) {
+    const header = cookieHeaderForUrl(cookies, url);
+    for (const part of header.split(';')) {
+      const piece = part.trim();
+      if (!piece) continue;
+      const name = piece.slice(0, piece.indexOf('='));
+      if (!name || seen.has(name)) continue;
+      seen.add(name);
+      pairs.push(piece);
+    }
+  }
+  return pairs.join('; ');
+}
+
+/**
+ * Headers copied from the browser playlist request.
+ * These are the Referer, User-Agent, Origin, and Cookie a manual entry uses.
+ */
+function applyBrowserPlaybackHeaders(headers, {
+  requestHeaders,
+  cookies,
+  pageUrl = '',
+  streamUrl = '',
+} = {}) {
+  const next = pickPlaybackHeaders(headers);
+  const captured = pickPlaybackHeaders(requestHeaders);
+  if (captured['User-Agent']) next['User-Agent'] = captured['User-Agent'];
+  if (captured.Referer) next.Referer = captured.Referer;
+  if (captured.Origin) next.Origin = captured.Origin;
+  if (captured.Cookie) next.Cookie = captured.Cookie;
+  if (!next.Cookie) {
+    const cookie = cookieHeaderForPlayback(cookies, [streamUrl, next.Referer, pageUrl]);
+    if (cookie) next.Cookie = cookie;
+  }
+  if (!next['User-Agent']) next['User-Agent'] = process.env.USER_AGENT || DEFAULT_UA;
+  if (!next.Referer && pageUrl) next.Referer = String(pageUrl);
+  if (!next.Origin && next.Referer) {
+    const origin = originFromUrl(next.Referer);
+    if (origin) next.Origin = origin;
+  }
+  return next;
+}
+
 function originReferer(url) {
   const origin = originFromUrl(url);
   return origin ? `${origin}/` : '';
@@ -323,6 +415,10 @@ module.exports = {
   originFromUrl,
   originReferer,
   fillOriginFromReferer,
+  playlistIdentity,
+  cookieHeaderForUrl,
+  cookieHeaderForPlayback,
+  applyBrowserPlaybackHeaders,
   inferPlayerReferer,
   GENERIC_PLAYER_REFERERS,
   isSiteReferer,

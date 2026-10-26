@@ -63,6 +63,21 @@ class PublishService {
       return { ok: false, reason: 'mainlive_not_configured' };
     }
 
+    // Drop MainLive rows whose kickoff was 3+ hours ago before publishing.
+    const purgedExpired =
+      typeof this.mainLive.purgeExpired === 'function'
+        ? this.mainLive.purgeExpired()
+        : [];
+    if (purgedExpired.length && this.logService) {
+      this.logService.add({
+        category: 'admin',
+        action: 'mainlive_purge_expired',
+        message: `Purged ${purgedExpired.length} MainLive match(es) older than 3 hours before publish`,
+        actor,
+        meta: { matchIds: purgedExpired },
+      });
+    }
+
     const delivery = { mainlive: this.mainLive.toDeliveryPayload() };
     const { previous: prevDelivery } = this.cache.saveDeliveryBundle(delivery);
 

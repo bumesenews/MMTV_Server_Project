@@ -1,5 +1,10 @@
 const { logger, logEvent, events } = require('../utils/logger');
-const { mergePlaybackHeaders, playbackHeadersForClient } = require('../utils/streamHeaders');
+const {
+  mergePlaybackHeaders,
+  playbackHeadersForClient,
+  applyBrowserPlaybackHeaders,
+  playlistIdentity,
+} = require('../utils/streamHeaders');
 const { sleep } = require('./baseStreamingSource');
 const { cleanText } = require('../utils/normalize');
 const { isBrowserProtocolError } = require('../utils/streamExtractPolicy');
@@ -63,6 +68,7 @@ async function extractStreamsFromPage({
   config,
   matchPageUrl,
   browserManager,
+  capturePlaybackHeaders = false,
 }) {
   const selectors = config.selectors || {};
   const detection = config.streamDetection || {};
@@ -187,15 +193,59 @@ async function extractStreamsFromPage({
 
   collectFromCapture(page, pushStream, 'HD', config);
 
-  return dedupeStreams(streams);
+  return finishExtractedStreams(page, streams, {
+    capturePlaybackHeaders,
+    pageUrl: matchPageUrl,
+  });
   } catch (err) {
     logger.warn('Stream page extract interrupted', {
       source: sourceName,
       error: err.message,
     });
     collectFromCapture(page, pushStream, 'HD', config);
-    return dedupeStreams(streams);
+    return finishExtractedStreams(page, streams, {
+      capturePlaybackHeaders,
+      pageUrl: matchPageUrl,
+    });
   }
+}
+
+/**
+ * MainLive match-URL playback must keep the browser's Referer, User-Agent,
+ * Origin, and Cookie. The validator's guessed headers stay for other feeds.
+ */
+async function finishExtractedStreams(page, streams, { capturePlaybackHeaders = false, pageUrl = '' } = {}) {
+  const unique = dedupeStreams(streams);
+  if (!capturePlaybackHeaders || !unique.length) return unique;
+  return finalizeBrowserPlayback(page, unique, pageUrl);
+}
+
+async function finalizeBrowserPlayback(page, streams, pageUrl = '') {
+  let cookies = [];
+  try {
+    if (page && typeof page.cookies === 'function' && !page.isClosed?.()) {
+      cookies = await page.cookies();
+    }
+  } catch {
+    cookies = [];
+  }
+  const captured = page?.__streamCapture?.getUniqueStreams?.() || [];
+  return (streams || []).map((stream) => {
+    const hit = captured.find((item) => playlistIdentity(item?.url) === playlistIdentity(stream?.url));
+    const headers = applyBrowserPlaybackHeaders(stream.headers, {
+      requestHeaders: hit?.headers,
+      cookies,
+      pageUrl,
+      streamUrl: hit?.url || stream.url,
+    });
+    return {
+      ...stream,
+      url: hit?.url || stream.url,
+      headers,
+      streamHeaders: headers,
+      keepPlaybackHeaders: true,
+    };
+  });
 }
 
 function collectFromCapture(page, pushStream, defaultQuality, config) {
@@ -424,6 +474,7 @@ function dedupeStreams(streams) {
 
 module.exports = {
   extractStreamsFromPage,
+  finalizeBrowserPlayback,
   discoverQualityButtons,
   dedupeStreams,
   isFrameUsable,

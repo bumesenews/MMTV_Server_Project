@@ -10,7 +10,13 @@ const {
   originReferer,
   inferPlayerReferer,
 } = require('../utils/streamHeaders');
-const { extractStreamsFromPage, dedupeStreams, IFRAME_SRC_ATTRS } = require('./streamExtractor');
+const {
+  extractStreamsFromPage,
+  finalizeBrowserPlayback,
+  dedupeStreams,
+  IFRAME_SRC_ATTRS,
+} = require('./streamExtractor');
+const { playlistIdentity } = require('../utils/streamHeaders');
 const { sleep, DEFAULT_M3U8_PATTERNS, resolvePlayerWait } = require('./baseStreamingSource');
 const { cleanText } = require('../utils/normalize');
 const {
@@ -757,8 +763,8 @@ async function puppeteerFallback({
 /**
  * Prefer axios HTML scrape; fall back to puppeteer-core network interception.
  * If axios returns candidates that fail validateStreams, Puppeteer is used next.
- * Never launches Puppeteer when Axios already returned a validated stream.
- * Fixture extracts (nameFirst) follow the same rule as MainLive.
+ * MainLive sets capturePlaybackHeaders so a validated axios playlist still
+ * opens the page and copies Referer, User-Agent, Origin, and Cookie.
  */
 async function extractStreamsAxiosThenPuppeteer({
   matchPageUrl,
@@ -772,6 +778,7 @@ async function extractStreamsAxiosThenPuppeteer({
   shouldAbort,
   skipServerNames = [],
   nameFirst = false,
+  capturePlaybackHeaders = false,
 }) {
   logEvent(events.SCRAPER_START, `${sourceName} stream extract start`, {
     source: sourceName,
@@ -781,30 +788,10 @@ async function extractStreamsAxiosThenPuppeteer({
   const playerWait = resolvePlayerWait(config, browser?.timeout);
   const navWaitUntil = waitUntil || playerWait.waitUntil;
 
-  const result = await runAxiosThenPuppeteer({
-    shouldAbort,
-    validate: validateStreams,
-    axiosExtract: async () => {
-      const axiosStreams = await extractStreamsViaAxios({
-        matchPageUrl,
-        sourceName,
-        config,
-        skipServerNames,
-        nameFirst,
-        validateStreams,
-      });
-      if (!axiosStreams.length) {
-        logger.info(`${sourceName} axios found no streams — falling back to puppeteer`, {
-          source: sourceName,
-          url: matchPageUrl,
-        });
-      }
-      return axiosStreams;
-    },
-    puppeteerExtract: browser
-      ? async () =>
-          runExclusivePuppeteerTask(async () => {
-          logger.info(`${sourceName} axios found no valid streams — falling back to puppeteer`, {
+  const puppeteerExtract = browser
+    ? async () =>
+        runExclusivePuppeteerTask(async () => {
+          logger.info(`${sourceName} opening match page for m3u8 headers`, {
             source: sourceName,
             url: matchPageUrl,
           });
@@ -845,10 +832,14 @@ async function extractStreamsAxiosThenPuppeteer({
               config: extractConfig,
               matchPageUrl: liveMatchUrl,
               browserManager: browser,
+              capturePlaybackHeaders,
             });
           } catch (err) {
             const capturedPage = (page && typeof page.url === 'function' && page.url()) || matchPageUrl;
-            const captured = streamsFromCapture(page, sourceName, config, capturedPage);
+            let captured = streamsFromCapture(page, sourceName, config, capturedPage);
+            if (capturePlaybackHeaders && captured.length) {
+              captured = await finalizeBrowserPlayback(page, captured, capturedPage);
+            }
             if (isBrowserProtocolError(err)) {
               logger.warn(`${sourceName} puppeteer frame detached — using captured streams`, {
                 source: sourceName,
@@ -864,8 +855,30 @@ async function extractStreamsAxiosThenPuppeteer({
           } finally {
             await browser.safeClosePage(page);
           }
-          })
-      : null,
+        })
+    : null;
+
+  const result = await runAxiosThenPuppeteer({
+    shouldAbort,
+    validate: validateStreams,
+    axiosExtract: async () => {
+      const axiosStreams = await extractStreamsViaAxios({
+        matchPageUrl,
+        sourceName,
+        config,
+        skipServerNames,
+        nameFirst,
+        validateStreams,
+      });
+      if (!axiosStreams.length) {
+        logger.info(`${sourceName} axios found no streams — falling back to puppeteer`, {
+          source: sourceName,
+          url: matchPageUrl,
+        });
+      }
+      return axiosStreams;
+    },
+    puppeteerExtract,
   });
 
   if (result.aborted) {
@@ -874,6 +887,26 @@ async function extractStreamsAxiosThenPuppeteer({
       url: matchPageUrl,
     });
     return [];
+  }
+
+  if (
+    capturePlaybackHeaders &&
+    browser &&
+    result.method === 'axios' &&
+    result.streams.length &&
+    typeof puppeteerExtract === 'function'
+  ) {
+    try {
+      const browserStreams = await puppeteerExtract();
+      const merged = mergeBrowserPlaybackStreams(result.streams, browserStreams);
+      if (merged.length) return merged;
+    } catch (err) {
+      logger.warn(`${sourceName} playback header capture failed`, {
+        source: sourceName,
+        url: matchPageUrl,
+        error: err.message,
+      });
+    }
   }
 
   if (result.method === 'axios' && result.streams.length) {
@@ -909,6 +942,30 @@ async function extractStreamsAxiosThenPuppeteer({
 function asList(value) {
   if (value == null) return [];
   return Array.isArray(value) ? value : [value];
+}
+
+function mergeBrowserPlaybackStreams(primary, browserStreams) {
+  const extra = (browserStreams || []).filter((stream) => stream?.keepPlaybackHeaders && stream.headers);
+  if (!extra.length) return primary || [];
+  const sample = extra[0];
+  const merged = (primary || []).map((stream) => {
+    const hit =
+      extra.find((item) => playlistIdentity(item.url) === playlistIdentity(stream.url)) || sample;
+    const same = playlistIdentity(hit.url) === playlistIdentity(stream.url);
+    const headers = { ...hit.headers };
+    return {
+      ...stream,
+      url: same ? hit.url : stream.url,
+      headers,
+      streamHeaders: headers,
+      keepPlaybackHeaders: true,
+    };
+  });
+  for (const item of extra) {
+    if (merged.some((stream) => playlistIdentity(stream.url) === playlistIdentity(item.url))) continue;
+    merged.push(item);
+  }
+  return merged;
 }
 
 function streamsFromCapture(page, sourceName, config, matchPageUrl) {

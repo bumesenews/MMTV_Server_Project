@@ -323,7 +323,15 @@ class StreamValidator {
   }
 
   availableResult(stream, headers, extra = {}) {
-    const clientHeaders = playbackHeadersForClient(headers);
+    const fetched = playbackHeadersForClient(headers);
+    let clientHeaders = fetched;
+    if (stream.keepPlaybackHeaders) {
+      const kept = playbackHeadersForClient(stream.headers || stream.streamHeaders || {});
+      clientHeaders = { ...fetched, ...kept };
+      for (const key of ['User-Agent', 'Referer', 'Origin', 'Cookie']) {
+        if (!clientHeaders[key] && fetched[key]) clientHeaders[key] = fetched[key];
+      }
+    }
     return {
       ...stream,
       active: true,

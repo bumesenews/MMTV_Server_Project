@@ -94,14 +94,35 @@ function createAdminRouter(ctx) {
   });
 
   // ---------- MainLive (admin-owned mainlive.json — separate from matches.json) ----------
-  router.get('/mainlive', auth, (_req, res) => {
-    const delivery = ctx.cache.getDelivery('mainlive');
-    res.json({
-      ok: true,
-      matches: ctx.mainLive.list(),
-      generatedAt: delivery?.generatedAt || null,
-      matchCount: delivery?.matchCount ?? ctx.mainLive.list().length,
-    });
+  router.get('/mainlive', auth, async (_req, res) => {
+    try {
+      const expired = ctx.mainLive.purgeExpired();
+      let published = null;
+      if (expired.length) {
+        published = await ctx.publish.publishMainLive({
+          actor: _req.admin?.username || 'system',
+        });
+        ctx.logService.add({
+          category: 'admin',
+          action: 'mainlive_purge_expired',
+          message: `Purged ${expired.length} MainLive match(es) older than 3 hours`,
+          actor: _req.admin?.username || 'system',
+          meta: { matchIds: expired },
+        });
+      }
+      const delivery = ctx.cache.getDelivery('mainlive');
+      const matches = ctx.mainLive.list();
+      res.json({
+        ok: true,
+        matches,
+        generatedAt: delivery?.generatedAt || null,
+        matchCount: delivery?.matchCount ?? matches.length,
+        purgedExpired: expired,
+        published,
+      });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
   });
 
   router.post('/mainlive', auth, editor, async (req, res) => {
@@ -466,11 +487,22 @@ function createAdminRouter(ctx) {
     try {
       const { matchId } = req.params;
       const wasManual = Boolean(ctx.manualMatches.get(matchId));
+      const existingOverride = ctx.overrides.get(matchId);
+      const alreadyHidden = Boolean(existingOverride?.hidden);
+      let purgedStub = false;
+      let hidden = false;
+
       if (wasManual) {
         ctx.manualMatches.remove(matchId);
+        if (existingOverride) ctx.overrides.removeMatch(matchId);
+      } else if (alreadyHidden) {
+        // Second delete (or delete of a "(hidden)" stub) permanently clears the override.
+        ctx.overrides.removeMatch(matchId);
+        purgedStub = true;
       } else {
         // Hide scraped match from public feed
         ctx.overrides.updateMatch(matchId, { hidden: true });
+        hidden = true;
       }
 
       const current = ctx.cache.getCurrent();
@@ -481,17 +513,37 @@ function createAdminRouter(ctx) {
 
       const published = await ctx.publish.republishFromCache({
         actor: req.admin.username,
-        meta: { reason: wasManual ? 'manual_match_delete' : 'match_hide' },
+        meta: {
+          reason: wasManual
+            ? 'manual_match_delete'
+            : purgedStub
+              ? 'match_hidden_stub_purge'
+              : 'match_hide',
+        },
       });
 
       ctx.logService.add({
         category: 'admin',
-        action: wasManual ? 'match_delete' : 'match_hide',
-        message: `${wasManual ? 'Deleted' : 'Hidden'} match ${matchId}`,
+        action: wasManual
+          ? 'match_delete'
+          : purgedStub
+            ? 'match_hidden_stub_purge'
+            : 'match_hide',
+        message: wasManual
+          ? `Deleted match ${matchId}`
+          : purgedStub
+            ? `Purged hidden stub ${matchId}`
+            : `Hidden match ${matchId}`,
         actor: req.admin.username,
       });
 
-      res.json({ ok: true, published, deleted: wasManual, hidden: !wasManual });
+      res.json({
+        ok: true,
+        published,
+        deleted: wasManual || purgedStub,
+        hidden,
+        purgedStub,
+      });
     } catch (err) {
       res.status(400).json({ ok: false, error: err.message });
     }

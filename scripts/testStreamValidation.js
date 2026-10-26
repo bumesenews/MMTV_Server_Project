@@ -9,6 +9,8 @@ const {
   redactHeadersForLog,
   headerPresence,
   inferPlayerReferer,
+  applyBrowserPlaybackHeaders,
+  cookieHeaderForPlayback,
   PLAYBACK_UA_MOBILE,
 } = require('../src/utils/streamHeaders');
 const {
@@ -149,6 +151,37 @@ async function run() {
     assert(
       'captured stream Referer overrides source',
       captured.Referer === 'https://embed.cdn.example/player/'
+    );
+
+    const browserHeaders = applyBrowserPlaybackHeaders(
+      { Referer: 'https://socolivepp.tv/match/', 'User-Agent': DEFAULT_UA },
+      {
+        requestHeaders: {
+          referer: 'https://player.example/embed/',
+          origin: 'https://player.example',
+          'user-agent': 'Mozilla/5.0 ManualChrome',
+        },
+        cookies: [
+          { name: 'session', value: 'abc', domain: '.example', path: '/' },
+          { name: 'cf_clearance', value: 'site', domain: 'socolivepp.tv', path: '/' },
+        ],
+        pageUrl: 'https://socolivepp.tv/match/',
+        streamUrl: 'https://cdn.example/live/index.m3u8',
+      }
+    );
+    assert('browser request Referer is kept', browserHeaders.Referer === 'https://player.example/embed/');
+    assert('browser request Origin is kept', browserHeaders.Origin === 'https://player.example');
+    assert('browser request User-Agent is kept', browserHeaders['User-Agent'] === 'Mozilla/5.0 ManualChrome');
+    assert(
+      'playlist and page cookies are both saved',
+      browserHeaders.Cookie.includes('session=abc') && browserHeaders.Cookie.includes('cf_clearance=site')
+    );
+    assert(
+      'cookie helper skips another host',
+      cookieHeaderForPlayback(
+        [{ name: 'ads', value: '1', domain: 'tracker.test', path: '/' }],
+        ['https://cdn.example/a.m3u8', 'https://socolivepp.tv/match/']
+      ) === ''
     );
 
     const fromHeadersField = mergePlaybackHeaders({

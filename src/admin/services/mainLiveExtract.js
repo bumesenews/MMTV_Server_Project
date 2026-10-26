@@ -4,6 +4,7 @@ const { GenericStreamingSource } = require('../../sources/genericStreamingSource
 const {
   mergePlaybackHeaders,
   playbackHeadersForClient,
+  fillOriginFromReferer,
 } = require('../../utils/streamHeaders');
 const {
   isKeptAfterValidation,
@@ -21,14 +22,17 @@ const {
 } = require('./mainLiveExtractPolicy');
 
 function mapExtractedStream(raw, { sourceName, matchUrl, sourceConfig }) {
-  const headers = playbackHeadersForClient(
-    mergePlaybackHeaders({
-      streamHeaders: raw.headers || raw.streamHeaders || {},
-      sourceConfig,
-      matchPageUrl: matchUrl,
-      streamUrl: raw.url,
-    })
-  );
+  const incoming = raw.headers || raw.streamHeaders || {};
+  const headers = raw.keepPlaybackHeaders
+    ? playbackHeadersForClient(fillOriginFromReferer({ ...incoming }))
+    : playbackHeadersForClient(
+        mergePlaybackHeaders({
+          streamHeaders: incoming,
+          sourceConfig,
+          matchPageUrl: matchUrl,
+          streamUrl: raw.url,
+        })
+      );
   const name = flutterStreamName({ ...raw, source: sourceName });
   return {
     source: sourceName,
@@ -107,7 +111,10 @@ async function extractMainLiveStreams({ pipeline, matchUrl, sourceName } = {}) {
   let streams = [];
   let error = null;
   try {
-    streams = await source.extractStreams(url, { validateStreams });
+    streams = await source.extractStreams(url, {
+      validateStreams,
+      capturePlaybackHeaders: true,
+    });
     if (
       streams?.length &&
       !streams.every((s) => s.validation && typeof s.validation.ok === 'boolean')

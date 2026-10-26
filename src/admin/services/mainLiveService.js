@@ -359,6 +359,30 @@ class MainLiveService {
   }
 
   /**
+   * Delete MainLive matches whose kickoff was at least maxAgeHours ago (default 3h).
+   * Returns removed matchIds.
+   */
+  purgeExpired({ maxAgeHours = 3, now = null } = {}) {
+    const base = now ? toYangon(now) : nowYangon();
+    if (!base || !base.isValid) return [];
+    const cutoff = base.minus({ hours: maxAgeHours });
+    const all = this.all();
+    const removed = [];
+    for (const [matchId, match] of Object.entries(all)) {
+      const kickoff =
+        toYangon(match?.kickoff) ||
+        (match?.date ? combineDateAndTime(match.date, match.time || '00:00') : null);
+      if (!kickoff || !kickoff.isValid) continue;
+      if (kickoff <= cutoff) {
+        delete all[matchId];
+        removed.push(matchId);
+      }
+    }
+    if (removed.length) this.store.write({ matches: all });
+    return removed;
+  }
+
+  /**
    * Build Flutter delivery payload for mainlive.json (same shape as matches.json).
    */
   toDeliveryPayload() {

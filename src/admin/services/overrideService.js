@@ -65,6 +65,37 @@ class OverrideService {
     return next;
   }
 
+  /**
+   * Permanently drop an override row (used to purge hidden stubs from admin lists).
+   */
+  removeMatch(matchId) {
+    const all = this.all();
+    if (!all[matchId]) return false;
+    delete all[matchId];
+    this.store.write({ matches: all });
+    return true;
+  }
+
+  /**
+   * Remove every override that is only a hidden stub (no longer in the live feed).
+   * Returns removed matchIds.
+   */
+  purgeHiddenStubs(liveMatchIds = []) {
+    const live = new Set(
+      (liveMatchIds || []).map((id) => String(id || '').trim()).filter(Boolean)
+    );
+    const all = this.all();
+    const removed = [];
+    for (const [matchId, ov] of Object.entries(all)) {
+      if (!ov || !ov.hidden) continue;
+      if (live.has(matchId)) continue;
+      delete all[matchId];
+      removed.push(matchId);
+    }
+    if (removed.length) this.store.write({ matches: all });
+    return removed;
+  }
+
   addManualStream(matchId, streamInput) {
     const all = this.all();
     const current = all[matchId] || defaultOverride();

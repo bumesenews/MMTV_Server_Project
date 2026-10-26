@@ -592,13 +592,13 @@
           <label>Referer
             <input name="streamReferer[]" value="${esc(referer)}" placeholder="https://source.example/" />
           </label>
-          <label>Cookie
-            <input name="streamCookie[]" value="${esc(cookie)}" placeholder="name=value; name2=value2" />
-          </label>
           <label>Origin
             <input name="streamOrigin[]" value="${esc(origin)}" placeholder="https://source.example" />
           </label>
         </div>
+        <label style="display:block;margin-top:8px">Cookie
+          <input name="streamCookie[]" value="${esc(cookie)}" placeholder="name=value; name2=value2" autocomplete="off" />
+        </label>
       `;
       row.querySelector('[data-remove-stream]').addEventListener('click', () => {
         row.remove();
@@ -836,9 +836,9 @@
               <div class="grid-2" style="margin-top:8px">
                 <label>User-Agent<input data-ua value="${esc(s.headers?.['User-Agent'] || '')}" placeholder="Mozilla/5.0 ..." /></label>
                 <label>Referer<input data-referer value="${esc(s.headers?.Referer || '')}" placeholder="https://source.example/" /></label>
-                <label>Cookie<input data-cookie value="${esc(s.headers?.Cookie || '')}" placeholder="name=value; name2=value2" /></label>
                 <label>Origin<input data-origin value="${esc(s.headers?.Origin || '')}" placeholder="https://source.example" /></label>
               </div>
+              <label style="display:block;margin-top:8px">Cookie<input data-cookie value="${esc(s.headers?.Cookie || '')}" placeholder="name=value; name2=value2" autocomplete="off" /></label>
             </div>
           `).join('') || '<p class="muted">No streams yet.</p>'}
         </div>
@@ -1146,8 +1146,8 @@
           <label style="grid-column:1/-1">m3u8 URL<input name="url" required placeholder="https://.../index.m3u8" /></label>
           <label>User-Agent<input name="userAgent" placeholder="Mozilla/5.0 ..." /></label>
           <label>Referer<input name="referer" placeholder="https://source.example/" /></label>
-          <label>Cookie (optional)<input name="cookie" placeholder="name=value; name2=value2" /></label>
           <label>Origin (optional)<input name="playbackOrigin" data-playback-origin placeholder="https://source.example" /></label>
+          <label style="grid-column:1/-1">Cookie<input name="cookie" placeholder="name=value; name2=value2" autocomplete="off" /></label>
           <label>Active<select name="active"><option value="true">Enabled</option><option value="false">Disabled</option></select></label>
           <div style="grid-column:1/-1"><button type="submit">Save Manual Stream</button></div>
         </form>

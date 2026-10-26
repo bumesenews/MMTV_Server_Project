@@ -240,6 +240,7 @@ class GenericStreamingSource extends BaseStreamingSource {
           shouldAbort: options.shouldAbort,
           skipServerNames: options.skipServerNames || [],
           nameFirst: Boolean(options.nameFirst),
+          capturePlaybackHeaders: Boolean(options.capturePlaybackHeaders),
         }),
       'extractStreams'
     );
