@@ -186,6 +186,8 @@ function clearAdminStreamUrl(doc, matchId) {
         streamHeaders: null,
         hasStreams: false,
         streamCount: 0,
+        streamStatus: null,
+        streamsCleared: true,
       };
       if (copy.adminManual && typeof copy.adminManual === 'object') {
         copy.adminManual = { ...copy.adminManual, streamUrl: '' };
@@ -198,6 +200,7 @@ function clearAdminStreamUrl(doc, matchId) {
       streamUrl: '',
       quality: m.quality || 'HD',
       headers: m.headers || { 'User-Agent': '', Referer: '' },
+      streamsCleared: true,
       updatedAt: new Date().toISOString(),
     };
   });
@@ -300,6 +303,18 @@ function applyStickyStoredMatch(fixture, stored) {
           }
         : stored.matchUrlSearch;
     }
+  }
+  // Admin one-shot clear: keep streams empty and do not restore from stored.
+  // Only honor fixture.streamsCleared (not stored) so a later scrape can refill.
+  if (fixture.streamsCleared) {
+    next.streams = [];
+    next.streamUrl = null;
+    next.streamHeaders = null;
+    next.hasStreams = false;
+    next.streamCount = 0;
+    next.streamStatus = null;
+    next.streamsCleared = true;
+    return next;
   }
   if (!hasText(next.streamUrl) && hasText(stored.streamUrl)) {
     next.streamUrl = stored.streamUrl;

@@ -727,6 +727,8 @@ function createAdminRouter(ctx) {
         const idx = current.matches.findIndex((m) => m.matchId === matchId);
         if (idx >= 0) {
           const prev = current.matches[idx];
+          // streamsCleared stops syncMatchesForDelivery from merging old
+          // streamUrl/streams back from the previous matches.json publish.
           match = {
             ...prev,
             streams: [],
@@ -737,6 +739,7 @@ function createAdminRouter(ctx) {
             streamStatus: null,
             validationStatus: null,
             validationReason: null,
+            streamsCleared: true,
           };
           if (match.adminManual && typeof match.adminManual === 'object') {
             match.adminManual = { ...match.adminManual, streamUrl: '' };
@@ -747,10 +750,28 @@ function createAdminRouter(ctx) {
         }
       }
 
+      if (!match) {
+        throw new Error('Match not found');
+      }
+
       const published = await ctx.publish.republishFromCache({
         actor: req.admin.username,
         meta: { reason: 'stream_url_clear', matchId },
       });
+
+      // Drop the one-shot clear flag from live cache after a successful publish
+      // so the next scraper run can attach a newly found stream.
+      const after = ctx.cache.getCurrent();
+      if (after?.matches) {
+        const i = after.matches.findIndex((m) => m.matchId === matchId);
+        if (i >= 0 && after.matches[i]?.streamsCleared) {
+          const row = { ...after.matches[i] };
+          delete row.streamsCleared;
+          after.matches[i] = row;
+          ctx.cache.writeJson(ctx.cache.currentPath, after);
+          match = row;
+        }
+      }
 
       ctx.logService.add({
         category: 'admin',

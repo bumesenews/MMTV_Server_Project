@@ -212,6 +212,59 @@ function mergeSearchState(prev, incoming) {
 }
 
 function combineMatchRecords(prev, incoming) {
+  // Admin cleared stream URL(s) for this fixture — do not resurrect from
+  // previous matches.json during republish sync.
+  if (incoming?.streamsCleared) {
+    const next = enrichMatchState({
+      ...prev,
+      ...incoming,
+      matchId: incoming.matchId || prev.matchId,
+      manual: Boolean(prev.manual || incoming.manual),
+      statusLocked: Boolean(prev.statusLocked || incoming.statusLocked),
+      pinned: Boolean(prev.pinned || incoming.pinned),
+      featured: Boolean(prev.featured || incoming.featured),
+      streams: [],
+      streamUrl: null,
+      streamHeaders: null,
+      hasStreams: false,
+      streamCount: 0,
+      streamStatus: null,
+      validationStatus: null,
+      validationReason: null,
+      streamAttempts: {
+        ...(prev.streamAttempts || {}),
+        ...(incoming.streamAttempts || {}),
+      },
+      streamSearch: mergeSearchState(prev.streamSearch, incoming.streamSearch),
+      matchUrl: incoming.matchUrl || prev.matchUrl || null,
+      matchUrlStatus: preferMatchUrlStatus(
+        incoming.matchUrlStatus,
+        prev.matchUrlStatus
+      ),
+      matchUrlAttempts: Math.max(
+        Number(incoming.matchUrlAttempts) || 0,
+        Number(prev.matchUrlAttempts) || 0
+      ),
+      lastMatchUrlAttemptAt:
+        incoming.lastMatchUrlAttemptAt || prev.lastMatchUrlAttemptAt || null,
+      matchUrlSource: incoming.matchUrlSource || prev.matchUrlSource || null,
+      matchUrlSearch: mergeSearchState(prev.matchUrlSearch, incoming.matchUrlSearch),
+      sourcePages: {
+        ...(prev.sourcePages || {}),
+        ...(incoming.sourcePages || {}),
+      },
+      originalNames: {
+        ...(prev.originalNames || {}),
+        ...(incoming.originalNames || {}),
+      },
+      attempts: Math.max(Number(incoming.attempts) || 0, Number(prev.attempts) || 0),
+      lastAttemptAt: incoming.lastAttemptAt || prev.lastAttemptAt || null,
+      h2h: incoming.h2h != null ? incoming.h2h : prev.h2h != null ? prev.h2h : null,
+      streamsCleared: true,
+    });
+    return { next, streamsAdded: 0 };
+  }
+
   const mergedStreams = mergeStreamLists(prev.streams || [], incoming.streams || [], {
     ...prev,
     ...incoming,
