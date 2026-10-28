@@ -8,6 +8,10 @@ const { toPublicMatch } = require('../../services/jsonGenerator');
 const { encryptPublicMatchesPayload } = require('../../utils/streamUrlCrypto');
 const { looksLikeM3u8, matchUrlEntries } = require('./mainLiveExtractPolicy');
 const { fillOriginFromReferer } = require('../../utils/streamHeaders');
+const {
+  isMainLiveAutoStatusEligible,
+  resolveMainLiveAutoStatus,
+} = require('./mainLiveStatus');
 
 /**
  * Admin-owned MainLive feed (mainlive.json) — separate from scraped matches.json.
@@ -62,11 +66,18 @@ class MainLiveService {
     const status = normalizeStatus(input.status);
     let streams = normalizeStreamsInput(input);
     const matchUrls = normalizeMatchUrlList(input, []);
+    // Late-night (≥23:00 Yangon) starts unlocked so the server can auto-manage
+    // status until the admin explicitly sets one. Daytime stays fully manual.
+    const autoEligible = isMainLiveAutoStatusEligible(kickoff);
+    const statusLocked =
+      input.statusLocked !== undefined
+        ? Boolean(input.statusLocked)
+        : !autoEligible;
 
     const match = {
       matchId,
       manual: true,
-      statusLocked: true,
+      statusLocked,
       league,
       leagueIcon: String(input.leagueIcon || '').trim() || null,
       homeTeam,
@@ -139,6 +150,10 @@ class MainLiveService {
       next.status = normalizeStatus(patch.status);
       next.statusLocked = true;
     }
+    // Explicit unlock resumes auto status for eligible late-night matches.
+    if (patch.statusLocked !== undefined) {
+      next.statusLocked = Boolean(patch.statusLocked);
+    }
 
     if (patch.date || patch.time || patch.kickoff) {
       const date = patch.date || next.date;
@@ -158,6 +173,13 @@ class MainLiveService {
       if (next.kickoff !== current.kickoff) {
         next.matchUrlExtractAt = null;
         next.matchUrlExtractAttempts = 0;
+        // Daytime kickoffs stay manual-only unless admin explicitly unlocks.
+        if (
+          patch.statusLocked === undefined &&
+          !isMainLiveAutoStatusEligible(next.kickoff)
+        ) {
+          next.statusLocked = true;
+        }
       }
     }
 
@@ -202,11 +224,34 @@ class MainLiveService {
     }
 
     next.manual = true;
-    next.statusLocked = next.statusLocked !== false;
     next.updatedAt = new Date().toISOString();
     all[matchId] = next;
     this.store.write({ matches: all });
     return next;
+  }
+
+  /**
+   * Persist auto status for unlocked MainLive rows with kickoff ≥ 23:00 Yangon.
+   * Returns how many matches changed.
+   */
+  applyAutoStatuses({ nowSec = null } = {}) {
+    const all = this.all();
+    const opts = nowSec != null ? { nowSec } : {};
+    let changed = 0;
+    for (const [matchId, match] of Object.entries(all)) {
+      if (match.statusLocked) continue;
+      if (!isMainLiveAutoStatusEligible(match.kickoff)) continue;
+      const status = resolveMainLiveAutoStatus(match, opts);
+      if (status === match.status) continue;
+      all[matchId] = {
+        ...match,
+        status,
+        updatedAt: new Date().toISOString(),
+      };
+      changed += 1;
+    }
+    if (changed) this.store.write({ matches: all });
+    return changed;
   }
 
   markExtractStatus(matchId, { status, error = null, queued = false, touchExtractAt = true, url = null } = {}) {
@@ -417,6 +462,8 @@ class MainLiveService {
    * Build Flutter delivery payload for mainlive.json (same shape as matches.json).
    */
   toDeliveryPayload() {
+    // Refresh unlocked late-night statuses before encrypt/publish.
+    this.applyAutoStatuses();
     const matches = this.list().map((m) =>
       toPublicMatch({
         ...m,
@@ -692,4 +739,6 @@ module.exports = {
   MainLiveService,
   normalizeAdminPageUrl,
   postedMatchUrlRows,
+  isMainLiveAutoStatusEligible,
+  resolveMainLiveAutoStatus,
 };

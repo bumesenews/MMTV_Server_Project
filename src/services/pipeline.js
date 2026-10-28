@@ -274,6 +274,23 @@ class Pipeline {
   }
 
   /**
+   * Persist + publish MainLive auto status for unlocked late-night (≥23:00 Yangon) matches.
+   * Lightweight JSON rewrite; no extra stream checks.
+   */
+  async refreshMainLiveAutoStatuses({ actor = 'scraper' } = {}) {
+    const mainLive = this.admin?.mainLive;
+    if (!mainLive || typeof mainLive.applyAutoStatuses !== 'function' || !this.admin?.publish) {
+      return { changed: 0 };
+    }
+    const changed = mainLive.applyAutoStatuses();
+    if (changed > 0) {
+      await this.admin.publish.publishMainLive({ actor });
+      logger.info('MainLive auto status published', { changed });
+    }
+    return { changed };
+  }
+
+  /**
    * When local matches.json is empty but GitHub still has rows, pull them back
    * so admin/Flutter are not stuck on a blank feed after expire cleanup.
    */
@@ -726,6 +743,9 @@ class Pipeline {
           logger.warn('MainLive extract retry failed', { error: err.message });
         });
         this._pendingMainLiveExtract = false;
+        await this.refreshMainLiveAutoStatuses({ actor: 'scraper' }).catch((err) => {
+          logger.warn('MainLive auto status refresh failed', { error: err.message });
+        });
 
         try {
           await this._alignResultsWithMatches(published.payload?.matches || []);

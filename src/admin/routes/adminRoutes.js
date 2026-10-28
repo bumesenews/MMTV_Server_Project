@@ -97,18 +97,33 @@ function createAdminRouter(ctx) {
   router.get('/mainlive', auth, async (_req, res) => {
     try {
       const expired = ctx.mainLive.purgeExpired();
+      const statusChanged =
+        typeof ctx.mainLive.applyAutoStatuses === 'function'
+          ? ctx.mainLive.applyAutoStatuses()
+          : 0;
       let published = null;
-      if (expired.length) {
+      if (expired.length || statusChanged) {
         published = await ctx.publish.publishMainLive({
           actor: _req.admin?.username || 'system',
         });
-        ctx.logService.add({
-          category: 'admin',
-          action: 'mainlive_purge_expired',
-          message: `Purged ${expired.length} MainLive match(es) older than 3 hours`,
-          actor: _req.admin?.username || 'system',
-          meta: { matchIds: expired },
-        });
+        if (expired.length) {
+          ctx.logService.add({
+            category: 'admin',
+            action: 'mainlive_purge_expired',
+            message: `Purged ${expired.length} MainLive match(es) older than 3 hours`,
+            actor: _req.admin?.username || 'system',
+            meta: { matchIds: expired },
+          });
+        }
+        if (statusChanged) {
+          ctx.logService.add({
+            category: 'admin',
+            action: 'mainlive_auto_status',
+            message: `Auto-updated status for ${statusChanged} MainLive match(es)`,
+            actor: _req.admin?.username || 'system',
+            meta: { changed: statusChanged },
+          });
+        }
       }
       const delivery = ctx.cache.getDelivery('mainlive');
       const matches = ctx.mainLive.list();
@@ -118,6 +133,7 @@ function createAdminRouter(ctx) {
         generatedAt: delivery?.generatedAt || null,
         matchCount: delivery?.matchCount ?? matches.length,
         purgedExpired: expired,
+        statusChanged,
         published,
       });
     } catch (err) {
@@ -184,7 +200,10 @@ function createAdminRouter(ctx) {
         }
       }
       // When admin sends date/time, MainLiveService treats them as Asia/Yangon wall clock.
-      if (patch.status != null) patch.statusLocked = true;
+      // Manual status change locks auto management; explicit statusLocked:false releases it.
+      if (patch.status != null && patch.statusLocked === undefined) {
+        patch.statusLocked = true;
+      }
 
       const previousUrl = ctx.mainLive.get(matchId)?.matchUrl || null;
       const match = ctx.mainLive.update(matchId, patch);

@@ -434,6 +434,24 @@
     return `${prefix}${result?.match?.matchUrlStatus || extraction?.error || 'searching'}`;
   }
 
+  /** Kickoff ≥ 23:00 Asia/Yangon (hour from date/time or ISO). */
+  function isMainLiveAutoEligibleKickoff(match) {
+    const raw = String(match?.time || '').trim();
+    const hm = raw.match(/^(\d{1,2}):(\d{2})/);
+    if (hm) {
+      let hour = Number(hm[1]);
+      const minute = Number(hm[2]);
+      const ampm = raw.match(/\b(AM|PM)\b/i)?.[1]?.toUpperCase();
+      if (ampm === 'PM' && hour < 12) hour += 12;
+      if (ampm === 'AM' && hour === 12) hour = 0;
+      return hour * 60 + minute >= 23 * 60;
+    }
+    const kick = String(match?.kickoff || '');
+    const iso = kick.match(/T(\d{2}):(\d{2})/);
+    if (iso) return Number(iso[1]) * 60 + Number(iso[2]) >= 23 * 60;
+    return false;
+  }
+
   async function renderMainLive() {
     setTitle('MainLive (mainlive.json)');
     const [matchData, leagueData, teamData] = await Promise.all([
@@ -540,6 +558,13 @@
                       <select data-act="status">
                         ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
                       </select>
+                      ${m.statusLocked && isMainLiveAutoEligibleKickoff(m)
+                        ? '<button type="button" class="secondary" data-act="resume-auto" title="Clear manual status lock for late-night auto management">Resume auto</button>'
+                        : m.statusLocked
+                          ? '<span class="badge" title="Manual status">LOCKED</span>'
+                          : isMainLiveAutoEligibleKickoff(m)
+                            ? '<span class="badge" title="Server manages status for kickoff ≥ 23:00 Yangon">AUTO</span>'
+                            : ''}
                       <input data-act="kickoff-date" type="date" value="${esc(m.date || '')}" title="Asia/Yangon date" />
                       <select data-act="kickoff-hour" title="Hour">
                         ${Array.from({ length: 12 }, (_, i) => i + 1).map((h) => {
@@ -743,7 +768,20 @@
             method: 'PATCH',
             body: JSON.stringify({ status: e.target.value }),
           });
-          toast('Status updated');
+          toast('Status updated · manual lock');
+          renderMainLive();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+      tr.querySelector('[data-act="resume-auto"]')?.addEventListener('click', async () => {
+        if (!confirm('Resume automatic status for this late-night MainLive match?')) return;
+        try {
+          await api(`/mainlive/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ statusLocked: false }),
+          });
+          toast('Auto status resumed');
           renderMainLive();
         } catch (err) {
           toast(err.message, 'error');
