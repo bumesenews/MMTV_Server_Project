@@ -220,15 +220,36 @@ async function finishExtractedStreams(page, streams, { capturePlaybackHeaders = 
   return finalizeBrowserPlayback(page, unique, pageUrl);
 }
 
-async function finalizeBrowserPlayback(page, streams, pageUrl = '') {
-  let cookies = [];
+async function collectPageCookies(page, streams, pageUrl = '') {
+  if (!page || typeof page.cookies !== 'function' || page.isClosed?.()) return [];
+  const urls = [];
+  const push = (value) => {
+    const url = String(value || '').trim();
+    if (url && /^https?:\/\//i.test(url) && !urls.includes(url)) urls.push(url);
+  };
+  push(pageUrl);
   try {
-    if (page && typeof page.cookies === 'function' && !page.isClosed?.()) {
-      cookies = await page.cookies();
-    }
+    if (typeof page.url === 'function') push(page.url());
   } catch {
-    cookies = [];
+    // page may already be navigating/closed
   }
+  for (const stream of streams || []) push(stream?.url);
+  try {
+    // Ask for match-page + playlist hosts so CDN cookies are included, not only
+    // cookies for the current document URL.
+    if (urls.length) return await page.cookies(...urls);
+    return await page.cookies();
+  } catch {
+    try {
+      return await page.cookies();
+    } catch {
+      return [];
+    }
+  }
+}
+
+async function finalizeBrowserPlayback(page, streams, pageUrl = '') {
+  const cookies = await collectPageCookies(page, streams, pageUrl);
   const captured = page?.__streamCapture?.getUniqueStreams?.() || [];
   return (streams || []).map((stream) => {
     const hit = captured.find((item) => playlistIdentity(item?.url) === playlistIdentity(stream?.url));

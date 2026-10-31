@@ -5,6 +5,7 @@ const {
   mergePlaybackHeaders,
   playbackHeadersForClient,
   fillOriginFromReferer,
+  pickPlaybackHeaders,
 } = require('../../utils/streamHeaders');
 const {
   isKeptAfterValidation,
@@ -21,18 +22,23 @@ const {
   needsMainLiveExtract,
 } = require('./mainLiveExtractPolicy');
 
+/**
+ * Same header shape as matches.json streams: User-Agent, Referer, Origin, Cookie.
+ * Browser-captured values win when present; source playbackHeaders fill gaps
+ * (especially Cookie) so MainLive does not publish cookie-less CDN playlists.
+ */
 function mapExtractedStream(raw, { sourceName, matchUrl, sourceConfig }) {
   const incoming = raw.headers || raw.streamHeaders || {};
-  const headers = raw.keepPlaybackHeaders
-    ? playbackHeadersForClient(fillOriginFromReferer({ ...incoming }))
-    : playbackHeadersForClient(
-        mergePlaybackHeaders({
-          streamHeaders: incoming,
-          sourceConfig,
-          matchPageUrl: matchUrl,
-          streamUrl: raw.url,
-        })
-      );
+  const baseline = mergePlaybackHeaders({
+    streamHeaders: incoming,
+    sourceConfig,
+    matchPageUrl: matchUrl,
+    streamUrl: raw.url,
+  });
+  const preferred = raw.keepPlaybackHeaders
+    ? { ...baseline, ...pickPlaybackHeaders(incoming) }
+    : baseline;
+  const headers = playbackHeadersForClient(fillOriginFromReferer(preferred));
   const name = flutterStreamName({ ...raw, source: sourceName });
   return {
     source: sourceName,
@@ -41,6 +47,7 @@ function mapExtractedStream(raw, { sourceName, matchUrl, sourceConfig }) {
     name,
     url: String(raw.url || '').trim(),
     headers,
+    streamHeaders: headers,
     active: raw.active !== false,
     extractionMethod: raw.extractionMethod || null,
   };
@@ -231,6 +238,7 @@ module.exports = {
   urlExtractPlan,
   matchUrlEntries,
   needsMainLiveExtract,
+  mapExtractedStream,
   extractMainLiveStreams,
   extractAndPublishMainLive,
 };

@@ -363,7 +363,13 @@ function toPublicStream(stream) {
   if (source) out.source = source;
   else delete out.source;
   delete out.quality;
-  if (isManualStream(stream)) {
+  // Same header shape as matches.json (UA / Referer / Origin / Cookie when present).
+  const rawHeaders = out.headers || out.streamHeaders || stream.headers || stream.streamHeaders;
+  if (rawHeaders && typeof rawHeaders === 'object') {
+    const headers = fillOriginFromReferer(flutterPlaybackHeaders(rawHeaders));
+    out.headers = headers;
+    out.streamHeaders = headers;
+  } else if (isManualStream(stream)) {
     const headers = fillOriginFromReferer(out.headers || out.streamHeaders || null);
     if (headers) {
       out.headers = headers;

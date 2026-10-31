@@ -4,6 +4,8 @@ const {
   resolveSourceFromUrl,
   needsMainLiveExtract,
 } = require('../src/admin/services/mainLiveExtractPolicy');
+const { mapExtractedStream } = require('../src/admin/services/mainLiveExtract');
+const { toPublicMatch } = require('../src/services/jsonGenerator');
 
 function source(name, domains) {
   return { name, config: { name, domains } };
@@ -126,5 +128,87 @@ assert.strictEqual(
   true,
   'a pasted m3u8 is stored without waiting'
 );
+
+// --- MainLive headers include Cookie like matches.json ---
+{
+  const withBrowserCookie = mapExtractedStream(
+    {
+      url: 'https://cdn.example/live/index.m3u8',
+      quality: 'HD',
+      keepPlaybackHeaders: true,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 Browser',
+        Referer: 'https://player.example/embed/',
+        Origin: 'https://player.example',
+        Cookie: 'session=abc; cf_clearance=xyz',
+      },
+    },
+    {
+      sourceName: 'cakhia',
+      matchUrl: 'https://cakhiazaa.tv/truc-tiep/foo',
+      sourceConfig: {
+        playbackHeaders: {
+          'User-Agent': 'Mozilla/5.0 Source',
+          Referer: 'https://cakhiazaa.tv/',
+          Cookie: 'source=only',
+        },
+      },
+    }
+  );
+  assert.strictEqual(
+    withBrowserCookie.headers.Cookie,
+    'session=abc; cf_clearance=xyz',
+    'browser Cookie wins for MainLive'
+  );
+  assert.strictEqual(
+    withBrowserCookie.streamHeaders.Cookie,
+    'session=abc; cf_clearance=xyz',
+    'streamHeaders mirrors headers Cookie'
+  );
+
+  const fillFromSource = mapExtractedStream(
+    {
+      url: 'https://cdn.example/live/index.m3u8',
+      quality: 'HD',
+      keepPlaybackHeaders: true,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 Browser',
+        Referer: 'https://player.example/embed/',
+      },
+    },
+    {
+      sourceName: 'cakhia',
+      matchUrl: 'https://cakhiazaa.tv/truc-tiep/foo',
+      sourceConfig: {
+        playbackHeaders: {
+          Cookie: 'source=fallback',
+          Referer: 'https://cakhiazaa.tv/',
+        },
+      },
+    }
+  );
+  assert.strictEqual(
+    fillFromSource.headers.Cookie,
+    'source=fallback',
+    'source Cookie fills gap when browser Cookie is missing'
+  );
+
+  const published = toPublicMatch({
+    matchId: 'test_cookie',
+    homeTeam: 'A',
+    awayTeam: 'B',
+    league: 'L',
+    status: 'LIVE',
+    streams: [withBrowserCookie],
+  });
+  const pubStream = published.streams[0];
+  assert.ok(pubStream.headers.Cookie, 'mainlive.json stream keeps Cookie');
+  assert.ok(pubStream.streamHeaders.Cookie, 'mainlive.json streamHeaders keeps Cookie');
+  assert.strictEqual(
+    pubStream.headers.Cookie,
+    'session=abc; cf_clearance=xyz',
+    'published Cookie matches captured value'
+  );
+}
 
 console.log('testMainLiveExtract: ok');
