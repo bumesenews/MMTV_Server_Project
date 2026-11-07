@@ -822,6 +822,7 @@ class StreamEngine {
         },
         skipServerNames: [...selectedServerNameSet(current.streams)],
         nameFirst: true,
+        capturePlaybackHeaders: true,
       });
       if (
         streams?.length &&

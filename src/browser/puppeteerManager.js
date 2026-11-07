@@ -605,10 +605,29 @@ class PuppeteerManager {
     const pendingCookies = new Map();
     let cdp = null;
 
-    const attachCookie = (requestId, url, headers) => {
+    const cookieFromEvent = (event) => {
+      const { mergeCookieHeaders: mergeCookies } = require('../utils/streamHeaders');
+      const headers = event?.headers || event?.request?.headers || {};
+      let cookie = headers.cookie || headers.Cookie || '';
+      const rows = Array.isArray(event?.associatedCookies) ? event.associatedCookies : [];
+      const parts = [];
+      for (const row of rows) {
+        const name = row?.cookie?.name;
+        if (!name) continue;
+        if (Array.isArray(row.blockedReasons) && row.blockedReasons.length) continue;
+        parts.push(`${name}=${row.cookie.value ?? ''}`);
+      }
+      return mergeCookies(cookie, parts.join('; '));
+    };
+
+    const attachCookie = (requestId, url, headers, event) => {
       const { mergeCookieHeaders: mergeCookies } = require('../utils/streamHeaders');
       const raw = headers || {};
-      const incoming = raw.cookie || raw.Cookie || pendingCookies.get(requestId) || '';
+      const fromEvent = event ? cookieFromEvent(event) : '';
+      const incoming = mergeCookies(
+        raw.cookie || raw.Cookie || '',
+        fromEvent || (requestId ? pendingCookies.get(requestId) : '') || ''
+      );
       const existing = requestId ? byRequestId.get(requestId) : null;
       if (existing) {
         if (incoming) {
@@ -636,11 +655,10 @@ class PuppeteerManager {
       await cdp.send('Network.enable');
       cdp.on('Network.requestWillBeSent', (event) => {
         const request = event.request || {};
-        attachCookie(event.requestId, request.url, request.headers);
+        attachCookie(event.requestId, request.url, request.headers, event);
       });
       cdp.on('Network.requestWillBeSentExtraInfo', (event) => {
-        const headers = event.headers || {};
-        const cookie = headers.cookie || headers.Cookie || '';
+        const cookie = cookieFromEvent(event);
         if (!cookie) return;
         pendingCookies.set(event.requestId, cookie);
         const item = byRequestId.get(event.requestId);

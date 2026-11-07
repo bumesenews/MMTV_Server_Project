@@ -142,6 +142,17 @@ function mergeCookieHeaders(primary, extra) {
   return normalizeCookieHeader(`${first}; ${second}`);
 }
 
+/**
+ * Playback Cookie for a saved stream.
+ * The playlist request wins. The browser jar and the player document.cookie fill gaps.
+ */
+function combinePlaybackCookies({ requestCookie = '', cookies, urls, documentCookie = '' } = {}) {
+  let header = normalizeCookieHeader(requestCookie);
+  header = mergeCookieHeaders(header, cookieHeaderForPlayback(cookies, urls));
+  header = mergeCookieHeaders(header, documentCookie);
+  return header;
+}
+
 /** Site cookies plus playlist-host cookies. The app sends this on every segment. */
 function cookieHeaderForPlayback(cookies, urls) {
   const pairs = [];
@@ -170,6 +181,7 @@ function applyBrowserPlaybackHeaders(headers, {
   pageUrl = '',
   streamUrl = '',
   frameUrls = [],
+  documentCookie = '',
 } = {}) {
   const next = pickPlaybackHeaders(headers);
   const captured = pickPlaybackHeaders(requestHeaders);
@@ -177,13 +189,13 @@ function applyBrowserPlaybackHeaders(headers, {
   if (captured.Referer) next.Referer = captured.Referer;
   if (captured.Origin) next.Origin = captured.Origin;
   const requestCookie = normalizeCookieHeader(captured.Cookie);
-  if (requestCookie) next.Cookie = requestCookie;
-  if (!next.Cookie) {
-    const cookie = normalizeCookieHeader(
-      cookieHeaderForPlayback(cookies, [streamUrl, next.Referer, pageUrl, ...frameUrls])
-    );
-    if (cookie) next.Cookie = cookie;
-  }
+  const playbackCookie = combinePlaybackCookies({
+    requestCookie,
+    cookies,
+    urls: [streamUrl, next.Referer, pageUrl, ...frameUrls],
+    documentCookie,
+  });
+  if (playbackCookie) next.Cookie = playbackCookie;
   if (!next['User-Agent']) next['User-Agent'] = process.env.USER_AGENT || DEFAULT_UA;
   if (!next.Referer && pageUrl) next.Referer = String(pageUrl);
   if (!next.Origin && next.Referer) {
@@ -471,6 +483,7 @@ module.exports = {
   cookieHeaderForPlayback,
   normalizeCookieHeader,
   mergeCookieHeaders,
+  combinePlaybackCookies,
   applyBrowserPlaybackHeaders,
   inferPlayerReferer,
   GENERIC_PLAYER_REFERERS,

@@ -13,6 +13,7 @@ const {
 const {
   extractStreamsFromPage,
   finalizeBrowserPlayback,
+  harvestPlaybackCookie,
   dedupeStreams,
   IFRAME_SRC_ATTRS,
 } = require('./streamExtractor');
@@ -826,7 +827,7 @@ async function extractStreamsAxiosThenPuppeteer({
             });
             if (puppeteerSettleMs > 0) await sleep(puppeteerSettleMs);
             const liveMatchUrl = (typeof page.url === 'function' && page.url()) || matchPageUrl;
-            return extractStreamsFromPage({
+            const found = await extractStreamsFromPage({
               page,
               sourceName,
               config: extractConfig,
@@ -834,6 +835,11 @@ async function extractStreamsAxiosThenPuppeteer({
               browserManager: browser,
               capturePlaybackHeaders,
             });
+            if (!found.playbackCookie) {
+              const cookie = await harvestPlaybackCookie(page, found, liveMatchUrl);
+              if (cookie) found.playbackCookie = cookie;
+            }
+            return found;
           } catch (err) {
             const capturedPage = (page && typeof page.url === 'function' && page.url()) || matchPageUrl;
             let captured = streamsFromCapture(page, sourceName, config, capturedPage);
@@ -898,7 +904,10 @@ async function extractStreamsAxiosThenPuppeteer({
   ) {
     try {
       const browserStreams = await puppeteerExtract();
-      const merged = mergeBrowserPlaybackStreams(result.streams, browserStreams);
+      const merged = applyPlaybackCookie(
+        mergeBrowserPlaybackStreams(result.streams, browserStreams),
+        browserStreams?.playbackCookie
+      );
       if (merged.length) return merged;
     } catch (err) {
       logger.warn(`${sourceName} playback header capture failed`, {
@@ -942,6 +951,22 @@ async function extractStreamsAxiosThenPuppeteer({
 function asList(value) {
   if (value == null) return [];
   return Array.isArray(value) ? value : [value];
+}
+
+function applyPlaybackCookie(streams, cookie) {
+  const value = String(cookie || '').trim();
+  if (!value) return streams || [];
+  return (streams || []).map((stream) => {
+    const headers = { ...(stream.headers || {}) };
+    if (headers.Cookie || headers.cookie) return stream;
+    headers.Cookie = value;
+    return {
+      ...stream,
+      headers,
+      streamHeaders: { ...(stream.streamHeaders || {}), ...headers },
+      keepPlaybackHeaders: true,
+    };
+  });
 }
 
 function mergeBrowserPlaybackStreams(primary, browserStreams) {

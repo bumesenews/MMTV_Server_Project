@@ -3,6 +3,7 @@ const {
   mergePlaybackHeaders,
   playbackHeadersForClient,
   applyBrowserPlaybackHeaders,
+  combinePlaybackCookies,
   playlistIdentity,
 } = require('../utils/streamHeaders');
 const { sleep } = require('./baseStreamingSource');
@@ -216,8 +217,9 @@ async function extractStreamsFromPage({
  */
 async function finishExtractedStreams(page, streams, { capturePlaybackHeaders = false, pageUrl = '' } = {}) {
   const unique = dedupeStreams(streams);
-  if (!capturePlaybackHeaders || !unique.length) return unique;
-  return finalizeBrowserPlayback(page, unique, pageUrl);
+  if (!unique.length) return unique;
+  if (capturePlaybackHeaders) return finalizeBrowserPlayback(page, unique, pageUrl);
+  return attachCapturedCookies(page, unique, pageUrl);
 }
 
 async function collectPageCookies(page, streams, pageUrl = '') {
@@ -268,13 +270,59 @@ async function collectPageCookies(page, streams, pageUrl = '') {
       }
     }
   }
-  return { cookies, frameUrls };
+  let documentCookie = '';
+  const frames = page?.frames?.() || [];
+  for (const frame of frames) {
+    try {
+      const raw = await frame.evaluate(() => document.cookie || '');
+      documentCookie = combinePlaybackCookies({
+        requestCookie: documentCookie,
+        documentCookie: raw,
+      });
+    } catch {
+      // cross-origin frames still expose cookies through the browser jar
+    }
+  }
+  return { cookies, frameUrls, documentCookie };
+}
+
+async function harvestPlaybackCookie(page, streams, pageUrl = '') {
+  const { cookies, frameUrls, documentCookie } = await collectPageCookies(page, streams, pageUrl);
+  const captured = page?.__streamCapture?.getUniqueStreams?.() || [];
+  let requestCookie = '';
+  for (const item of captured) {
+    requestCookie = combinePlaybackCookies({
+      requestCookie,
+      documentCookie: item?.headers?.cookie || item?.headers?.Cookie || '',
+    });
+  }
+  return combinePlaybackCookies({
+    requestCookie,
+    cookies,
+    urls: [pageUrl, ...frameUrls, ...(streams || []).map((stream) => stream?.url)],
+    documentCookie,
+  });
+}
+
+async function attachCapturedCookies(page, streams, pageUrl = '') {
+  const playbackCookie = await harvestPlaybackCookie(page, streams, pageUrl);
+  if (!playbackCookie) return streams;
+  return (streams || []).map((stream) => {
+    const headers = { ...(stream.headers || {}) };
+    if (!headers.Cookie && !headers.cookie) headers.Cookie = playbackCookie;
+    return {
+      ...stream,
+      headers,
+      streamHeaders: { ...(stream.streamHeaders || {}), ...headers },
+      keepPlaybackHeaders: true,
+    };
+  });
 }
 
 async function finalizeBrowserPlayback(page, streams, pageUrl = '') {
-  const { cookies, frameUrls } = await collectPageCookies(page, streams, pageUrl);
+  const { cookies, frameUrls, documentCookie } = await collectPageCookies(page, streams, pageUrl);
   const captured = page?.__streamCapture?.getUniqueStreams?.() || [];
-  return (streams || []).map((stream) => {
+  const withCookies = (streams || []).map((stream) => {
     const hit = captured.find((item) => playlistIdentity(item?.url) === playlistIdentity(stream?.url));
     const headers = applyBrowserPlaybackHeaders(stream.headers, {
       requestHeaders: hit?.headers,
@@ -282,6 +330,7 @@ async function finalizeBrowserPlayback(page, streams, pageUrl = '') {
       pageUrl,
       streamUrl: hit?.url || stream.url,
       frameUrls,
+      documentCookie,
     });
     return {
       ...stream,
@@ -291,6 +340,17 @@ async function finalizeBrowserPlayback(page, streams, pageUrl = '') {
       keepPlaybackHeaders: true,
     };
   });
+  const playbackCookie = await harvestPlaybackCookie(page, withCookies, pageUrl);
+  if (playbackCookie) {
+    for (const stream of withCookies) {
+      if (!stream.headers?.Cookie) stream.headers.Cookie = playbackCookie;
+      if (!stream.streamHeaders?.Cookie) {
+        stream.streamHeaders = { ...(stream.streamHeaders || stream.headers), Cookie: playbackCookie };
+      }
+    }
+    withCookies.playbackCookie = playbackCookie;
+  }
+  return withCookies;
 }
 
 function collectFromCapture(page, pushStream, defaultQuality, config) {
@@ -520,6 +580,7 @@ function dedupeStreams(streams) {
 module.exports = {
   extractStreamsFromPage,
   finalizeBrowserPlayback,
+  harvestPlaybackCookie,
   discoverQualityButtons,
   dedupeStreams,
   isFrameUsable,

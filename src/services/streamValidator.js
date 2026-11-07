@@ -196,6 +196,7 @@ class StreamValidator {
       out.push(headers);
     };
     push(retryHeaders);
+    const keptCookie = playbackHeadersForClient(stream?.headers || stream?.streamHeaders || {}).Cookie;
     const withReferer = (referer) => {
       const origin = originFromUrl(referer);
       return {
@@ -203,6 +204,7 @@ class StreamValidator {
         'User-Agent': retryHeaders?.['User-Agent'] || PLAYBACK_UA_MOBILE,
         Referer: referer,
         ...(origin ? { Origin: origin } : {}),
+        ...(keptCookie ? { Cookie: keptCookie } : {}),
       };
     };
     const inferred = inferPlayerReferer(streamUrl);
@@ -324,13 +326,15 @@ class StreamValidator {
 
   availableResult(stream, headers, extra = {}) {
     const fetched = playbackHeadersForClient(headers);
+    const previous = playbackHeadersForClient(stream.headers || stream.streamHeaders || {});
     let clientHeaders = fetched;
     if (stream.keepPlaybackHeaders) {
-      const kept = playbackHeadersForClient(stream.headers || stream.streamHeaders || {});
-      clientHeaders = { ...fetched, ...kept };
+      clientHeaders = { ...fetched, ...previous };
       for (const key of ['User-Agent', 'Referer', 'Origin', 'Cookie']) {
         if (!clientHeaders[key] && fetched[key]) clientHeaders[key] = fetched[key];
       }
+    } else if (!clientHeaders.Cookie && previous.Cookie) {
+      clientHeaders = { ...clientHeaders, Cookie: previous.Cookie };
     }
     return {
       ...stream,
