@@ -95,6 +95,53 @@ function cookieHeaderForUrl(cookies, targetUrl) {
   return pairs.join('; ');
 }
 
+const COOKIE_ATTRIBUTE_NAMES = new Set([
+  'path',
+  'domain',
+  'secure',
+  'httponly',
+  'expires',
+  'max-age',
+  'samesite',
+  'priority',
+  'partitioned',
+]);
+
+/**
+ * Turn a Cookie or Set-Cookie header into `name=value; name2=value2`.
+ * Set-Cookie attributes (Path, HttpOnly, …) are not playback cookies.
+ */
+function normalizeCookieHeader(raw) {
+  const text = Array.isArray(raw) ? raw.filter(Boolean).join('\n') : String(raw || '');
+  if (!text.trim()) return '';
+  const chunks = text.split(/\r?\n|,\s*(?=[^;,\s]+=)/);
+  const pairs = [];
+  const seen = new Set();
+  for (const chunk of chunks) {
+    for (const part of chunk.split(';')) {
+      const piece = part.trim();
+      if (!piece) continue;
+      const eq = piece.indexOf('=');
+      if (eq <= 0) continue;
+      const name = piece.slice(0, eq).trim();
+      const value = piece.slice(eq + 1).trim();
+      if (!name || !value || COOKIE_ATTRIBUTE_NAMES.has(name.toLowerCase())) continue;
+      if (seen.has(name)) continue;
+      seen.add(name);
+      pairs.push(`${name}=${value}`);
+    }
+  }
+  return pairs.join('; ');
+}
+
+function mergeCookieHeaders(primary, extra) {
+  const first = normalizeCookieHeader(primary);
+  const second = normalizeCookieHeader(extra);
+  if (!first) return second;
+  if (!second) return first;
+  return normalizeCookieHeader(`${first}; ${second}`);
+}
+
 /** Site cookies plus playlist-host cookies. The app sends this on every segment. */
 function cookieHeaderForPlayback(cookies, urls) {
   const pairs = [];
@@ -122,15 +169,19 @@ function applyBrowserPlaybackHeaders(headers, {
   cookies,
   pageUrl = '',
   streamUrl = '',
+  frameUrls = [],
 } = {}) {
   const next = pickPlaybackHeaders(headers);
   const captured = pickPlaybackHeaders(requestHeaders);
   if (captured['User-Agent']) next['User-Agent'] = captured['User-Agent'];
   if (captured.Referer) next.Referer = captured.Referer;
   if (captured.Origin) next.Origin = captured.Origin;
-  if (captured.Cookie) next.Cookie = captured.Cookie;
+  const requestCookie = normalizeCookieHeader(captured.Cookie);
+  if (requestCookie) next.Cookie = requestCookie;
   if (!next.Cookie) {
-    const cookie = cookieHeaderForPlayback(cookies, [streamUrl, next.Referer, pageUrl]);
+    const cookie = normalizeCookieHeader(
+      cookieHeaderForPlayback(cookies, [streamUrl, next.Referer, pageUrl, ...frameUrls])
+    );
     if (cookie) next.Cookie = cookie;
   }
   if (!next['User-Agent']) next['User-Agent'] = process.env.USER_AGENT || DEFAULT_UA;
@@ -418,6 +469,8 @@ module.exports = {
   playlistIdentity,
   cookieHeaderForUrl,
   cookieHeaderForPlayback,
+  normalizeCookieHeader,
+  mergeCookieHeaders,
   applyBrowserPlaybackHeaders,
   inferPlayerReferer,
   GENERIC_PLAYER_REFERERS,

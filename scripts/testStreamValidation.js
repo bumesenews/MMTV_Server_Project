@@ -11,6 +11,8 @@ const {
   inferPlayerReferer,
   applyBrowserPlaybackHeaders,
   cookieHeaderForPlayback,
+  normalizeCookieHeader,
+  mergeCookieHeaders,
   PLAYBACK_UA_MOBILE,
 } = require('../src/utils/streamHeaders');
 const {
@@ -182,6 +184,14 @@ async function run() {
         [{ name: 'ads', value: '1', domain: 'tracker.test', path: '/' }],
         ['https://cdn.example/a.m3u8', 'https://socolivepp.tv/match/']
       ) === ''
+    );
+    assert(
+      'Set-Cookie attributes are not saved as the playback cookie',
+      normalizeCookieHeader('sid=abc; Path=/; HttpOnly\ntoken=xyz; Secure') === 'sid=abc; token=xyz'
+    );
+    assert(
+      'playlist request cookie is kept and Set-Cookie names are added',
+      mergeCookieHeaders('sid=abc; other=1', 'sid=newer; Path=/\ntoken=xyz; Path=/') === 'sid=abc; other=1; token=xyz'
     );
 
     const fromHeadersField = mergePlaybackHeaders({

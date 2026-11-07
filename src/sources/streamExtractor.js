@@ -221,35 +221,58 @@ async function finishExtractedStreams(page, streams, { capturePlaybackHeaders = 
 }
 
 async function collectPageCookies(page, streams, pageUrl = '') {
-  if (!page || typeof page.cookies !== 'function' || page.isClosed?.()) return [];
-  const urls = [];
+  const frameUrls = [];
   const push = (value) => {
     const url = String(value || '').trim();
-    if (url && /^https?:\/\//i.test(url) && !urls.includes(url)) urls.push(url);
+    if (url && /^https?:\/\//i.test(url) && !frameUrls.includes(url)) frameUrls.push(url);
   };
   push(pageUrl);
   try {
-    if (typeof page.url === 'function') push(page.url());
+    if (page && typeof page.url === 'function') push(page.url());
   } catch {
     // page may already be navigating/closed
   }
-  for (const stream of streams || []) push(stream?.url);
   try {
-    // Ask for match-page + playlist hosts so CDN cookies are included, not only
-    // cookies for the current document URL.
-    if (urls.length) return await page.cookies(...urls);
-    return await page.cookies();
+    for (const frame of page?.frames?.() || []) {
+      push(typeof frame.url === 'function' ? frame.url() : '');
+    }
   } catch {
+    // frames can detach while the player is loading
+  }
+  for (const stream of streams || []) {
+    push(stream?.url);
+    push(stream?.embedUrl);
+    push(stream?.matchPageUrl);
+  }
+
+  let cookies = [];
+  const cdp = page?.__streamCapture?.cdp;
+  if (cdp) {
     try {
-      return await page.cookies();
+      const all = await cdp.send('Network.getAllCookies');
+      cookies = all?.cookies || [];
     } catch {
-      return [];
+      cookies = [];
     }
   }
+  if (!cookies.length && page && typeof page.cookies === 'function' && !page.isClosed?.()) {
+    try {
+      cookies = frameUrls.length
+        ? await page.cookies(...frameUrls.slice(0, 20))
+        : await page.cookies();
+    } catch {
+      try {
+        cookies = await page.cookies();
+      } catch {
+        cookies = [];
+      }
+    }
+  }
+  return { cookies, frameUrls };
 }
 
 async function finalizeBrowserPlayback(page, streams, pageUrl = '') {
-  const cookies = await collectPageCookies(page, streams, pageUrl);
+  const { cookies, frameUrls } = await collectPageCookies(page, streams, pageUrl);
   const captured = page?.__streamCapture?.getUniqueStreams?.() || [];
   return (streams || []).map((stream) => {
     const hit = captured.find((item) => playlistIdentity(item?.url) === playlistIdentity(stream?.url));
@@ -258,6 +281,7 @@ async function finalizeBrowserPlayback(page, streams, pageUrl = '') {
       cookies,
       pageUrl,
       streamUrl: hit?.url || stream.url,
+      frameUrls,
     });
     return {
       ...stream,

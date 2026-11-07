@@ -601,18 +601,69 @@ class PuppeteerManager {
       p instanceof RegExp ? p : new RegExp(String(p), 'i')
     );
 
-    const onRequest = (request) => {
-      const url = request.url();
-      if (patterns.some((re) => re.test(url))) {
-        captured.push({
-          url,
-          type: 'm3u8',
-          method: request.method(),
-          headers: request.headers(),
-          resourceType: request.resourceType(),
-          at: new Date().toISOString(),
-        });
+    const byRequestId = new Map();
+    const pendingCookies = new Map();
+    let cdp = null;
+
+    const attachCookie = (requestId, url, headers) => {
+      const { mergeCookieHeaders: mergeCookies } = require('../utils/streamHeaders');
+      const raw = headers || {};
+      const incoming = raw.cookie || raw.Cookie || pendingCookies.get(requestId) || '';
+      const existing = requestId ? byRequestId.get(requestId) : null;
+      if (existing) {
+        if (incoming) {
+          existing.headers.cookie = mergeCookies(existing.headers.cookie || existing.headers.Cookie, incoming);
+        }
+        return existing;
       }
+      if (!url || !patterns.some((re) => re.test(url))) return null;
+      if (/vd\.apisportpulse\.com|tvc-wc-2026/i.test(url)) return null;
+      const item = {
+        url,
+        type: 'm3u8',
+        headers: { ...raw },
+        at: new Date().toISOString(),
+        requestId: requestId || null,
+      };
+      if (incoming) item.headers.cookie = mergeCookies(item.headers.cookie || item.headers.Cookie, incoming);
+      captured.push(item);
+      if (requestId) byRequestId.set(requestId, item);
+      return item;
+    };
+
+    try {
+      cdp = await page.createCDPSession();
+      await cdp.send('Network.enable');
+      cdp.on('Network.requestWillBeSent', (event) => {
+        const request = event.request || {};
+        attachCookie(event.requestId, request.url, request.headers);
+      });
+      cdp.on('Network.requestWillBeSentExtraInfo', (event) => {
+        const headers = event.headers || {};
+        const cookie = headers.cookie || headers.Cookie || '';
+        if (!cookie) return;
+        pendingCookies.set(event.requestId, cookie);
+        const item = byRequestId.get(event.requestId);
+        if (item) attachCookie(event.requestId, item.url, { cookie });
+      });
+      cdp.on('Network.responseReceivedExtraInfo', (event) => {
+        const headers = event.headers || {};
+        const setCookie = headers['set-cookie'] || headers['Set-Cookie'] || '';
+        if (!setCookie) return;
+        pendingCookies.set(
+          event.requestId,
+          [pendingCookies.get(event.requestId), setCookie].filter(Boolean).join('\n')
+        );
+        const item = byRequestId.get(event.requestId);
+        if (item) attachCookie(event.requestId, item.url, { cookie: setCookie });
+      });
+    } catch (err) {
+      logger.debug('CDP playlist cookie capture unavailable', { error: err.message });
+      cdp = null;
+    }
+
+    const onRequest = (request) => {
+      attachCookie(null, request.url(), request.headers());
     };
 
     const onResponse = async (response) => {
@@ -624,18 +675,10 @@ class PuppeteerManager {
           patterns.some((re) => re.test(url)) ||
           /mpegurl|x-mpegURL|vnd\.apple\.mpegurl/i.test(contentType);
         if (!looksHls) return;
-        if (/vd\.apisportpulse\.com|tvc-wc-2026/i.test(url)) return;
-        captured.push({
-          url,
-          type: 'm3u8',
-          status: response.status(),
-          headers: {
-            'User-Agent': this.userAgent,
-            Referer: page.url(),
-            ...(headers['set-cookie'] ? { Cookie: headers['set-cookie'] } : {}),
-          },
-          contentType,
-          at: new Date().toISOString(),
+        attachCookie(null, url, {
+          'User-Agent': this.userAgent,
+          Referer: page.url(),
+          ...(headers['set-cookie'] ? { cookie: headers['set-cookie'] } : {}),
         });
       } catch {
         // ignore response parse errors
@@ -648,6 +691,7 @@ class PuppeteerManager {
     page.__streamCapture = {
       captured,
       patterns,
+      cdp,
       cleanup: () => {
         try {
           page.off('request', onRequest);
@@ -655,17 +699,34 @@ class PuppeteerManager {
         } catch {
           // page may already be closed
         }
+        if (cdp) {
+          cdp.detach().catch(() => {});
+          cdp = null;
+        }
       },
       getUniqueStreams() {
-        const seen = new Set();
-        const out = [];
+        const { mergeCookieHeaders: mergeCookies } = require('../utils/streamHeaders');
+        const byUrl = new Map();
         for (const item of captured) {
           const key = String(item.url || '').split('?')[0].toLowerCase();
-          if (!key || seen.has(key)) continue;
-          seen.add(key);
-          out.push(item);
+          if (!key) continue;
+          const cookie = item.headers?.cookie || item.headers?.Cookie || '';
+          const prev = byUrl.get(key);
+          if (!prev) {
+            byUrl.set(key, {
+              ...item,
+              headers: { ...(item.headers || {}) },
+            });
+            continue;
+          }
+          if (cookie) {
+            prev.headers.cookie = mergeCookies(prev.headers.cookie || prev.headers.Cookie, cookie);
+          }
+          if (!prev.headers.Referer && !prev.headers.referer) {
+            prev.headers.referer = item.headers?.referer || item.headers?.Referer || '';
+          }
         }
-        return out;
+        return [...byUrl.values()];
       },
     };
 
