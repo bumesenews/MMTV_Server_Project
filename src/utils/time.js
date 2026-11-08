@@ -201,20 +201,11 @@ function resolveMatchUrlSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
 }
 
 /**
- * After kickoff, keep hunting Match URLs while the match is still LIVE (up to +2h).
- * ASEAN / friendlies often appear on Today pages only at or after kickoff.
+ * SecondLive Match URL search stops at the scheduled kickoff.
+ * No Today-page hunt after kickoff.
  */
-function resolveMatchUrlLiveSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
-  const mins = minutesUntilKickoff(kickoff, nowSec);
-  if (mins == null || mins > 0) return null;
-  if (mins <= -MATCH_LIVE_DURATION_MIN) return null;
-  return {
-    id: 'tLive',
-    live: true,
-    postKickoff: true,
-    minExclusive: -MATCH_LIVE_DURATION_MIN,
-    maxInclusive: 0,
-  };
+function resolveMatchUrlLiveSlot(_kickoff, _nowSec = nowUtcUnixSeconds()) {
+  return null;
 }
 
 function resolveAnyMatchUrlSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
@@ -222,8 +213,8 @@ function resolveAnyMatchUrlSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
 }
 
 /**
- * Resolve the m3u8 extract slot: −30 / −20 / −10 / −5, then kickoff / +5 / +10.
- * Returns null before −30m and at/after the +15 stop.
+ * Resolve the m3u8 extract slot: −30 / −20 / −10 / −5, then through kickoff+30.
+ * Returns null before −30m and once 30 minutes after kickoff have passed.
  */
 function resolveStreamSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
   const mins = minutesUntilKickoff(kickoff, nowSec);
@@ -252,13 +243,13 @@ function getCheckIntervalMinutes(kickoff, status, nowSec = nowUtcUnixSeconds()) 
   const mins = minutesUntilKickoff(kickoff, nowSec);
   if (mins === null) return 30;
 
-  // After search stop (+15) but before END (+120): light status refresh only
+  // After stream search stop (+30) but before END (+120): light status refresh only
   if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) {
     if (status === 'LIVE' || status === 'PREPARING_STREAM') return 5;
     return null;
   }
 
-  // Inside Match URL / stream-search window (−60 .. +15)
+  // Inside Match URL (−60..kickoff) / stream-search window (−30..+30)
   if (mins <= MATCH_URL_LEAD_MIN) return STREAM_SEARCH_INTERVAL_MINUTES;
 
   // Far from kickoff
@@ -287,15 +278,14 @@ function resolveFixtureStatus(kickoff, nowSec = nowUtcUnixSeconds()) {
 }
 
 /**
- * m3u8 extraction window: kickoff−STREAM_EXTRACT_LEAD_MIN .. kickoff+MATCH_LIVE_DURATION_MIN.
+ * m3u8 extraction window: kickoff−30 minutes through kickoff+30 minutes.
  * forceStreamCheck / Admin Match URL must not extract outside this gate.
- * (Slot cadence −30/−20/−10/−5/0/+5/+10 and live catch-up still apply inside the window.)
  */
 function isStreamExtractEligible(kickoff, nowSec = nowUtcUnixSeconds()) {
   const mins = minutesUntilKickoff(kickoff, nowSec);
   if (mins == null) return false;
   if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
-  if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+  if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
   return true;
 }
 

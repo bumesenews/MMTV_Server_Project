@@ -521,8 +521,11 @@ async function run() {
     );
 
     const exhausted = nextSourceStateAfterAttempt({
-      previous: { attempts: 2, postKickoffAttempts: 2 },
-      slot: { id: 't10', postKickoff: true },
+      previous: {
+        attempts: MAX_POST_KICKOFF_ATTEMPTS - 1,
+        postKickoffAttempts: MAX_POST_KICKOFF_ATTEMPTS - 1,
+      },
+      slot: { id: 'tP25', postKickoff: true },
       validatedStreams: [],
     });
     assert(

@@ -7,7 +7,6 @@ const {
   isStreamSearchStopped,
   STREAM_EXTRACT_LEAD_MIN,
   STREAM_SEARCH_STOP_AFTER_MIN,
-  MATCH_LIVE_DURATION_MIN,
   nowYangon,
   nowUtcUnixSeconds,
 } = require('../utils/time');
@@ -161,8 +160,8 @@ class StreamEngine {
   }
 
   /**
-   * Pipeline hung through −30..+15 with no extract started.
-   * Allow one catch-up search until kickoff+2h.
+   * Pipeline hung through the stream window with no extract started.
+   * Allow one catch-up search until 30 minutes after kickoff.
    */
   missedExtractCatchup(fixture) {
     const search = fixture?.streamSearch && typeof fixture.streamSearch === 'object'
@@ -173,20 +172,20 @@ class StreamEngine {
     const mins = minutesUntilKickoff(fixture?.kickoff);
     if (mins == null) return false;
     if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
-    if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+    if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
     return true;
   }
 
   /**
    * Match URL present (Admin/manual or discovery) but no validated m3u8 yet.
-   * Runs from −30 through kickoff+2h — not only after kickoff — so Admin URLs
+   * Runs from −30 through kickoff+30 — not only after kickoff — so Admin URLs
    * added mid-window are not stuck behind shouldCheck / missed slots.
    */
   lateUrlExtractCatchup(fixture) {
     const mins = minutesUntilKickoff(fixture?.kickoff);
     if (mins == null) return false;
     if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
-    if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+    if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
     return this.sources.some((s) => {
       if (!sourceHasSavedMatchUrl(getSourceMatchUrlState(fixture, s.name))) return false;
       const st = readSourceExtractState(fixture?.streamSearch, s.name);
@@ -207,7 +206,7 @@ class StreamEngine {
   incompletePlayerCatchup(fixture) {
     const mins = minutesUntilKickoff(fixture?.kickoff);
     if (mins == null || mins > STREAM_EXTRACT_LEAD_MIN) return false;
-    if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+    if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
     return this.sources.some((s) => {
       if (!sourceHasSavedMatchUrl(getSourceMatchUrlState(fixture, s.name))) return false;
       const st = readSourceExtractState(fixture?.streamSearch, s.name);
@@ -226,7 +225,7 @@ class StreamEngine {
       id: 'catchup',
       attempt: 1,
       postKickoff: true,
-      minExclusive: -MATCH_LIVE_DURATION_MIN,
+      minExclusive: -STREAM_SEARCH_STOP_AFTER_MIN,
       maxInclusive: -STREAM_SEARCH_STOP_AFTER_MIN,
     };
   }
@@ -234,7 +233,7 @@ class StreamEngine {
   /**
    * Whether this match should deep-extract streams in the current kickoff slot.
    * force=true may re-run a completed slot, but MUST NOT bypass the −30 lead
-   * gate or the +2h lifecycle cutoff (checked before force).
+   * gate or the kickoff+30 stop (checked before force).
    */
   shouldExtractStreams(fixture, { force = false } = {}) {
     if (fixture?.adminSkipExtract && fixture?.streamUrl) return false;
@@ -242,8 +241,8 @@ class StreamEngine {
     if (mins == null) return false;
     // Hard gate: never extract before −30m, even with forceStreamCheck.
     if (mins > STREAM_EXTRACT_LEAD_MIN) return false;
-    // Hard gate: never extract after kickoff+2h, even with forceStreamCheck.
-    if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+    // Hard gate: never extract once 30 minutes after kickoff have passed.
+    if (mins <= -STREAM_SEARCH_STOP_AFTER_MIN) return false;
 
     const catchup =
       this.missedExtractCatchup(fixture) ||
@@ -755,7 +754,7 @@ class StreamEngine {
     const catchupJob = slot?.id === 'catchup';
     const pastLiveWindow = (() => {
       const mins = minutesUntilKickoff(current.kickoff);
-      return mins != null && mins <= -MATCH_LIVE_DURATION_MIN;
+      return mins != null && mins <= -STREAM_SEARCH_STOP_AFTER_MIN;
     })();
     if (pastLiveWindow) {
       this.extractQueue.cancelMatch(matchId);
@@ -815,7 +814,7 @@ class StreamEngine {
           }
           if (catchupJob) {
             const mins = minutesUntilKickoff(latest.kickoff);
-            return mins != null && mins <= -MATCH_LIVE_DURATION_MIN;
+            return mins != null && mins <= -STREAM_SEARCH_STOP_AFTER_MIN;
           }
           if (latest.streamSearch?.stopped) return true;
           return isStreamSearchStopped(latest.kickoff, latest.streamSearch);

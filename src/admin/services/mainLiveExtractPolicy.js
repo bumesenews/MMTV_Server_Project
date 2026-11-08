@@ -2,8 +2,11 @@ const { minutesUntilKickoff, nowUtcUnixSeconds } = require('../../utils/time');
 
 /** First MainLive m3u8 search opens this many minutes before kickoff. */
 const MAINLIVE_EXTRACT_LEAD_MIN = 30;
-/** If that search finds nothing, try once more after this many minutes. */
+/** Last search is this many minutes after kickoff. Then stop if nothing was found. */
+const MAINLIVE_EXTRACT_FOLLOW_MIN = 30;
+/** Repeat a miss every this many minutes inside that window. */
 const MAINLIVE_EXTRACT_RETRY_MIN = 15;
+/** Kept for callers. A miss no longer stops the search; the live window does. */
 const MAINLIVE_EXTRACT_MAX_ATTEMPTS = 2;
 
 function looksLikeM3u8(url) {
@@ -48,7 +51,9 @@ function resolveSourceFromUrl(sources, matchUrl, preferredName) {
     );
     if (hit) return hit;
   }
-  return list[0] || null;
+  // Unknown hosts must not inherit sources[0] (often Cakhia). Caller uses
+  // the generic m3u8 sniff, which is what a pasted third-party page needs.
+  return null;
 }
 
 function hasAutomaticStream(match) {
@@ -59,8 +64,8 @@ function hasAutomaticStream(match) {
 }
 
 /**
- * Page Match URLs: first search at kickoff−30, one more search 15 minutes
- * after that attempt if it found nothing. A pasted .m3u8 is stored immediately.
+ * Page Match URLs: search from kickoff−30 through kickoff+30, every 15 minutes.
+ * Stop when that hour ends if no playable stream was stored. A pasted .m3u8 is stored immediately.
  */
 function matchUrlEntries(match) {
   const rows = [];
@@ -117,22 +122,25 @@ function urlExtractPlan(match, entry, { force = false, nowSec = nowUtcUnixSecond
   if (mins == null || mins > MAINLIVE_EXTRACT_LEAD_MIN) {
     return { due: false, reason: 'before_lead' };
   }
+  // Search only from 30 minutes before kickoff until 30 minutes after.
+  // mins === -30 is still inside the window; anything later stops.
+  if (mins < -MAINLIVE_EXTRACT_FOLLOW_MIN) {
+    return { due: false, reason: 'ended' };
+  }
   if (force) return { due: true, reason: 'force' };
 
   const attempts = single
     ? Number(match.matchUrlExtractAttempts) || Number(entry.attempts) || 0
     : Number(entry.attempts) || 0;
-  if (attempts <= 0) return { due: true, reason: 'lead' };
-  if (attempts >= MAINLIVE_EXTRACT_MAX_ATTEMPTS) {
-    return { due: false, reason: 'attempts_done' };
-  }
   const at = Date.parse((single ? match.matchUrlExtractAt : entry.extractedAt) || '');
-  if (!Number.isFinite(at)) return { due: true, reason: 'retry' };
+  if (!Number.isFinite(at)) {
+    return { due: true, reason: attempts <= 0 ? 'lead' : 'retry' };
+  }
   const waitedMs = nowSec * 1000 - at;
   if (waitedMs < MAINLIVE_EXTRACT_RETRY_MIN * 60 * 1000) {
     return { due: false, reason: 'retry_wait' };
   }
-  return { due: true, reason: 'retry' };
+  return { due: true, reason: attempts <= 0 ? 'lead' : 'retry' };
 }
 
 function mainLiveExtractPlan(match, options = {}) {
@@ -160,6 +168,7 @@ module.exports = {
   mainLiveExtractPlan,
   needsMainLiveExtract,
   MAINLIVE_EXTRACT_LEAD_MIN,
+  MAINLIVE_EXTRACT_FOLLOW_MIN,
   MAINLIVE_EXTRACT_RETRY_MIN,
   MAINLIVE_EXTRACT_MAX_ATTEMPTS,
 };

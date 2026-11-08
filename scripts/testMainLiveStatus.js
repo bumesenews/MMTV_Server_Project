@@ -20,10 +20,11 @@ function yangonKickoffIso(hour, minute = 0) {
   ).toISO();
 }
 
-// --- eligibility ---
-assert.strictEqual(isMainLiveAutoStatusEligible(yangonKickoffIso(22, 59)), false);
+// --- any valid kickoff can use auto; there is no 23:00 cutoff ---
+assert.strictEqual(isMainLiveAutoStatusEligible(yangonKickoffIso(19, 0)), true);
+assert.strictEqual(isMainLiveAutoStatusEligible(yangonKickoffIso(22, 59)), true);
 assert.strictEqual(isMainLiveAutoStatusEligible(yangonKickoffIso(23, 0)), true);
-assert.strictEqual(isMainLiveAutoStatusEligible(yangonKickoffIso(23, 30)), true);
+assert.strictEqual(isMainLiveAutoStatusEligible('not-a-kickoff'), false);
 
 const kick2300 = yangonKickoffIso(23, 0);
 const kickSec = Math.floor(new Date(kick2300).getTime() / 1000);
@@ -56,14 +57,14 @@ assert.strictEqual(
   'PREPARING_STREAM'
 );
 
-// --- kickoff reached, no stream → still PREPARING (never LIVE on clock alone) ---
+// --- kickoff reached with no stream stays Preparing ---
 assert.strictEqual(
   resolveMainLiveAutoStatus(
     { status: 'PREPARING_STREAM', statusLocked: false, kickoff: kick2300, streams: [] },
     { nowSec: kickSec + 60 }
   ),
   'PREPARING_STREAM',
-  'no LIVE without stream'
+  'Auto does not go Live without a stream URL'
 );
 
 // --- kickoff + verified stream → LIVE ---
@@ -81,14 +82,87 @@ assert.strictEqual(
   'LIVE'
 );
 
-// --- daytime kickoff ignores auto even if unlocked ---
+// --- daytime kickoff follows the same clock when auto is on ---
 const kick2000 = yangonKickoffIso(20, 0);
+const kick2000Sec = Math.floor(new Date(kick2000).getTime() / 1000);
 assert.strictEqual(
   resolveMainLiveAutoStatus(
     { status: 'Scheduled', statusLocked: false, kickoff: kick2000, streams: [] },
-    { nowSec: Math.floor(new Date(kick2000).getTime() / 1000) + 60 }
+    { nowSec: kick2000Sec + 60 }
   ),
-  'Scheduled'
+  'PREPARING_STREAM'
+);
+assert.strictEqual(
+  resolveMainLiveAutoStatus(
+    { status: 'PREPARING_STREAM', statusLocked: false, kickoff: kick2000, streams: [] },
+    { nowSec: kick2000Sec - 5 * 60 }
+  ),
+  'PREPARING_STREAM',
+  '5 minutes before kickoff stays Preparing until a stream URL exists'
+);
+const withStream = {
+  status: 'PREPARING_STREAM',
+  statusLocked: false,
+  kickoff: kick2000,
+  streams: [{ url: 'https://cdn.example/live.m3u8' }],
+  streamUrl: 'https://cdn.example/live.m3u8',
+};
+assert.strictEqual(
+  resolveMainLiveAutoStatus(withStream, { nowSec: kick2000Sec - 6 * 60 }),
+  'PREPARING_STREAM',
+  'a stream URL before the live window stays Preparing'
+);
+assert.strictEqual(
+  resolveMainLiveAutoStatus(withStream, { nowSec: kick2000Sec - 5 * 60 }),
+  'LIVE',
+  'Live starts 5 minutes before kickoff once a stream URL exists'
+);
+assert.strictEqual(
+  resolveMainLiveAutoStatus(
+    { ...withStream, status: 'LIVE' },
+    { nowSec: kick2000Sec + 119 * 60 }
+  ),
+  'LIVE',
+  'still Live just before 2 hours when a stream URL exists'
+);
+assert.strictEqual(
+  resolveMainLiveAutoStatus(
+    { status: 'LIVE', statusLocked: false, kickoff: kick2000, streams: [] },
+    { nowSec: kick2000Sec + 120 * 60 }
+  ),
+  'END',
+  'End 2 hours after kickoff'
+);
+
+// 2:00 AM kickoff → Live at 1:55 AM, End at 4:00 AM
+const kick0200 = yangonKickoffIso(2, 0);
+const kick0200Sec = Math.floor(new Date(kick0200).getTime() / 1000);
+assert.strictEqual(
+  resolveMainLiveAutoStatus(
+    { status: 'Scheduled', statusLocked: false, kickoff: kick0200, streams: [] },
+    { nowSec: kick0200Sec - 5 * 60 }
+  ),
+  'PREPARING_STREAM'
+);
+assert.strictEqual(
+  resolveMainLiveAutoStatus(
+    {
+      status: 'PREPARING_STREAM',
+      statusLocked: false,
+      kickoff: kick0200,
+      streamUrl: 'https://cdn.example/am.m3u8',
+    },
+    { nowSec: kick0200Sec - 5 * 60 }
+  ),
+  'LIVE',
+  '2:00 AM kickoff goes Live at 1:55 AM once a stream URL exists'
+);
+assert.strictEqual(
+  resolveMainLiveAutoStatus(
+    { status: 'LIVE', statusLocked: false, kickoff: kick0200, streams: [] },
+    { nowSec: kick0200Sec + 2 * 60 * 60 }
+  ),
+  'END'
 );
 
 // --- persist apply + unlock on MainLiveService ---
@@ -102,7 +176,7 @@ const created = svc.create({
   time: '23:30',
   status: 'Scheduled',
 });
-assert.strictEqual(created.statusLocked, false, 'late-night create starts unlocked');
+assert.strictEqual(created.statusLocked, false, 'create starts in auto mode');
 
 const day = svc.create({
   homeTeam: 'Day Home',
@@ -112,7 +186,7 @@ const day = svc.create({
   time: '19:00',
   status: 'Scheduled',
 });
-assert.strictEqual(day.statusLocked, true, 'daytime create stays locked');
+assert.strictEqual(day.statusLocked, false, 'daytime create also starts in auto mode');
 
 svc.update(created.matchId, { status: 'LIVE' });
 assert.strictEqual(svc.get(created.matchId).statusLocked, true, 'manual status locks');
@@ -123,6 +197,9 @@ assert.strictEqual(svc.get(created.matchId).status, 'Scheduled');
 
 const unlockedLate = svc.get(created.matchId);
 const nowAfterKick = Math.floor(new Date(unlockedLate.kickoff).getTime() / 1000) + 120;
+svc.update(day.matchId, { status: 'Scheduled' });
+assert.strictEqual(svc.get(day.matchId).statusLocked, true, 'manual status locks daytime too');
+
 svc.update(created.matchId, {
   streams: [{ url: 'https://cdn.example/a.m3u8', name: 'HD' }],
   statusLocked: false,
@@ -130,10 +207,32 @@ svc.update(created.matchId, {
 const changed = svc.applyAutoStatuses({ nowSec: nowAfterKick });
 assert.ok(changed >= 1, 'auto status should advance unlocked late match');
 assert.strictEqual(svc.get(created.matchId).status, 'LIVE');
-
 const dayBefore = svc.get(day.matchId).status;
 svc.applyAutoStatuses({ nowSec: nowAfterKick });
-assert.strictEqual(svc.get(day.matchId).status, dayBefore, 'locked daytime untouched');
+assert.strictEqual(svc.get(day.matchId).status, dayBefore, 'locked match stays on the admin status');
+
+const ended = svc.create({
+  homeTeam: 'End Home',
+  awayTeam: 'End Away',
+  league: 'Test League',
+  date: '2026-10-28',
+  time: '18:00',
+  status: 'Scheduled',
+});
+const endAt = Math.floor(new Date(ended.kickoff).getTime() / 1000) + 2 * 60 * 60;
+svc.applyAutoStatuses({ nowSec: endAt });
+assert.strictEqual(svc.get(ended.matchId), null, 'End removes the match from MainLive');
+
+const manualEnd = svc.create({
+  homeTeam: 'Manual End',
+  awayTeam: 'Manual Away',
+  league: 'Test League',
+  date: '2026-10-28',
+  time: '21:00',
+  status: 'LIVE',
+});
+assert.strictEqual(svc.update(manualEnd.matchId, { status: 'END' }), null);
+assert.strictEqual(svc.get(manualEnd.matchId), null, 'setting End removes the match');
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log('testMainLiveStatus: ok');

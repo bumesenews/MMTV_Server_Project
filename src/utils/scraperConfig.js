@@ -2,7 +2,7 @@
  * Runtime scraper/search settings from .env.
  * Reuses existing names; does not invent a second config system.
  *
- * STREAM_MAX_ATTEMPTS is the post-kickoff stream-search cap (kickoff / +5 / +10).
+ * STREAM_MAX_ATTEMPTS is the post-kickoff stream-search cap (every 5 minutes until +30).
  * MAX_STREAM_RETRIES remains the per-request Puppeteer/HTTP retry in sources — do not alias.
  */
 
@@ -77,10 +77,10 @@ function loadScraperConfig(env = process.env) {
     env.MATCH_URL_PRE_KICKOFF_MINUTES,
     [60, 50, 40, 30]
   );
-  const streamMaxAttempts = parsePositiveInt(env.STREAM_MAX_ATTEMPTS, 3);
+  const streamMaxAttempts = parsePositiveInt(env.STREAM_MAX_ATTEMPTS, 6);
   const streamPostKickoffMaxMinutes = parsePositiveInt(
     env.STREAM_POST_KICKOFF_MAX_MINUTES,
-    15
+    30
   );
   const streamSearchIntervalMinutes = parsePositiveInt(
     env.STREAM_SEARCH_INTERVAL_MINUTES,

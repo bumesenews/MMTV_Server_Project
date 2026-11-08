@@ -100,7 +100,7 @@ console.log('\n=== Phase 2: discovery slot resolution ===');
   assert('Discovery at −45', resolveMatchUrlSearchSlot(k, k - 45 * 60)?.id === 't50');
   assert('Discovery at −30', resolveMatchUrlSearchSlot(k, k - 30 * 60)?.id === 't30');
   assert('No discovery before −60', resolveMatchUrlSearchSlot(k, k - 90 * 60) == null);
-  assert('Live discovery at kickoff', resolveMatchUrlLiveSlot(k, k)?.live === true);
+  assert('No Match URL search at kickoff', resolveMatchUrlLiveSlot(k, k) == null);
 }
 
 console.log('\n=== Phase 2: extract slot resolution ===');

@@ -188,7 +188,7 @@ async function run() {
     );
     assert('Match URL cooldown 10 minutes', tenMin.matchUrlSearchIntervalMinutes === 10);
     assert('stream offsets are 0,5,10', cfg.streamAttemptOffsets.join(',') === '0,5,10');
-    assert('defaults match exported constants', STREAM_MAX_ATTEMPTS === 3 && STREAM_SEARCH_STOP_AFTER_MIN === 15);
+    assert('defaults match exported constants', STREAM_MAX_ATTEMPTS === 6 && STREAM_SEARCH_STOP_AFTER_MIN === 30);
     assert('scraperConcurrency() reads env/config', scraperConcurrency() >= 1);
     assert('MAX_STREAM_RETRIES is not reused as STREAM_MAX_ATTEMPTS', STREAM_MAX_ATTEMPTS !== 1);
 
@@ -232,7 +232,9 @@ async function run() {
     assert('20:00 → stream attempt at kickoff', slotAt(kickoff, 0).stream?.id === 't0');
     assert('20:05 → stream attempt +5', slotAt(kickoff, -5).stream?.id === 'tP5');
     assert('20:10 → stream attempt +10', slotAt(kickoff, -10).stream?.id === 'tP10');
-    assert('20:15 → STOP', slotAt(kickoff, -15).stopped === true && slotAt(kickoff, -15).stream == null);
+    assert('20:15 → stream attempt +15', slotAt(kickoff, -15).stream?.id === 'tP15' && slotAt(kickoff, -15).stopped === false);
+    assert('20:25 → stream attempt +25', slotAt(kickoff, -25).stream?.id === 'tP25' && slotAt(kickoff, -25).stopped === false);
+    assert('20:30 → STOP', slotAt(kickoff, -30).stopped === true && slotAt(kickoff, -30).stream == null);
     assert(
       'stream slots include pre-kickoff extract',
       STREAM_SEARCH_SLOTS.some((s) => s.id === 't30' && s.postKickoff === false) &&
@@ -339,11 +341,15 @@ async function run() {
     assert('stream found on retry 3 → AVAILABLE', found3.status === STREAM_SOURCE_STATUS.AVAILABLE);
 
     const fail3 = nextSourceStateAfterAttempt({
-      previous: miss2,
-      slot: { id: 'tP10', postKickoff: true },
+      previous: {
+        ...miss2,
+        attempts: MAX_POST_KICKOFF_ATTEMPTS - 1,
+        postKickoffAttempts: MAX_POST_KICKOFF_ATTEMPTS - 1,
+      },
+      slot: { id: 'tP25', postKickoff: true },
       validatedStreams: [],
     });
-    assert('3 failed attempts → FAILED', fail3.status === STREAM_SOURCE_STATUS.FAILED && fail3.postKickoffAttempts === MAX_POST_KICKOFF_ATTEMPTS);
+    assert('post-kickoff attempts exhausted → FAILED', fail3.status === STREAM_SOURCE_STATUS.FAILED && fail3.postKickoffAttempts === MAX_POST_KICKOFF_ATTEMPTS);
 
     const skipFailed = decideSourceExtract({
       sourceName: 'socolive',
@@ -382,8 +388,8 @@ async function run() {
     );
     const stopped = results.filter((r) => r.reason === 'stopped');
     assert('+15 cancel removes pending jobs for that match', stopped.length >= 1);
-    const kickoff = kickoffIso(-16);
-    assert('+15 stop window active', isStreamSearchStopped(kickoff, {}));
+    const kickoff = kickoffIso(-31);
+    assert('+30 stop window active', isStreamSearchStopped(kickoff, {}));
     const engine = engineWith([
       mockSource('socolive', async () => {
         throw new Error('should not extract after stop');
@@ -391,7 +397,7 @@ async function run() {
     ]);
     const stoppedMatch = await engine.collectForFixtures([
       {
-        ...confirmedFixture({ id: 'late', offsetMin: -16 }),
+        ...confirmedFixture({ id: 'late', offsetMin: -31 }),
         streamSearch: {
           started: true,
           stopped: true,
@@ -400,7 +406,7 @@ async function run() {
         },
       },
     ]);
-    assert('+15 does not start a new stream search', stoppedMatch[0].streams.length === 0);
+    assert('+30 does not start a new stream search', stoppedMatch[0].streams.length === 0);
 
     let catchupCalls = 0;
     const catchupEngine = engineWith([
@@ -423,14 +429,14 @@ async function run() {
       },
     ]);
     assert(
-      'never-started search still catch-up extracts after +15',
+      'never-started search still extracts 16 minutes after kickoff',
       catchupCalls >= 1 && (catchupMatch[0].streams || []).length >= 1
     );
   }
 
-  console.log('\n=== No stream after +15m → not LIVE in Flutter ===');
+  console.log('\n=== No stream after +30m → not LIVE in Flutter ===');
   {
-    const kickoff = kickoffIso(-16);
+    const kickoff = kickoffIso(-31);
     const nowSec = toUtcUnixSeconds(kickoffIso(0));
     const ended = enrichMatchState(
       {
@@ -438,13 +444,14 @@ async function run() {
         kickoff,
         homeTeam: 'Inter',
         awayTeam: 'Juventus',
+        matchUrl: 'https://socolivepp.tv/no-stream',
         streams: [],
         status: 'LIVE',
         streamSearch: { started: true, stopped: true, slotsDone: { t30: true } },
       },
       { nowSec }
     );
-    assert('no stream URL after +15m → END', ended.status === 'END');
+    assert('no stream URL after +30m → END', ended.status === 'END');
 
     const missedWindow = enrichMatchState(
       {
@@ -459,8 +466,8 @@ async function run() {
       { nowSec }
     );
     assert(
-      'never-searched match after +15m stays LIVE for catch-up',
-      missedWindow.status === 'LIVE'
+      'never-searched match after +30m stays PREPARING until a stream URL exists',
+      missedWindow.status === 'PREPARING_STREAM'
     );
 
     const stillLive = enrichMatchState(
@@ -474,7 +481,7 @@ async function run() {
       },
       { nowSec }
     );
-    assert('stream URL after +15m stays LIVE', stillLive.status === 'LIVE');
+    assert('stream URL after +30m stays LIVE', stillLive.status === 'LIVE');
 
     const searching = enrichMatchState(
       {
@@ -487,7 +494,7 @@ async function run() {
       },
       { nowSec }
     );
-    assert('inside 15m search window without stream stays LIVE', searching.status === 'LIVE');
+    assert('inside 30m search window without stream stays PREPARING', searching.status === 'PREPARING_STREAM');
 
     const locked = enrichMatchState(
       {
@@ -551,8 +558,8 @@ async function run() {
     m = applySourceDiscoveryResult(m, 'socolive', null, { id: 't30', attempt: 4 }, 't4');
     m = finalizeMatchUrlStatus(m, toUtcUnixSeconds(m.kickoff));
     assert(
-      'Match URL never found before kickoff stays SEARCHING for catch-up',
-      m.matchUrlStatus === MATCH_URL_STATUS.SEARCHING
+      'Match URL never found at kickoff → MATCH_URL_FAILED',
+      m.matchUrlStatus === MATCH_URL_STATUS.FAILED
     );
     m = finalizeMatchUrlStatus(m, toUtcUnixSeconds(m.kickoff) + 121 * 60);
     assert('Match URL never found after live window → MATCH_URL_FAILED', m.matchUrlStatus === MATCH_URL_STATUS.FAILED);
@@ -714,6 +721,7 @@ async function run() {
           {
             source: 'socolive',
             url: 'https://live2.streambylivepulse.com/live/channel1.m3u8',
+            name: 'TOM',
             active: true,
             validation: { ok: true, state: 'AVAILABLE' },
             headers: {
@@ -876,6 +884,16 @@ async function run() {
       '11:30 PM Yangon at 11:20 PM is PREPARING_STREAM not Scheduled',
       stale.status === 'PREPARING_STREAM'
     );
+    const earlyStream = enrich(
+      {
+        matchId: 'espanyol_levante_20260816',
+        kickoff: preparingKick,
+        status: 'Scheduled',
+        streams: [{ source: 'socolive', url: 'https://cdn.example/early.m3u8', active: true }],
+      },
+      { nowSec: toUtcUnixSeconds(preparingKick) - 10 * 60 }
+    );
+    assert('stream URL before kickoff is LIVE', earlyStream.status === 'LIVE');
     const liveNow = enrich(
       {
         matchId: 'espanyol_levante_20260816',
@@ -886,7 +904,18 @@ async function run() {
       },
       { nowSec: toUtcUnixSeconds(preparingKick) + 5 * 60 }
     );
-    assert('11:30 PM Yangon at 11:35 PM is LIVE', liveNow.status === 'LIVE');
+    assert('11:30 PM Yangon at 11:35 PM without a stream stays PREPARING', liveNow.status === 'PREPARING_STREAM');
+    const liveWithStream = enrich(
+      {
+        matchId: 'espanyol_levante_20260816',
+        kickoff: preparingKick,
+        status: 'Scheduled',
+        streams: [{ source: 'socolive', url: 'https://cdn.example/live.m3u8', active: true }],
+        streamSearch: { started: true, stopped: false, slotsDone: {}, sources: {} },
+      },
+      { nowSec: toUtcUnixSeconds(preparingKick) + 5 * 60 }
+    );
+    assert('11:30 PM Yangon at 11:35 PM is LIVE once a stream URL exists', liveWithStream.status === 'LIVE');
   }
 
   console.log('\n=== Collapse alias-renamed duplicate matches ===');

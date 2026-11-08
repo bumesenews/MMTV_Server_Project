@@ -497,15 +497,15 @@ console.log('\n=== Match URL discovery timing (−60 / −50 / −40 / −30) ==
   assert('10b. kickoff is not a pre-kickoff Match URL slot', slotAt(0) == null);
   assert('10c. +5m is not a pre-kickoff Match URL slot', slotAt(-5) == null);
   assert(
-    '10b2. kickoff opens live Match URL catch-up',
-    resolveMatchUrlLiveSlot(kickoffDt.toISO(), kickSec)?.id === 'tLive'
+    '10b2. kickoff stops Match URL search',
+    resolveMatchUrlLiveSlot(kickoffDt.toISO(), kickSec) == null
   );
   assert(
-    '10c2. +5m still in live Match URL catch-up',
-    resolveMatchUrlLiveSlot(kickoffDt.toISO(), kickSec + 5 * 60)?.id === 'tLive'
+    '10c2. +5m does not search for a Match URL',
+    resolveMatchUrlLiveSlot(kickoffDt.toISO(), kickSec + 5 * 60) == null
   );
   assert(
-    '10c3. +121m live Match URL catch-up has stopped',
+    '10c3. after kickoff Match URL search stays stopped',
     resolveMatchUrlLiveSlot(kickoffDt.toISO(), kickSec + 121 * 60) == null
   );
   assert('10d. −90m is not a Match URL slot', slotAt(90) == null, JSON.stringify(slotAt(90)));
@@ -578,45 +578,17 @@ console.log('\n=== Match URL discovery timing (−60 / −50 / −40 / −30) ==
   );
   m = finalizeMatchUrlStatus(m, kickSec);
   assert(
-    '4. After 4 misses, kickoff stays SEARCHING for live catch-up',
-    m.matchUrlStatus === MATCH_URL_STATUS.SEARCHING && !m.matchUrl,
+    '4. At kickoff, missed Match URL is FAILED and search stops',
+    m.matchUrlStatus === MATCH_URL_STATUS.FAILED && !m.matchUrl,
     JSON.stringify({ status: m.matchUrlStatus, attempts: m.matchUrlAttempts })
   );
   assert(
-    '4f. Live window retries Match URL after pre-kickoff FAILED',
-    needsMatchUrlDiscovery(m, 'cakhia', kickSec) === true
-  );
-  m = applySourceDiscoveryResult(
-    m,
-    'cakhia',
-    hit,
-    { id: 'tLive', live: true, postKickoff: true },
-    '2026-08-15T20:01:00.000Z'
+    '4f. Kickoff does not search for a Match URL',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec) === false
   );
   assert(
-    '4g. Match URL found on live catch-up',
-    m.matchUrlStatus === MATCH_URL_STATUS.CONFIRMED && Boolean(m.matchUrl)
-  );
-
-  let liveMiss = applySourceDiscoveryResult(
-    { ...fixtureBase },
-    'cakhia',
-    null,
-    { id: 'tLive', live: true, postKickoff: true },
-    '2026-08-15T20:01:00.000Z'
-  );
-  liveMiss = finalizeMatchUrlStatus(liveMiss, kickSec + 60);
-  assert(
-    '4g2. Live miss increments matchUrlAttempts (not stuck at 0)',
-    liveMiss.matchUrlAttempts === 1 &&
-      liveMiss.matchUrlStatus === MATCH_URL_STATUS.SEARCHING &&
-      !liveMiss.matchUrl &&
-      Boolean(liveMiss.lastMatchUrlAttemptAt),
-    JSON.stringify({
-      attempts: liveMiss.matchUrlAttempts,
-      status: liveMiss.matchUrlStatus,
-      last: liveMiss.lastMatchUrlAttemptAt,
-    })
+    '4g. Five minutes after kickoff still does not search',
+    needsMatchUrlDiscovery(m, 'cakhia', kickSec + 5 * 60) === false
   );
 
   m = applySourceDiscoveryResult({ ...fixtureBase }, 'cakhia', null, { id: 't60', attempt: 1 }, 't1');

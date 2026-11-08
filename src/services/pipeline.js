@@ -94,8 +94,10 @@ class Pipeline {
     this._pendingMatches = false;
     /** Next queued Matches run should force stream extract (Admin Match URL). */
     this._pendingForceStreamCheck = false;
-    /** Retry MainLive match-page extracts after this Matches run. */
+    /** Admin saved a MainLive URL while this Matches run owned the browser. */
     this._pendingMainLiveExtract = false;
+    /** MainLive pages were already searched before the matches stream pass. */
+    this._mainLiveExtractDone = false;
     this._drainingQueued = false;
     this.lastDiscoveryAt = null;
     this.lastDiscoverySummary = null;
@@ -229,8 +231,8 @@ class Pipeline {
   }
 
   /**
-   * MainLive is not in the FotMob fixture loop. A saved Match URL is searched
-   * at kickoff−30, then once more 15 minutes later if that search found nothing.
+   * MainLive is a short list, searched before the matches feed when both are due.
+   * A saved Match URL is searched from kickoff−30 until kickoff+30, every 15 minutes.
    */
   async retryPendingMainLiveExtracts({ actor = 'scraper', force = false } = {}) {
     const {
@@ -243,21 +245,45 @@ class Pipeline {
     if (!mainLive || !this.admin?.publish) {
       return { attempted: 0, found: 0 };
     }
+    // Drop kickoff+3h rows even when no stream search is due, then publish
+    // so GitHub does not keep the old mainlive.json.
+    const purged =
+      typeof mainLive.purgeExpired === 'function' ? mainLive.purgeExpired() : [];
     const pending = mainLive.list().filter((m) => needsMainLiveExtract(m, { force }));
-    if (!pending.length) return { attempted: 0, found: 0 };
+    if (!pending.length) {
+      if (purged.length) {
+        await this.admin.publish.publishMainLive({ actor });
+        logger.info('MainLive expired matches removed', { removed: purged.length });
+      }
+      return { attempted: 0, found: 0, purged: purged.length };
+    }
 
     let found = 0;
     for (const row of pending) {
-      const due = matchUrlEntries(row).filter((entry) => urlExtractPlan(row, entry, { force }).due);
+      let current = mainLive.get(row.matchId) || row;
+      const due = matchUrlEntries(current).filter(
+        (entry) => urlExtractPlan(current, entry, { force }).due
+      );
       for (const entry of due) {
         mainLive.markExtractStatus(row.matchId, { status: 'SEARCHING', url: entry.url });
-        const extraction = await extractMainLiveStreams({
-          pipeline: this,
-          matchUrl: entry.url,
-          sourceName: entry.source,
-        });
+        let extraction;
+        try {
+          extraction = await extractMainLiveStreams({
+            pipeline: this,
+            matchUrl: entry.url,
+            sourceName: entry.source,
+          });
+        } catch (err) {
+          extraction = {
+            ok: false,
+            source: entry.source,
+            streams: [],
+            error: err.message || 'EXTRACT_FAILED',
+          };
+        }
         extraction.matchUrl = entry.url;
         const next = mainLive.applyExtractResult(row.matchId, extraction);
+        current = next;
         if (extraction.ok || (next.streams || []).length > (row.streams || []).length) {
           found += 1;
         }
@@ -270,11 +296,11 @@ class Pipeline {
       attempted: pending.length,
       found,
     });
-    return { attempted: pending.length, found };
+    return { attempted: pending.length, found, purged: purged.length };
   }
 
   /**
-   * Persist + publish MainLive auto status for unlocked late-night (≥23:00 Yangon) matches.
+   * Persist + publish MainLive auto status for unlocked matches at any kickoff.
    * Lightweight JSON rewrite; no extra stream checks.
    */
   async refreshMainLiveAutoStatuses({ actor = 'scraper' } = {}) {
@@ -568,6 +594,7 @@ class Pipeline {
 
     this.running = true;
     this._runningSince = Date.now();
+    this._mainLiveExtractDone = false;
     const startedAt = Date.now();
     logEvent(events.SCRAPER_START, 'Pipeline start');
 
@@ -661,6 +688,13 @@ class Pipeline {
         onMatchUpdated: (match) => this._persistMatchProgress(match, progressMeta),
       });
 
+      // MainLive has few rows. Search those pages before matches.json so the
+      // shared browser is not held by the larger feed first.
+      await this.retryPendingMainLiveExtracts({ actor: 'scraper' }).catch((err) => {
+        logger.warn('MainLive extract before matches failed', { error: err.message });
+      });
+      this._mainLiveExtractDone = true;
+
       let matches;
       try {
         matches = await engine.collectForFixtures(fixtures, { force: forceStreamCheck });
@@ -739,10 +773,6 @@ class Pipeline {
           at: new Date().toISOString(),
         };
 
-        await this.retryPendingMainLiveExtracts({ actor: 'scraper' }).catch((err) => {
-          logger.warn('MainLive extract retry failed', { error: err.message });
-        });
-        this._pendingMainLiveExtract = false;
         await this.refreshMainLiveAutoStatuses({ actor: 'scraper' }).catch((err) => {
           logger.warn('MainLive auto status refresh failed', { error: err.message });
         });
@@ -859,10 +889,16 @@ class Pipeline {
       await this._drainQueuedJobs().catch((err) => {
         logger.error('Queued job drain failed', { error: err.message });
       });
-      if (this._pendingMainLiveExtract) {
-        this._pendingMainLiveExtract = false;
-        await this.retryPendingMainLiveExtracts({ actor: 'admin', force: true }).catch((err) => {
-          logger.warn('Queued MainLive extract failed', { error: err.message });
+      const queuedMainLive = this._pendingMainLiveExtract;
+      const mainLiveAlreadyRan = this._mainLiveExtractDone;
+      this._pendingMainLiveExtract = false;
+      this._mainLiveExtractDone = false;
+      if (queuedMainLive || !mainLiveAlreadyRan) {
+        await this.retryPendingMainLiveExtracts({
+          actor: queuedMainLive ? 'admin' : 'scraper',
+          force: Boolean(queuedMainLive),
+        }).catch((err) => {
+          logger.warn('MainLive extract retry failed', { error: err.message });
         });
       }
       // Only tear down Chromium when no other scrape owns it

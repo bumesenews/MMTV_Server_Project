@@ -13,11 +13,11 @@ const {
  * Scheduled | PREPARING_STREAM | LIVE | END
  *
  * Driven by fixture kickoff vs current time (UTC unix seconds):
- * - current < kickoff − MATCH_URL_LEAD_MIN → Scheduled
- * - kickoff − lead ≤ current < kickoff → PREPARING_STREAM
- * - kickoff ≤ current < kickoff + 15m → LIVE (stream search still running)
- * - kickoff + 15m ≤ current < kickoff + 2h → LIVE only if a stream URL exists;
- *   otherwise END so Flutter does not keep showing a dead live match
+ * - current < kickoff − MATCH_URL_LEAD_MIN, no stream URL → Scheduled
+ * - kickoff − lead ≤ current < kickoff + 2h, no stream URL → PREPARING_STREAM
+ * - a stream URL exists and current < kickoff + 2h → LIVE
+ * - kickoff + 30m ≤ current < kickoff + 2h, no stream URL, and the stream
+ *   search already ran on a saved match page → END
  * - current ≥ kickoff + 2h → END (streams stripped)
  */
 function hasPlayableStream(match) {
@@ -67,29 +67,24 @@ function resolveMatchStatus(match, options = {}) {
     const preparingFrom = kickSec - MATCH_URL_LEAD_MIN * 60;
     const liveUntil = kickSec + MATCH_LIVE_DURATION_MIN * 60;
 
-    if (nowSec < preparingFrom) {
-      status = 'Scheduled';
-    } else if (nowSec < kickSec) {
-      status = 'PREPARING_STREAM';
-    } else if (nowSec < liveUntil) {
-      const searchStopAt = kickSec + STREAM_SEARCH_STOP_AFTER_MIN * 60;
-      if (nowSec >= searchStopAt && !hasPlayableStream(match)) {
-        const stillNeedMatchUrl = !String(match.matchUrl || '').trim();
-        // Keep LIVE so Match URL hunt continues (Championship listings often late).
-        if (stillNeedMatchUrl) {
-          status = 'LIVE';
-        } else {
-          const searchTried = Boolean(
-            match.streamSearch?.started || match.streamSearch?.stopped
-          );
-          // Do not END a match we never searched (pipeline hung through −30..+15).
-          status = searchTried ? 'END' : 'LIVE';
-        }
-      } else {
-        status = 'LIVE';
-      }
-    } else {
+    if (nowSec >= liveUntil) {
       status = 'END';
+    } else if (hasPlayableStream(match)) {
+      status = 'LIVE';
+    } else if (nowSec < preparingFrom) {
+      status = 'Scheduled';
+    } else {
+      const searchStopAt = kickSec + STREAM_SEARCH_STOP_AFTER_MIN * 60;
+      const searchTried = Boolean(
+        match.streamSearch?.started || match.streamSearch?.stopped
+      );
+      const hasMatchPage = Boolean(String(match.matchUrl || '').trim());
+      // Search finished on a saved match page and no playlist was found.
+      if (nowSec >= searchStopAt && hasMatchPage && searchTried) {
+        status = 'END';
+      } else {
+        status = 'PREPARING_STREAM';
+      }
     }
   }
 

@@ -8,7 +8,6 @@ const {
   MATCH_URL_SEARCH_SLOTS,
   STREAM_SEARCH_INTERVAL_MINUTES,
   MATCH_URL_SEARCH_INTERVAL_MINUTES,
-  MATCH_LIVE_DURATION_MIN,
   MATCH_URL_LEAD_MIN,
 } = require('./time');
 const { MATCH_URL_STATUS } = require('./streamUrlHelper');
@@ -283,8 +282,9 @@ function sourceHasSavedMatchUrl(state) {
 function inMatchUrlHuntWindow(kickoff, nowSec) {
   const mins = minutesUntilKickoff(kickoff, nowSec);
   if (mins == null) return false;
+  // Open at kickoff−1h (MATCH_URL_LEAD_MIN). Closed once kickoff is reached.
   if (mins > MATCH_URL_LEAD_MIN) return false;
-  if (mins <= -MATCH_LIVE_DURATION_MIN) return false;
+  if (mins <= 0) return false;
   return true;
 }
 
@@ -489,21 +489,13 @@ function finalizeMatchUrlStatus(fixture, nowSec) {
     return next;
   }
   const mins = minutesUntilKickoff(fixture?.kickoff, nowSec);
-  const liveOpen =
-    mins != null && mins <= 0 && mins > -MATCH_LIVE_DURATION_MIN;
-  if (liveOpen) {
-    return {
-      ...next,
-      matchUrlStatus: MATCH_URL_STATUS.SEARCHING,
-    };
-  }
-  if (mins != null && mins <= -MATCH_LIVE_DURATION_MIN) {
+  if (mins != null && mins <= 0) {
     return {
       ...next,
       matchUrlStatus: MATCH_URL_STATUS.FAILED,
     };
   }
-  // Three pre-kickoff misses are not terminal — live catch-up still runs.
+  // Misses before kickoff are not terminal — the hour-before window can retry.
   if (
     !next.matchUrl &&
     next.matchUrlStatus === MATCH_URL_STATUS.FAILED &&

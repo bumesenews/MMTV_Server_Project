@@ -207,6 +207,19 @@ function createAdminRouter(ctx) {
 
       const previousUrl = ctx.mainLive.get(matchId)?.matchUrl || null;
       const match = ctx.mainLive.update(matchId, patch);
+      if (!match) {
+        const published = await ctx.publish.publishMainLive({
+          actor: req.admin.username,
+        });
+        ctx.logService.add({
+          category: 'admin',
+          action: 'mainlive_update',
+          message: `Removed ended MainLive match ${matchId}`,
+          actor: req.admin.username,
+          meta: patch,
+        });
+        return res.json({ ok: true, match: null, removed: true, published });
+      }
       let published = await ctx.publish.publishMainLive({
         actor: req.admin.username,
       });

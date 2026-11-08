@@ -29,8 +29,9 @@ assert.strictEqual(
   'xoilac'
 );
 assert.strictEqual(
-  resolveSourceFromUrl(sources, 'https://unknown.example/match', '').name,
-  'cakhia'
+  resolveSourceFromUrl(sources, 'https://unknown.example/match', ''),
+  null,
+  'unknown host uses the generic extractor, not the first source'
 );
 
 const kickoff = 1_700_000_000;
@@ -85,8 +86,32 @@ assert.strictEqual(
     },
     { nowSec: kickoff }
   ),
+  true,
+  'keep searching at kickoff after earlier misses'
+);
+assert.strictEqual(
+  needsMainLiveExtract(
+    {
+      ...page,
+      matchUrlExtractAttempts: 3,
+      matchUrlExtractAt: new Date((kickoff + 15 * 60) * 1000).toISOString(),
+    },
+    { nowSec: kickoff + 30 * 60 }
+  ),
+  true,
+  'last search at kickoff+30'
+);
+assert.strictEqual(
+  needsMainLiveExtract(
+    {
+      ...page,
+      matchUrlExtractAttempts: 4,
+      matchUrlExtractAt: new Date((kickoff + 15 * 60) * 1000).toISOString(),
+    },
+    { nowSec: kickoff + 31 * 60 }
+  ),
   false,
-  'stop after the retry'
+  'stop after kickoff+30 when no stream was found'
 );
 assert.strictEqual(
   needsMainLiveExtract({ ...page, status: 'END' }, { nowSec: kickoff - 30 * 60 }),

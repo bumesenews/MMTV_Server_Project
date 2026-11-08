@@ -64,15 +64,14 @@ class MainLiveService {
     if (existing[matchId]) throw new Error(`Match already exists: ${matchId}`);
 
     const status = normalizeStatus(input.status);
+    if (status === 'END') {
+      throw new Error('Ended matches are not kept on MainLive');
+    }
     let streams = normalizeStreamsInput(input);
     const matchUrls = normalizeMatchUrlList(input, []);
-    // Late-night (≥23:00 Yangon) starts unlocked so the server can auto-manage
-    // status until the admin explicitly sets one. Daytime stays fully manual.
-    const autoEligible = isMainLiveAutoStatusEligible(kickoff);
+    // Auto is the default at every kickoff. A manual status choice locks it.
     const statusLocked =
-      input.statusLocked !== undefined
-        ? Boolean(input.statusLocked)
-        : !autoEligible;
+      input.statusLocked !== undefined ? Boolean(input.statusLocked) : false;
 
     const match = {
       matchId,
@@ -150,7 +149,7 @@ class MainLiveService {
       next.status = normalizeStatus(patch.status);
       next.statusLocked = true;
     }
-    // Explicit unlock resumes auto status for eligible late-night matches.
+    // Explicit unlock resumes auto status at any kickoff time.
     if (patch.statusLocked !== undefined) {
       next.statusLocked = Boolean(patch.statusLocked);
     }
@@ -173,13 +172,6 @@ class MainLiveService {
       if (next.kickoff !== current.kickoff) {
         next.matchUrlExtractAt = null;
         next.matchUrlExtractAttempts = 0;
-        // Daytime kickoffs stay manual-only unless admin explicitly unlocks.
-        if (
-          patch.statusLocked === undefined &&
-          !isMainLiveAutoStatusEligible(next.kickoff)
-        ) {
-          next.statusLocked = true;
-        }
       }
     }
 
@@ -225,13 +217,19 @@ class MainLiveService {
 
     next.manual = true;
     next.updatedAt = new Date().toISOString();
+    if (next.status === 'END') {
+      delete all[matchId];
+      this.store.write({ matches: all });
+      return null;
+    }
     all[matchId] = next;
     this.store.write({ matches: all });
     return next;
   }
 
   /**
-   * Persist auto status for unlocked MainLive rows with kickoff ≥ 23:00 Yangon.
+   * Persist auto status for unlocked MainLive rows at any kickoff time.
+   * A row that reaches END is deleted. Ended matches are not kept.
    * Returns how many matches changed.
    */
   applyAutoStatuses({ nowSec = null } = {}) {
@@ -239,9 +237,19 @@ class MainLiveService {
     const opts = nowSec != null ? { nowSec } : {};
     let changed = 0;
     for (const [matchId, match] of Object.entries(all)) {
+      if (match.status === 'END') {
+        delete all[matchId];
+        changed += 1;
+        continue;
+      }
       if (match.statusLocked) continue;
       if (!isMainLiveAutoStatusEligible(match.kickoff)) continue;
       const status = resolveMainLiveAutoStatus(match, opts);
+      if (status === 'END') {
+        delete all[matchId];
+        changed += 1;
+        continue;
+      }
       if (status === match.status) continue;
       all[matchId] = {
         ...match,
@@ -462,7 +470,7 @@ class MainLiveService {
    * Build Flutter delivery payload for mainlive.json (same shape as matches.json).
    */
   toDeliveryPayload() {
-    // Refresh unlocked late-night statuses before encrypt/publish.
+    // Refresh unlocked statuses before encrypt/publish.
     this.applyAutoStatuses();
     const matches = this.list().map((m) =>
       toPublicMatch({

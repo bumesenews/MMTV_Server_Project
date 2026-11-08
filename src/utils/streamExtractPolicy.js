@@ -168,7 +168,7 @@ function readSourceExtractState(streamSearch, sourceName) {
 
 /**
  * Decide whether to extract a stream from a confirmed Match URL for one source.
- * Runs from −30m through +10m. AVAILABLE / permanent FAILED / +15 stop /
+ * Runs from −30m through +30m. AVAILABLE / permanent FAILED / +30 stop /
  * missing Match URL / same slot → skip.
  */
 function decideSourceExtract({

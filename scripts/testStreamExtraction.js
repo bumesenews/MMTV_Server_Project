@@ -416,8 +416,8 @@ console.log('\n=== Source skip / retry policy ===');
     validatedStreams: [],
   });
   assert(
-    '3 post-kickoff misses → FAILED',
-    miss3.status === 'FAILED' && miss3.postKickoffAttempts === 3
+    '3 post-kickoff misses stay SEARCHING inside the +30 window',
+    miss3.status === 'SEARCHING' && miss3.postKickoffAttempts === 3
   );
 
   const found3 = nextSourceStateAfterAttempt({
@@ -533,8 +533,8 @@ console.log('\n=== Source skip / retry policy ===');
 
 console.log('\n=== +15m stop ===');
 {
-  const kickoff = DateTime.now().setZone(ZONE).minus({ minutes: 16 }).toISO();
-  assert('+15m stop window is active', isStreamSearchStopped(kickoff, {}) === true);
+  const kickoff = DateTime.now().setZone(ZONE).minus({ minutes: 31 }).toISO();
+  assert('+30m stop window is active', isStreamSearchStopped(kickoff, {}) === true);
   const stopped = decideSourceExtract({
     sourceName: 'cakhia',
     streamSearch: { sources: {} },
@@ -860,20 +860,28 @@ async function runAsyncTests() {
     });
     let match = fixture({ id: 'fail3', offsetMin: 0, sources: ['cakhia'] });
     let engine = engineWith([cakhia]);
-    match = (await engine.collectForFixtures([match], { force: true }))[0];
-    engine = engineWith([cakhia]);
-    match = (await engine.collectForFixtures([{ ...match, kickoff: kickoffIso(-6) }], { force: true }))[0];
-    engine = engineWith([cakhia]);
-    match = (await engine.collectForFixtures([{ ...match, kickoff: kickoffIso(-11) }], { force: true }))[0];
+    for (let i = 0; i < MAX_POST_KICKOFF_ATTEMPTS; i += 1) {
+      engine = engineWith([cakhia]);
+      match = (
+        await engine.collectForFixtures(
+          [{ ...match, kickoff: kickoffIso(-i * 5) }],
+          { force: true }
+        )
+      )[0];
+    }
     assert(
-      '3 attempts fail → FAILED',
-      match.streamSearch.sources.cakhia.status === 'FAILED' && n === 3
+      'post-kickoff attempts exhausted → FAILED',
+      match.streamSearch.sources.cakhia.status === 'FAILED' && n === MAX_POST_KICKOFF_ATTEMPTS
     );
     engine = engineWith([cakhia]);
     const again = await engine.collectForFixtures([{ ...match, kickoff: kickoffIso(-12) }], {
       force: true,
     });
-    assert('FAILED source is never retried', n === 3 && again[0].streamSearch.sources.cakhia.status === 'FAILED');
+    assert(
+      'FAILED source is never retried',
+      n === MAX_POST_KICKOFF_ATTEMPTS &&
+        again[0].streamSearch.sources.cakhia.status === 'FAILED'
+    );
   }
 
   {
@@ -902,7 +910,7 @@ async function runAsyncTests() {
       throw new Error('should not run after +15');
     });
     const engine = engineWith([cakhia]);
-    const match = fixture({ id: 'stop15', offsetMin: -16, sources: ['cakhia'] });
+    const match = fixture({ id: 'stop15', offsetMin: -31, sources: ['cakhia'] });
     match.streamSearch = {
       started: true,
       stopped: false,
@@ -917,7 +925,7 @@ async function runAsyncTests() {
     };
     const out = await engine.collectForFixtures([match], { force: true });
     assert(
-      '+15m stops stream search after extract attempts are exhausted',
+      '+30m stops stream search after extract attempts are exhausted',
       Boolean(out[0].streamSearch?.stopped) && (out[0].streams || []).length === 0
     );
   }

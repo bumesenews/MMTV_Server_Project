@@ -422,7 +422,10 @@
     const prefix = saved ? 'Match URL saved · ' : '';
     if (extraction?.queued) return 'Match URL saved — extract queued behind the scraper';
     if (extraction?.skipped && extraction.reason === 'before_lead') {
-      return `${prefix}m3u8 search starts 30 minutes before kickoff`;
+      return `${prefix}m3u8 search runs from 30 minutes before kickoff until 30 minutes after`;
+    }
+    if (extraction?.skipped && extraction.reason === 'ended') {
+      return `${prefix}m3u8 search stopped 30 minutes after kickoff`;
     }
     if (extraction?.skipped && extraction.reason === 'retry_wait') {
       return `${prefix}next m3u8 search is 15 minutes after the last attempt`;
@@ -519,7 +522,7 @@
                   <td><span class="badge ${m.status === 'LIVE' ? 'live' : ''}">${esc(m.status || '')}</span></td>
                   <td>
                     <div class="ml-url-box"></div>
-                    <button type="button" class="secondary" data-act="save-match-url" title="Save page URLs. m3u8 search starts 30 minutes before kickoff">Save URLs</button>
+                    <button type="button" class="secondary" data-act="save-match-url" title="Save page URLs. m3u8 search runs from 30 minutes before kickoff until 30 minutes after">Save URLs</button>
                   </td>
                   <td>
                     ${(m.streams || []).length}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}
@@ -537,7 +540,7 @@
                       <button class="secondary" data-act="toggle" data-field="pinned">${m.pinned ? 'Unpin' : 'Pin'}</button>
                       <button class="secondary" data-act="toggle" data-field="featured">${m.featured ? 'Unfeature' : 'Feature'}</button>
                       <button class="secondary" data-act="streams">Streams</button>
-                      <label class="row" style="gap:6px;align-items:center;margin:0" title="Auto: server manages status for kickoff ≥ 23:00 Yangon. Manual: admin status is locked.">
+                      <label class="row" style="gap:6px;align-items:center;margin:0" title="Auto: Live only after a stream URL is saved, from 5 minutes before kickoff. Manual: the status you pick stays locked.">
                         <span class="badge">${m.statusLocked ? 'MANUAL' : 'AUTO'}</span>
                         <span style="font-size:0.78rem">Manual</span>
                         <input type="checkbox" data-act="auto-status" ${m.statusLocked ? '' : 'checked'} />
@@ -745,11 +748,11 @@
       });
       tr.querySelector('[data-act="status"]')?.addEventListener('change', async (e) => {
         try {
-          await api(`/mainlive/${encodeURIComponent(id)}`, {
+          const result = await api(`/mainlive/${encodeURIComponent(id)}`, {
             method: 'PATCH',
             body: JSON.stringify({ status: e.target.value }),
           });
-          toast('Status updated · manual');
+          toast(result?.removed ? 'Match ended and removed from MainLive' : 'Status updated · manual');
           renderMainLive();
         } catch (err) {
           toast(err.message, 'error');
