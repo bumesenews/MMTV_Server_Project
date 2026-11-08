@@ -2,18 +2,18 @@ const {
   toYangon,
   toUtcUnixSeconds,
   nowUtcUnixSeconds,
-  MATCH_URL_LEAD_MIN,
 } = require('../../utils/time');
+const {
+  LIVE_BEFORE_MIN,
+  LIVE_UNTIL_AFTER_MIN,
+  PREPARING_LEAD_MIN,
+  resolveAutoClockStatus,
+} = require('../../utils/autoLiveStatus');
 
-/** Earliest Live, once a stream URL exists. 2:00 AM kickoff → Live from 1:55 AM. */
-const MAINLIVE_STATUS_LIVE_BEFORE_MIN = 5;
-/** Live ends this many minutes after kickoff. 2:00 AM kickoff → End at 4:00 AM. */
-const MAINLIVE_STATUS_END_AFTER_MIN = 120;
-
-function mainLiveHasStream(match) {
-  if (String(match?.streamUrl || '').trim()) return true;
-  return (match?.streams || []).some((stream) => stream && String(stream.url || '').trim());
-}
+/** Same clock as SecondLive. Live from kickoff−5 only with a valid stream URL. */
+const MAINLIVE_STATUS_LIVE_BEFORE_MIN = LIVE_BEFORE_MIN;
+/** A valid stream stays Live until kickoff+2h. No stream ends at kickoff+30. */
+const MAINLIVE_STATUS_END_AFTER_MIN = LIVE_UNTIL_AFTER_MIN;
 
 /**
  * Any valid kickoff can use auto status. The admin Auto/Manual switch
@@ -28,8 +28,9 @@ function isMainLiveAutoStatusEligible(kickoff) {
  * MainLive auto status when the row is unlocked. Does not change matches.json.
  *
  * Scheduled → PREPARING_STREAM → LIVE → END.
- * LIVE starts 5 minutes before kickoff only after a stream URL is saved,
- * and ends 2 hours after kickoff. No stream URL stays Preparing.
+ * LIVE only when the clock has reached kickoff−5 and a valid stream URL exists.
+ * No valid stream stays Preparing after kickoff, then END at kickoff+30.
+ * A valid stream stays Live until kickoff+2h.
  * statusLocked matches keep the admin-set status.
  */
 function resolveMainLiveAutoStatus(match, options = {}) {
@@ -44,14 +45,7 @@ function resolveMainLiveAutoStatus(match, options = {}) {
   const nowSec = options.nowSec != null ? options.nowSec : nowUtcUnixSeconds();
   if (kickSec == null) return match?.status || 'Scheduled';
 
-  const preparingFrom = kickSec - MATCH_URL_LEAD_MIN * 60;
-  const liveFrom = kickSec - MAINLIVE_STATUS_LIVE_BEFORE_MIN * 60;
-  const liveUntil = kickSec + MAINLIVE_STATUS_END_AFTER_MIN * 60;
-
-  if (nowSec >= liveUntil) return 'END';
-  if (nowSec >= liveFrom && mainLiveHasStream(match)) return 'LIVE';
-  if (nowSec >= preparingFrom) return 'PREPARING_STREAM';
-  return 'Scheduled';
+  return resolveAutoClockStatus(kickSec, nowSec, match, PREPARING_LEAD_MIN);
 }
 
 module.exports = {

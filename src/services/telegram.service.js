@@ -3,6 +3,7 @@ const path = require('path');
 const axios = require('axios');
 const { logger } = require('../utils/logger');
 const { nowYangon } = require('../utils/time');
+const { recordServerAlert } = require('../admin/services/serverAlertStore');
 
 const STATE_PATH = path.resolve(
   process.cwd(),
@@ -79,14 +80,24 @@ class TelegramService {
       );
 
       this._remember(key, fingerprint, now);
+      this._copyToAdmin(key, text, fingerprint, 'sent');
       logger.info('Telegram alert sent', { key });
       return { ok: true };
     } catch (err) {
+      this._copyToAdmin(key, text, fingerprint, 'failed');
       logger.warn('Telegram alert failed (ignored)', {
         key,
         error: err.response?.data?.description || err.message,
       });
       return { ok: false, reason: 'send_failed', error: err.message };
+    }
+  }
+
+  _copyToAdmin(key, text, fingerprint, telegram) {
+    try {
+      recordServerAlert({ key, text, fingerprint, telegram });
+    } catch (err) {
+      logger.debug('Admin alert save failed', { error: err.message });
     }
   }
 

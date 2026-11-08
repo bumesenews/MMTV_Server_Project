@@ -670,7 +670,115 @@ function createAdminRouter(ctx) {
     }
   });
 
+  function currentMatchList() {
+    const current = ctx.cache.getCurrent();
+    if (current && Array.isArray(current.matches)) return current.matches;
+    const delivery =
+      typeof ctx.cache.getDelivery === 'function' ? ctx.cache.getDelivery('matches') : null;
+    return Array.isArray(delivery?.matches) ? delivery.matches : [];
+  }
+
+  function markManualStreamsRemoved(matchId, { streamId = '', url = '', all = false } = {}) {
+    const current = ctx.cache.getCurrent();
+    if (!current?.matches) return;
+    const idx = current.matches.findIndex((match) => match.matchId === matchId);
+    if (idx < 0) return;
+    const prev = current.matches[idx];
+    const keys = new Set(prev.removedManualStreamKeys || []);
+    if (all) {
+      for (const stream of prev.streams || []) {
+        if (String(stream?.source || '').toLowerCase() !== 'manual') continue;
+        if (stream.manualId || stream.id) keys.add(String(stream.manualId || stream.id));
+        if (stream.url) keys.add(String(stream.url));
+      }
+    }
+    if (streamId) keys.add(String(streamId));
+    if (url) keys.add(String(url));
+    const removedKeys = [...keys];
+    const streams = (prev.streams || []).filter((stream) => {
+      if (String(stream?.source || '').toLowerCase() !== 'manual') return true;
+      if (all) return false;
+      const id = String(stream.manualId || stream.id || '');
+      const link = String(stream.url || '');
+      if (streamId && id === String(streamId)) return false;
+      if (url && link === String(url)) return false;
+      return true;
+    });
+    const streamUrl = streams.some((stream) => stream.url === prev.streamUrl)
+      ? prev.streamUrl
+      : streams.find((stream) => stream.url)?.url || null;
+    current.matches[idx] = {
+      ...prev,
+      streams,
+      streamUrl,
+      streamHeaders: streamUrl ? prev.streamHeaders : null,
+      hasStreams: streams.some((stream) => stream.active !== false && stream.url),
+      streamCount: streams.filter((stream) => stream.active !== false && stream.url).length,
+      removedManualStreamKeys: removedKeys,
+    };
+    ctx.cache.writeJson(ctx.cache.currentPath, current);
+  }
+
   // ---------- Manual streams ----------
+  router.get('/manual-streams', auth, (_req, res) => {
+    const streams = ctx.overrides.listManualStreams(currentMatchList());
+    res.json({ ok: true, count: streams.length, streams });
+  });
+
+  router.delete('/manual-streams', auth, editor, async (req, res) => {
+    try {
+      const removedStored = ctx.overrides.clearAllManualStreams();
+      const current = ctx.cache.getCurrent();
+      if (current?.matches) {
+        for (const match of current.matches) {
+          if ((match.streams || []).some((stream) => String(stream?.source || '').toLowerCase() === 'manual')) {
+            markManualStreamsRemoved(match.matchId, { all: true });
+          }
+        }
+      }
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'manual_stream_delete_all' },
+      });
+      ctx.logService.add({
+        category: 'manual_stream',
+        action: 'delete_all',
+        message: `Removed ${removedStored} saved manual streams`,
+        actor: req.admin.username,
+      });
+      res.json({ ok: true, removed: removedStored, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
+  router.delete('/manual-streams/:matchId', auth, editor, async (req, res) => {
+    try {
+      const matchId = req.params.matchId;
+      const streamId = String(req.query.streamId || req.body?.streamId || '');
+      const url = String(req.query.url || req.body?.url || '');
+      if (!streamId && !url) {
+        res.status(400).json({ ok: false, error: 'streamId or url is required' });
+        return;
+      }
+      ctx.overrides.removeListedManualStream(matchId, { streamId, url });
+      markManualStreamsRemoved(matchId, { streamId, url });
+      const published = await ctx.publish.republishFromCache({
+        actor: req.admin.username,
+        meta: { reason: 'manual_stream_delete', matchId },
+      });
+      ctx.logService.add({
+        category: 'manual_stream',
+        action: 'delete',
+        message: `Removed manual stream for ${matchId}`,
+        actor: req.admin.username,
+      });
+      res.json({ ok: true, published });
+    } catch (err) {
+      res.status(400).json({ ok: false, error: err.message });
+    }
+  });
+
   router.get('/matches/:matchId/streams', auth, (req, res) => {
     const ov = ctx.overrides.get(req.params.matchId);
     res.json({ ok: true, manualStreams: ov?.manualStreams || [] });
@@ -1446,6 +1554,14 @@ function createAdminRouter(ctx) {
       history: ctx.notifications.history(Number(req.query.limit) || 100),
       fcmReady: Boolean(ctx.notifications.messaging),
       fcmError: ctx.notifications.initError,
+    });
+  });
+
+  router.get('/notifications/server-alerts', auth, (req, res) => {
+    const { listServerAlerts } = require('../services/serverAlertStore');
+    res.json({
+      ok: true,
+      alerts: listServerAlerts(Number(req.query.limit) || 100, ctx.dataDir),
     });
   });
 

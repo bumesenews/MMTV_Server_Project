@@ -55,8 +55,8 @@ function tipsHaveNewData(previous, next) {
  * Main AWS processing pipeline (matches.json):
  * Load config → FotMob fixtures every run (today+tomorrow, Asia/Yangon) →
  * kickoff-relative Match URL discovery (−60/−45/−30) then stream extract
- * starting at kickoff−30m; LIVE until +120m, then END + drop streams →
- * sync matches.json (expire kickoff+2h, merge streams) → GitHub PUT if changed
+ * starting at kickoff−30m; LIVE until +120m, then END and remove the row →
+ * sync matches.json (remove End rows, merge streams) → GitHub PUT if changed
  *
  * Separate jobs (non-peak — see jobSchedule.DEFAULT_CRONS):
  * - Highlights 05:00, again 08:00 when the 05:00 scrape stored nothing new
@@ -418,7 +418,7 @@ class Pipeline {
   }
 
   /**
-   * Drop matches past kickoff+2h and refresh Scheduled/PREPARING/LIVE/END
+   * Drop matches whose status is End and refresh Scheduled/PREPARING/LIVE
    * from the clock. Runs even when a scrape is still in progress so a hung
    * Puppeteer cycle cannot leave stale status in matches.json.
    */

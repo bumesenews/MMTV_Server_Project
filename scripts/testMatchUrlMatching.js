@@ -16,6 +16,7 @@ const {
   resolveMatchUrlSearchSlot,
   resolveMatchUrlLiveSlot,
   toUtcUnixSeconds,
+  MATCH_URL_MAX_ATTEMPTS,
 } = require('../src/utils/time');
 const {
   needsMatchUrlDiscovery,
@@ -488,6 +489,7 @@ console.log('\n=== Match URL discovery timing (−60 / −50 / −40 / −30) ==
   const slotAt = (minsBefore) =>
     resolveMatchUrlSearchSlot(kickoffDt.toISO(), kickSec - minsBefore * 60);
 
+  assert('8a-1. −90m is t90 slot', slotAt(90)?.id === 't90', JSON.stringify(slotAt(90)));
   assert('8a0. −60m is t60 slot', slotAt(60)?.id === 't60', JSON.stringify(slotAt(60)));
   assert('8a. −50m is t50 slot', slotAt(50)?.id === 't50', JSON.stringify(slotAt(50)));
   assert('8a2. −45m still t50', slotAt(45)?.id === 't50', JSON.stringify(slotAt(45)));
@@ -508,7 +510,7 @@ console.log('\n=== Match URL discovery timing (−60 / −50 / −40 / −30) ==
     '10c3. after kickoff Match URL search stays stopped',
     resolveMatchUrlLiveSlot(kickoffDt.toISO(), kickSec + 121 * 60) == null
   );
-  assert('10d. −90m is not a Match URL slot', slotAt(90) == null, JSON.stringify(slotAt(90)));
+  assert('10d. −91m is not a Match URL slot', slotAt(91) == null, JSON.stringify(slotAt(91)));
   assert(
     '10d2. Cloudflare script mention is not a block when truc-tiep links exist',
     scraper.looksBlockedOrEmpty(
@@ -662,20 +664,23 @@ console.log('\n=== Match URL discovery timing (−60 / −50 / −40 / −30) ==
     { id: 't40', attempt: 3 },
     new Date((kickSec - 35 * 60) * 1000).toISOString()
   );
-  const threeMiss4 = applySourceDiscoveryResult(
-    threeMiss3,
-    'cakhia',
-    null,
-    { id: 't30', attempt: 4 },
-    new Date((kickSec - 28 * 60) * 1000).toISOString()
-  );
+  let exhausted = threeMiss3;
+  for (let n = Number(exhausted.matchUrlAttempts) || 3; n < MATCH_URL_MAX_ATTEMPTS; n += 1) {
+    exhausted = applySourceDiscoveryResult(
+      exhausted,
+      'cakhia',
+      null,
+      { id: 't30', attempt: n + 1 },
+      new Date((kickSec - 28 * 60) * 1000).toISOString()
+    );
+  }
   assert(
-    '4i. After 4 misses, last pre-kickoff window retries once cooldown elapses',
-    threeMiss4.matchUrlSearch.sources.cakhia.status === MATCH_URL_STATUS.FAILED &&
-      needsMatchUrlDiscovery(threeMiss4, 'cakhia', kickSec - 18 * 60) === true
+    '4i. After the last miss, pre-kickoff window retries once cooldown elapses',
+    exhausted.matchUrlSearch.sources.cakhia.status === MATCH_URL_STATUS.FAILED &&
+      needsMatchUrlDiscovery(exhausted, 'cakhia', kickSec - 18 * 60) === true
   );
   const mixed = applySourceDiscoveryResult(
-    threeMiss4,
+    exhausted,
     'xoilac',
     null,
     { id: 't30', attempt: 1 },
@@ -720,6 +725,9 @@ console.log('\n=== Independent sources + duplicate candidates ===');
   m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't50', attempt: 2 }, 't2');
   m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't40', attempt: 3 }, 't3');
   m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't30', attempt: 4 }, 't4');
+  for (let n = 4; n < MATCH_URL_MAX_ATTEMPTS; n += 1) {
+    m = applySourceDiscoveryResult(m, 'xoilac', null, { id: 't30', attempt: n + 1 }, 'tx');
+  }
   assert(
     '15. One source FAILED while others remain FOUND',
     m.matchUrlSearch.sources.xoilac.status === MATCH_URL_STATUS.FAILED &&

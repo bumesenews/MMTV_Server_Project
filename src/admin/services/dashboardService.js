@@ -1,3 +1,5 @@
+const { isRetiredSourceName } = require('./sourceAdminService');
+
 class DashboardService {
   constructor({
     pipeline,
@@ -41,7 +43,7 @@ class DashboardService {
       0
     );
 
-    const sources = this.sources.list().map((s) => {
+    const sources = this.sources.list().filter((s) => !isRetiredSourceName(s.name)).map((s) => {
       const extra = matchFailures.get(s.name);
       const lastError = s.lastError || extra?.lastError || null;
       const lastErrorAt = s.lastErrorAt || extra?.lastErrorAt || null;
@@ -101,6 +103,7 @@ function collectSourceFailuresFromMatches(matches = []) {
   for (const match of matches) {
     const perSource = match?.streamSearch?.sources || {};
     for (const [name, state] of Object.entries(perSource)) {
+      if (isRetiredSourceName(name)) continue;
       const lastError = state?.lastError || null;
       const status = String(state?.status || '');
       const failed = Boolean(lastError) || status === 'FAILED';

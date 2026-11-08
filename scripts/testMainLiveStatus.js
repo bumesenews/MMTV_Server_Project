@@ -127,6 +127,22 @@ assert.strictEqual(
 );
 assert.strictEqual(
   resolveMainLiveAutoStatus(
+    { status: 'PREPARING_STREAM', statusLocked: false, kickoff: kick2000, streams: [] },
+    { nowSec: kick2000Sec + 29 * 60 }
+  ),
+  'PREPARING_STREAM',
+  'no stream stays Preparing until 30 minutes after kickoff'
+);
+assert.strictEqual(
+  resolveMainLiveAutoStatus(
+    { status: 'PREPARING_STREAM', statusLocked: false, kickoff: kick2000, streams: [] },
+    { nowSec: kick2000Sec + 30 * 60 }
+  ),
+  'END',
+  'no stream becomes End 30 minutes after kickoff'
+);
+assert.strictEqual(
+  resolveMainLiveAutoStatus(
     { status: 'LIVE', statusLocked: false, kickoff: kick2000, streams: [] },
     { nowSec: kick2000Sec + 120 * 60 }
   ),
@@ -176,7 +192,7 @@ const created = svc.create({
   time: '23:30',
   status: 'Scheduled',
 });
-assert.strictEqual(created.statusLocked, false, 'create starts in auto mode');
+assert.strictEqual(created.statusLocked, true, 'create starts in manual mode');
 
 const day = svc.create({
   homeTeam: 'Day Home',
@@ -186,7 +202,7 @@ const day = svc.create({
   time: '19:00',
   status: 'Scheduled',
 });
-assert.strictEqual(day.statusLocked, false, 'daytime create also starts in auto mode');
+assert.strictEqual(day.statusLocked, true, 'daytime create also starts in manual mode');
 
 svc.update(created.matchId, { status: 'LIVE' });
 assert.strictEqual(svc.get(created.matchId).statusLocked, true, 'manual status locks');
@@ -220,6 +236,7 @@ const ended = svc.create({
   status: 'Scheduled',
 });
 const endAt = Math.floor(new Date(ended.kickoff).getTime() / 1000) + 2 * 60 * 60;
+svc.update(ended.matchId, { statusLocked: false });
 svc.applyAutoStatuses({ nowSec: endAt });
 assert.strictEqual(svc.get(ended.matchId), null, 'End removes the match from MainLive');
 

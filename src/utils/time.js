@@ -177,7 +177,7 @@ const MATCH_TIME_TOLERANCE_MIN = Math.max(
 
 /**
  * Resolve which Match URL discovery slot the fixture is in.
- * Default: −60 / −50 / −40 / −30 (max 4). Optional tEarly only if enabled.
+ * Default: −90, then every 10 minutes until kickoff. Optional tEarly only if enabled.
  * Null at/after kickoff.
  */
 function resolveMatchUrlSearchSlot(kickoff, nowSec = nowUtcUnixSeconds()) {
@@ -249,7 +249,7 @@ function getCheckIntervalMinutes(kickoff, status, nowSec = nowUtcUnixSeconds()) 
     return null;
   }
 
-  // Inside Match URL (−60..kickoff) / stream-search window (−30..+30)
+  // Inside Match URL (−90..kickoff) / stream-search window (−30..+30)
   if (mins <= MATCH_URL_LEAD_MIN) return STREAM_SEARCH_INTERVAL_MINUTES;
 
   // Far from kickoff

@@ -93,6 +93,12 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
 .badge.preparing { color: #5a3d00; background: #ffe6a8; border-color: #f0c14b; }
 .badge.manual { color: #062; background: #b8f0d4; border-color: #7ad7ad; }
 .badge.off { opacity: 0.6; }
+.nav-badge {
+  display: inline-block; min-width: 1.1rem; margin-left: 0.35rem;
+  padding: 0 0.35rem; border-radius: 999px; background: var(--warn); color: #1a1400;
+  font-size: 0.72rem; text-align: center;
+}
+.alert-body { white-space: pre-wrap; margin: 0; font: inherit; }
 
 .toast {
   position: fixed; right: 1rem; bottom: 1rem; z-index: 50;

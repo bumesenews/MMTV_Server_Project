@@ -6,6 +6,10 @@ const { enrichMatchState } = require('./statusService');
 const { decryptMatchesList } = require('../utils/streamUrlCrypto');
 const { isFalseEnglishPremierLabel } = require('../utils/normalize');
 const { isHttp403BlockedStream } = require('../utils/streamExtractPolicy');
+const {
+  PREPARING_LEAD_MIN,
+  resolveAutoClockStatus,
+} = require('../utils/autoLiveStatus');
 
 /** Seconds after kickoff before a match is removed from matches.json (2 hours). */
 const MATCH_EXPIRE_AFTER_SEC = Number(
@@ -29,14 +33,28 @@ function isMatchExpired(match, nowSec = Math.floor(Date.now() / 1000)) {
 }
 
 /**
- * Auto-cleanup: drop match objects past kickoff + 2 hours.
+ * True when the match has reached End.
+ * No stream ends at kickoff+30. A valid stream ends at kickoff+2h.
+ * A locked End status is removed as well. Locked non-End stays until the time backstop.
+ */
+function isMatchEnded(match, nowSec = Math.floor(Date.now() / 1000)) {
+  if (match?.forceEnd) return true;
+  if (match?.statusLocked && match.status) return match.status === 'END';
+  const kick = kickoffUnixSeconds(match);
+  if (kick == null) return match?.status === 'END';
+  return resolveAutoClockStatus(kick, nowSec, match, PREPARING_LEAD_MIN) === 'END';
+}
+
+/**
+ * Drop a SecondLive row when its status is End.
+ * Also drop anything still present after kickoff + 2 hours.
  */
 function filterExpiredMatches(matches, nowSec = Math.floor(Date.now() / 1000)) {
   const list = Array.isArray(matches) ? matches : [];
   const kept = [];
   let removed = 0;
   for (const m of list) {
-    if (isMatchExpired(m, nowSec)) {
+    if (isMatchEnded(m, nowSec) || isMatchExpired(m, nowSec)) {
       removed += 1;
       continue;
     }
@@ -211,6 +229,23 @@ function mergeSearchState(prev, incoming) {
   };
 }
 
+function dropRemovedManualStreams(streams, incoming) {
+  const stripAll = incoming?.stripManualStreams === true;
+  const keys = new Set(
+    (incoming?.removedManualStreamKeys || []).map((key) => String(key || '')).filter(Boolean)
+  );
+  if (!stripAll && !keys.size) return streams || [];
+  return (streams || []).filter((stream) => {
+    if (String(stream?.source || '').toLowerCase() !== 'manual') return true;
+    if (stripAll) return false;
+    const id = String(stream.manualId || stream.id || '');
+    const url = String(stream.url || '');
+    if (id && keys.has(id)) return false;
+    if (url && keys.has(url)) return false;
+    return true;
+  });
+}
+
 function combineMatchRecords(prev, incoming) {
   // Admin cleared stream URL(s) for this fixture — do not resurrect from
   // previous matches.json during republish sync.
@@ -269,17 +304,24 @@ function combineMatchRecords(prev, incoming) {
     ...prev,
     ...incoming,
   });
+  const keptStreams = dropRemovedManualStreams(mergedStreams.streams, incoming);
+  const manualRemoved =
+    incoming?.stripManualStreams === true ||
+    (Array.isArray(incoming?.removedManualStreamKeys) &&
+      incoming.removedManualStreamKeys.length > 0);
   const matchUrl = incoming.matchUrl || prev.matchUrl || null;
-  const streamUrl =
-    incoming.streamUrl ||
-    prev.streamUrl ||
-    firstActiveStreamUrl(mergedStreams.streams) ||
-    null;
-  const streamHeaders =
-    incoming.streamHeaders ||
-    prev.streamHeaders ||
-    firstActiveStreamHeaders(mergedStreams.streams) ||
-    null;
+  const streamUrl = manualRemoved
+    ? firstActiveStreamUrl(keptStreams) || null
+    : incoming.streamUrl ||
+      prev.streamUrl ||
+      firstActiveStreamUrl(keptStreams) ||
+      null;
+  const streamHeaders = manualRemoved
+    ? firstActiveStreamHeaders(keptStreams) || null
+    : incoming.streamHeaders ||
+      prev.streamHeaders ||
+      firstActiveStreamHeaders(keptStreams) ||
+      null;
   const next = enrichMatchState({
     ...prev,
     ...incoming,
@@ -288,7 +330,7 @@ function combineMatchRecords(prev, incoming) {
     statusLocked: Boolean(prev.statusLocked || incoming.statusLocked),
     pinned: Boolean(prev.pinned || incoming.pinned),
     featured: Boolean(prev.featured || incoming.featured),
-    streams: mergedStreams.streams,
+    streams: keptStreams,
     streamAttempts: {
       ...(prev.streamAttempts || {}),
       ...(incoming.streamAttempts || {}),
@@ -489,7 +531,7 @@ function matchAllowedOnCurrentList(match, normalizer) {
 /**
  * Full matches.json sync step (before local save + GitHub PUT):
  * 1) Read existing matches
- * 2) Remove expired (kickoff + 2h)
+ * 2) Remove matches whose status is End, and anything past kickoff + 2h
  * 3) Merge newly found valid streams / matches
  * 4) Repair false EPL league labels / drop irreparable ones
  * 5) Report whether content actually changed
@@ -524,6 +566,7 @@ function syncMatchesForDelivery(existingMatches, incomingMatches, options = {}) 
   const removed =
     cleaned.removed +
     incomingClean.removed +
+    finalFiltered.removed +
     sanitized.droppedFalseEpl +
     (sanitized.droppedDisallowed || 0);
 
@@ -585,6 +628,7 @@ module.exports = {
   MATCH_EXPIRE_AFTER_SEC,
   kickoffUnixSeconds,
   isMatchExpired,
+  isMatchEnded,
   filterExpiredMatches,
   mergeStreamLists,
   fotmobIdentity,

@@ -25,7 +25,7 @@ class SourceAdminService {
   knownNames(sourcesDoc = null) {
     const fromStore = Object.keys(this.store.read().sources || {});
     return [...new Set([...listManageableSourceNames(sourcesDoc), ...fromStore])].filter(
-      (name) => name !== 'highlight'
+      (name) => !isRetiredSourceName(name)
     );
   }
 
@@ -114,7 +114,15 @@ class SourceAdminService {
   }
 }
 
+/** Old feeds that must not appear as match sources or failed-source errors. */
+const RETIRED_SOURCE_NAMES = new Set(['highlight', 'myanmartv', 'myanmattv']);
+
+function isRetiredSourceName(name) {
+  return RETIRED_SOURCE_NAMES.has(String(name || '').trim().toLowerCase());
+}
+
 module.exports = {
   SourceAdminService,
   SOURCE_NAMES: DEFAULT_SOURCE_NAMES,
+  isRetiredSourceName,
 };

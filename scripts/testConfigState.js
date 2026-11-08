@@ -207,12 +207,14 @@ async function run() {
     const at1930 = slotAt(kickoff, 30);
     const at1945 = slotAt(kickoff, 15);
     const at2000 = slotAt(kickoff, 0);
-    assert('19:00 → Match URL attempt 1 (t60)', at1900.matchUrl?.id === 't60' && at1900.matchUrl.attempt === 1);
+    assert('18:30 → Match URL attempt 1 (t90)', slotAt(kickoff, 90).matchUrl?.id === 't90' && slotAt(kickoff, 90).matchUrl.attempt === 1);
+    assert('18:29 → no Match URL search yet', slotAt(kickoff, 91).matchUrl == null);
+    assert('19:00 → Match URL t60', at1900.matchUrl?.id === 't60');
     assert('19:15 → Match URL t50 (4:10-style window)', at1915.matchUrl?.id === 't50');
     assert('19:30 → Match URL t30', at1930.matchUrl?.id === 't30');
     assert('19:45 → still t30 Match URL window (no extra attempt)', at1945.matchUrl?.id === 't30');
     assert('20:00 → no Match URL discovery', at2000.matchUrl == null);
-    assert('max Match URL attempts is 4', MATCH_URL_MAX_ATTEMPTS === 4);
+    assert('max Match URL attempts is 7', MATCH_URL_MAX_ATTEMPTS === 7);
     assert('Match URL slots are only pre-kickoff', MATCH_URL_SEARCH_SLOTS.every((s) => s.maxInclusive > 0));
   }
 
@@ -466,8 +468,8 @@ async function run() {
       { nowSec }
     );
     assert(
-      'never-searched match after +30m stays PREPARING until a stream URL exists',
-      missedWindow.status === 'PREPARING_STREAM'
+      'no stream URL 30 minutes after kickoff → END',
+      missedWindow.status === 'END'
     );
 
     const stillLive = enrichMatchState(
@@ -777,6 +779,32 @@ async function run() {
     const second = await tg.sendAlert('scraper_failed:soco', 'test');
     assert('Telegram stays disabled when unconfigured', first.reason === 'not_configured');
     assert('unconfigured alerts do not send duplicates', second.reason === 'not_configured');
+
+    const os = require('os');
+    const fss = require('fs');
+    const alertPath = require('path');
+    const { recordServerAlert, listServerAlerts } = require('../src/admin/services/serverAlertStore');
+    const alertDir = fss.mkdtempSync(alertPath.join(os.tmpdir(), 'server-alerts-'));
+    const memoryText = [
+      '⚠️ High Memory Usage',
+      'Memory:',
+      '92%',
+      'Process:',
+      'football-streaming',
+      'Time:',
+      '2026-11-08 16:28:00 GMT+6:30',
+    ].join('\n');
+    const saved = recordServerAlert(
+      { key: 'high_memory', text: memoryText, fingerprint: 'mem:90', telegram: 'sent' },
+      alertDir
+    );
+    const duplicate = recordServerAlert(
+      { key: 'high_memory', text: memoryText, fingerprint: 'mem:90', telegram: 'sent' },
+      alertDir
+    );
+    const listed = listServerAlerts(10, alertDir);
+    assert('server alert is stored for the admin panel', saved && saved.title === '⚠️ High Memory Usage');
+    assert('same memory alert is not stored twice inside the cooldown', duplicate == null && listed.length === 1);
   }
 
   console.log('\n=== FotMob league icons ===');
@@ -849,6 +877,28 @@ async function run() {
       '11:38 AM Yangon (before 9:00 PM) does not expire',
       isMatchExpired(match, toUtcUnixSeconds('2026-08-16T11:38:00.000+06:30')) === false
     );
+    const noStream = {
+      matchId: 'no_stream',
+      kickoff,
+      status: 'PREPARING_STREAM',
+      streams: [],
+    };
+    const { matches: stillLive, removed: removedEarly } = filterExpiredMatches(
+      [match, noStream],
+      kickSec + 30 * 60
+    );
+    assert(
+      'no stream is removed when status becomes End at kickoff+30',
+      removedEarly === 1 && stillLive.length === 1 && stillLive[0].matchId === match.matchId
+    );
+    const { matches: endedWithStream, removed: removedAtTwoHours } = filterExpiredMatches(
+      [match],
+      kickSec + 7200
+    );
+    assert(
+      'a live stream is removed when status becomes End at kickoff+2h',
+      removedAtTwoHours === 1 && endedWithStream.length === 0
+    );
     const { matches: kept, removed } = filterExpiredMatches(
       [match, { matchId: 'later', kickoff: '2026-08-16T23:30:00.000+06:30' }],
       kickSec + 7201
@@ -893,7 +943,17 @@ async function run() {
       },
       { nowSec: toUtcUnixSeconds(preparingKick) - 10 * 60 }
     );
-    assert('stream URL before kickoff is LIVE', earlyStream.status === 'LIVE');
+    assert('stream URL 10 minutes before kickoff stays PREPARING', earlyStream.status === 'PREPARING_STREAM');
+    const liveAtFive = enrich(
+      {
+        matchId: 'espanyol_levante_20260816',
+        kickoff: preparingKick,
+        status: 'PREPARING_STREAM',
+        streams: [{ source: 'socolive', url: 'https://cdn.example/early.m3u8', active: true }],
+      },
+      { nowSec: toUtcUnixSeconds(preparingKick) - 5 * 60 }
+    );
+    assert('stream URL at 5 minutes before kickoff is LIVE', liveAtFive.status === 'LIVE');
     const liveNow = enrich(
       {
         matchId: 'espanyol_levante_20260816',

@@ -69,9 +69,9 @@ class MainLiveService {
     }
     let streams = normalizeStreamsInput(input);
     const matchUrls = normalizeMatchUrlList(input, []);
-    // Auto is the default at every kickoff. A manual status choice locks it.
+    // Manual is the default. Auto starts only when the admin sends statusLocked: false.
     const statusLocked =
-      input.statusLocked !== undefined ? Boolean(input.statusLocked) : false;
+      input.statusLocked !== undefined ? Boolean(input.statusLocked) : true;
 
     const match = {
       matchId,

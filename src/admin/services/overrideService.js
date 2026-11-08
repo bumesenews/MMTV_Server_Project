@@ -137,6 +137,98 @@ class OverrideService {
     return true;
   }
 
+  /**
+   * Every saved manual stream, including ones whose match has already left the live list.
+   * Published manual copies that are not in the override store are included too.
+   */
+  listManualStreams(matches = []) {
+    const byId = new Map();
+    for (const match of matches || []) {
+      if (match?.matchId) byId.set(String(match.matchId), match);
+    }
+    const rows = [];
+    const seen = new Set();
+    const push = (row) => {
+      const idKey = row.streamId ? `${row.matchId}:id:${row.streamId}` : '';
+      const urlKey = row.url ? `${row.matchId}:url:${row.url}` : '';
+      if ((idKey && seen.has(idKey)) || (urlKey && seen.has(urlKey))) return;
+      if (idKey) seen.add(idKey);
+      if (urlKey) seen.add(urlKey);
+      rows.push(row);
+    };
+
+    for (const [matchId, ov] of Object.entries(this.all())) {
+      const match = byId.get(String(matchId));
+      for (const stream of ov?.manualStreams || []) {
+        if (!stream?.url && !stream?.id) continue;
+        push({
+          matchId: String(matchId),
+          streamId: stream.id || '',
+          homeTeam: ov.homeTeam || match?.homeTeam || '',
+          awayTeam: ov.awayTeam || match?.awayTeam || '',
+          kickoff: ov.kickoff || match?.kickoff || null,
+          quality: stream.quality || stream.name || 'HD',
+          url: stream.url || '',
+          active: stream.active !== false,
+          onLiveFeed: Boolean(match),
+        });
+      }
+    }
+
+    for (const match of matches || []) {
+      for (const stream of match?.streams || []) {
+        if (String(stream?.source || '').toLowerCase() !== 'manual') continue;
+        if (!stream.url) continue;
+        push({
+          matchId: String(match.matchId),
+          streamId: stream.manualId || stream.id || '',
+          homeTeam: match.homeTeam || '',
+          awayTeam: match.awayTeam || '',
+          kickoff: match.kickoff || null,
+          quality: stream.quality || stream.name || 'HD',
+          url: stream.url,
+          active: stream.active !== false,
+          onLiveFeed: true,
+        });
+      }
+    }
+    return rows;
+  }
+
+  /** Remove one saved manual stream. Missing rows are ignored. */
+  removeListedManualStream(matchId, { streamId = '', url = '' } = {}) {
+    const all = this.all();
+    const current = all[matchId];
+    if (!current) return false;
+    const id = String(streamId || '');
+    const link = String(url || '');
+    const before = (current.manualStreams || []).length;
+    current.manualStreams = (current.manualStreams || []).filter((stream) => {
+      if (id && stream.id === id) return false;
+      if (link && stream.url === link) return false;
+      return true;
+    });
+    if (current.manualStreams.length === before) return false;
+    current.updatedAt = new Date().toISOString();
+    all[matchId] = current;
+    this.store.write({ matches: all });
+    return true;
+  }
+
+  /** Clear every saved manual stream. Returns how many were removed. */
+  clearAllManualStreams() {
+    const all = this.all();
+    let removed = 0;
+    for (const ov of Object.values(all)) {
+      removed += (ov?.manualStreams || []).length;
+      if (!ov) continue;
+      ov.manualStreams = [];
+      ov.updatedAt = new Date().toISOString();
+    }
+    this.store.write({ matches: all });
+    return removed;
+  }
+
   /** Drop every manual m3u8 for a SecondLive / matches.json row. */
   clearManualStreams(matchId) {
     const all = this.all();

@@ -3,22 +3,26 @@ const {
   toYangon,
   toUtcUnixSeconds,
   nowUtcUnixSeconds,
-  MATCH_URL_LEAD_MIN,
   MATCH_LIVE_DURATION_MIN,
-  STREAM_SEARCH_STOP_AFTER_MIN,
 } = require('../utils/time');
+const {
+  NO_STREAM_END_AFTER_MIN,
+  PREPARING_LEAD_MIN,
+  resolveAutoClockStatus,
+} = require('../utils/autoLiveStatus');
 
 /**
  * Final status for Flutter matches.json:
  * Scheduled | PREPARING_STREAM | LIVE | END
  *
  * Driven by fixture kickoff vs current time (UTC unix seconds):
- * - current < kickoff − MATCH_URL_LEAD_MIN, no stream URL → Scheduled
- * - kickoff − lead ≤ current < kickoff + 2h, no stream URL → PREPARING_STREAM
- * - a stream URL exists and current < kickoff + 2h → LIVE
- * - kickoff + 30m ≤ current < kickoff + 2h, no stream URL, and the stream
- *   search already ran on a saved match page → END
- * - current ≥ kickoff + 2h → END (streams stripped)
+ * Same Auto clock as MainLive:
+ * - before kickoff−lead, no Live yet → Scheduled
+ * - a valid stream URL does not make the match Live early
+ * - kickoff−5 and a valid stream URL, until kickoff+2h → LIVE
+ * - no valid stream URL stays PREPARING_STREAM, including after kickoff
+ * - no valid stream URL at kickoff+30 → END
+ * - current ≥ kickoff+2h → END (streams stripped)
  */
 function hasPlayableStream(match) {
   if (String(match?.streamUrl || '').trim()) return true;
@@ -64,28 +68,7 @@ function resolveMatchStatus(match, options = {}) {
   if (kickSec == null) {
     status = 'Scheduled';
   } else {
-    const preparingFrom = kickSec - MATCH_URL_LEAD_MIN * 60;
-    const liveUntil = kickSec + MATCH_LIVE_DURATION_MIN * 60;
-
-    if (nowSec >= liveUntil) {
-      status = 'END';
-    } else if (hasPlayableStream(match)) {
-      status = 'LIVE';
-    } else if (nowSec < preparingFrom) {
-      status = 'Scheduled';
-    } else {
-      const searchStopAt = kickSec + STREAM_SEARCH_STOP_AFTER_MIN * 60;
-      const searchTried = Boolean(
-        match.streamSearch?.started || match.streamSearch?.stopped
-      );
-      const hasMatchPage = Boolean(String(match.matchUrl || '').trim());
-      // Search finished on a saved match page and no playlist was found.
-      if (nowSec >= searchStopAt && hasMatchPage && searchTried) {
-        status = 'END';
-      } else {
-        status = 'PREPARING_STREAM';
-      }
-    }
+    status = resolveAutoClockStatus(kickSec, nowSec, match, PREPARING_LEAD_MIN);
   }
 
   if (status !== previous) {
@@ -99,8 +82,8 @@ function resolveMatchStatus(match, options = {}) {
       kickoffUnix: kickSec,
       nowUnix: nowSec,
       liveDurationMin: MATCH_LIVE_DURATION_MIN,
-      preparingLeadMin: MATCH_URL_LEAD_MIN,
-      searchStopAfterMin: STREAM_SEARCH_STOP_AFTER_MIN,
+      preparingLeadMin: PREPARING_LEAD_MIN,
+      searchStopAfterMin: NO_STREAM_END_AFTER_MIN,
       reason:
         status === 'END' &&
         previous !== 'END' &&

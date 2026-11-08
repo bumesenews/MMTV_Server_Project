@@ -75,7 +75,7 @@ function buildStreamSearchSlots(offsets, stopAfterMin) {
 function loadScraperConfig(env = process.env) {
   const matchUrlPreKickoffMinutes = parseMinutesList(
     env.MATCH_URL_PRE_KICKOFF_MINUTES,
-    [60, 50, 40, 30]
+    [90, 80, 70, 60, 50, 40, 30]
   );
   const streamMaxAttempts = parsePositiveInt(env.STREAM_MAX_ATTEMPTS, 6);
   const streamPostKickoffMaxMinutes = parsePositiveInt(

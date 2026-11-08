@@ -76,8 +76,9 @@ function engineStub() {
 
 console.log('\n=== Phase 2: slot config ===');
 assert(
-  'Match URL slots include −60/−50/−40/−30',
-  MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't60') &&
+  'Match URL slots include −90/−60/−50/−40/−30',
+  MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't90') &&
+    MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't60') &&
     MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't50') &&
     MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't40') &&
     MATCH_URL_SEARCH_SLOTS.some((s) => s.id === 't30')
@@ -99,7 +100,8 @@ console.log('\n=== Phase 2: discovery slot resolution ===');
   assert('Discovery at −50', resolveMatchUrlSearchSlot(k, k - 50 * 60)?.id === 't50');
   assert('Discovery at −45', resolveMatchUrlSearchSlot(k, k - 45 * 60)?.id === 't50');
   assert('Discovery at −30', resolveMatchUrlSearchSlot(k, k - 30 * 60)?.id === 't30');
-  assert('No discovery before −60', resolveMatchUrlSearchSlot(k, k - 90 * 60) == null);
+  assert('Discovery at −90', resolveMatchUrlSearchSlot(k, k - 90 * 60)?.id === 't90');
+  assert('No discovery before −90', resolveMatchUrlSearchSlot(k, k - 91 * 60) == null);
   assert('No Match URL search at kickoff', resolveMatchUrlLiveSlot(k, k) == null);
 }
 

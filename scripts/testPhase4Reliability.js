@@ -325,6 +325,8 @@ console.log('\n=== Phase 4: discoverAll source isolation ===');
   assert('STREAM_EXTRACT_LEAD_MIN 30', STREAM_EXTRACT_LEAD_MIN === 30);
   {
     const k = Math.floor(Date.now() / 1000);
+    assert('Match URL −90', resolveMatchUrlSearchSlot(k, k - 90 * 60)?.id === 't90');
+    assert('Match URL −91 is closed', resolveMatchUrlSearchSlot(k, k - 91 * 60) == null);
     assert('Match URL −60', resolveMatchUrlSearchSlot(k, k - 60 * 60)?.id === 't60');
     assert('Match URL −50', resolveMatchUrlSearchSlot(k, k - 50 * 60)?.id === 't50');
     assert('Match URL −40', resolveMatchUrlSearchSlot(k, k - 40 * 60)?.id === 't40');

@@ -6,6 +6,8 @@
     page: 'dashboard',
     matches: [],
     sourcesConfig: null,
+    serverAlerts: [],
+    alertsPrimed: false,
   };
 
   const $ = (sel) => document.querySelector(sel);
@@ -113,6 +115,72 @@
     $('#login-view').classList.add('hidden');
     $('#app-view').classList.remove('hidden');
     $('#whoami').textContent = `${state.user.displayName || state.user.username} · ${state.user.role}`;
+    startAlertPoll();
+  }
+
+  function startAlertPoll() {
+    if (startAlertPoll.timer) return;
+    pollServerAlerts().catch(() => {});
+    startAlertPoll.timer = setInterval(() => {
+      if (!state.token) return;
+      pollServerAlerts().catch(() => {});
+    }, 60000);
+  }
+
+  async function pollServerAlerts() {
+    const res = await api('/notifications/server-alerts?limit=30');
+    const alerts = res.alerts || [];
+    const previousId = state.serverAlerts[0]?.id || '';
+    const newest = alerts[0];
+    state.serverAlerts = alerts;
+    if (state.page === 'notifications') {
+      markAlertsSeen(newest?.id || '');
+      paintServerAlerts(alerts);
+    }
+    updateAlertBadge(alerts);
+    if (state.alertsPrimed && newest && newest.id !== previousId && state.page !== 'notifications') {
+      toast(newest.title || 'Server alert', 'error');
+    }
+    state.alertsPrimed = true;
+  }
+
+  function markAlertsSeen(id) {
+    if (id) localStorage.setItem('adminServerAlertSeenId', id);
+  }
+
+  function unseenAlertCount(alerts) {
+    const seen = localStorage.getItem('adminServerAlertSeenId') || '';
+    let count = 0;
+    for (const alert of alerts) {
+      if (alert.id === seen) break;
+      count += 1;
+    }
+    return count;
+  }
+
+  function updateAlertBadge(alerts) {
+    const badge = $('#alert-badge');
+    if (!badge) return;
+    const count = unseenAlertCount(alerts);
+    badge.textContent = count > 9 ? '9+' : String(count);
+    badge.classList.toggle('hidden', count === 0);
+  }
+
+  function serverAlertRows(alerts) {
+    if (!alerts.length) {
+      return '<tr><td colspan="3" class="muted">No server alerts yet</td></tr>';
+    }
+    return alerts.map((alert) => `
+      <tr>
+        <td class="muted">${esc(alert.at)}</td>
+        <td>${esc(alert.title)}</td>
+        <td><pre class="alert-body">${esc(alert.body)}</pre></td>
+      </tr>`).join('');
+  }
+
+  function paintServerAlerts(alerts) {
+    const body = $('#server-alert-body');
+    if (body) body.innerHTML = serverAlertRows(alerts);
   }
 
   async function boot() {
@@ -313,6 +381,14 @@
           <pre class="muted" style="white-space:pre-wrap;margin:0">${esc(JSON.stringify(d.lastGithubUpload || {}, null, 2))}</pre>
         </div>
       </div>
+      <div class="panel" id="manual-stream-panel">
+        <div class="row" style="justify-content:space-between;align-items:center">
+          <h3 style="margin:0">Manual streams</h3>
+          <button id="btn-delete-all-manual" class="danger" type="button">Delete all</button>
+        </div>
+        <p class="muted">These are the streams counted on the Manual Streams card.</p>
+        <div id="manual-stream-list" class="muted">Loading…</div>
+      </div>
       <div class="panel" id="results-status">
         <h3>Football Results</h3>
         ${resultsError ? `<p class="error">${esc(resultsError)}</p>` : ''}
@@ -336,6 +412,69 @@
           </table>
         </div>
       </div>`;
+    loadManualStreamPanel();
+  }
+
+  async function loadManualStreamPanel() {
+    const box = $('#manual-stream-list');
+    const deleteAll = $('#btn-delete-all-manual');
+    if (!box) return;
+    try {
+      const res = await api('/manual-streams');
+      const streams = res.streams || [];
+      if (deleteAll) deleteAll.disabled = streams.length === 0;
+      box.innerHTML = streams.length
+        ? `<div class="table-wrap"><table>
+            <thead><tr><th>Match</th><th>Quality</th><th>URL</th><th></th></tr></thead>
+            <tbody>
+              ${streams.map((stream) => {
+                const title = [stream.homeTeam, stream.awayTeam].filter(Boolean).join(' vs ') || stream.matchId;
+                return `<tr>
+                  <td>${esc(title)}</td>
+                  <td>${esc(stream.quality || 'HD')}</td>
+                  <td class="muted">${esc(stream.url || '')}</td>
+                  <td><button type="button" class="danger" data-delete-manual="${esc(stream.matchId)}" data-stream-id="${esc(stream.streamId || '')}" data-stream-url="${esc(stream.url || '')}">Delete</button></td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table></div>`
+        : 'No manual streams.';
+      box.querySelectorAll('[data-delete-manual]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const matchId = btn.getAttribute('data-delete-manual');
+          const streamId = btn.getAttribute('data-stream-id') || '';
+          const url = btn.getAttribute('data-stream-url') || '';
+          const params = new URLSearchParams();
+          if (streamId) params.set('streamId', streamId);
+          if (url) params.set('url', url);
+          btn.disabled = true;
+          try {
+            await api(`/manual-streams/${encodeURIComponent(matchId)}?${params.toString()}`, { method: 'DELETE' });
+            toast('Manual stream deleted');
+            renderDashboard();
+          } catch (err) {
+            toast(err.message, 'error');
+            btn.disabled = false;
+          }
+        });
+      });
+      if (deleteAll) {
+        deleteAll.onclick = async () => {
+          if (!window.confirm(`Delete all ${streams.length} manual streams?`)) return;
+          deleteAll.disabled = true;
+          try {
+            await api('/manual-streams', { method: 'DELETE' });
+            toast('All manual streams deleted');
+            renderDashboard();
+          } catch (err) {
+            toast(err.message, 'error');
+            deleteAll.disabled = false;
+          }
+        };
+      }
+    } catch (err) {
+      box.textContent = err.message;
+    }
   }
 
   function mainLivePageUrls(match) {
@@ -540,7 +679,7 @@
                       <button class="secondary" data-act="toggle" data-field="pinned">${m.pinned ? 'Unpin' : 'Pin'}</button>
                       <button class="secondary" data-act="toggle" data-field="featured">${m.featured ? 'Unfeature' : 'Feature'}</button>
                       <button class="secondary" data-act="streams">Streams</button>
-                      <label class="row" style="gap:6px;align-items:center;margin:0" title="Auto: Live only after a stream URL is saved, from 5 minutes before kickoff. Manual: the status you pick stays locked.">
+                      <label class="row" style="gap:6px;align-items:center;margin:0" title="Auto: Live at 5 minutes before kickoff only when a stream URL is saved. No stream stays Preparing, then End 30 minutes after kickoff. Manual: the status you pick stays locked.">
                         <span class="badge">${m.statusLocked ? 'MANUAL' : 'AUTO'}</span>
                         <span style="font-size:0.78rem">Manual</span>
                         <input type="checkbox" data-act="auto-status" ${m.statusLocked ? '' : 'checked'} />
@@ -1827,12 +1966,27 @@
   }
 
   async function renderNotifications() {
-    setTitle('Push Notifications');
-    const [tpl, hist] = await Promise.all([
+    setTitle('Notifications');
+    const [tpl, hist, server] = await Promise.all([
       api('/notifications/templates'),
       api('/notifications/history'),
+      api('/notifications/server-alerts?limit=50'),
     ]);
+    const alerts = server.alerts || [];
+    state.serverAlerts = alerts;
+    markAlertsSeen(alerts[0]?.id || '');
+    updateAlertBadge(alerts);
     pageEl.innerHTML = `
+      <div class="panel">
+        <h3>Server alerts</h3>
+        <p class="muted">Same messages the server sends to Telegram, including high memory.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Saved</th><th>Alert</th><th>Message</th></tr></thead>
+            <tbody id="server-alert-body">${serverAlertRows(alerts)}</tbody>
+          </table>
+        </div>
+      </div>
       <div class="panel">
         <h3>Send FCM notification</h3>
         <p class="muted">FCM: ${hist.fcmReady ? '<span class="ok">Ready</span>' : `<span class="error">Dry-run (${esc(hist.fcmError || 'not configured')})</span>`}</p>

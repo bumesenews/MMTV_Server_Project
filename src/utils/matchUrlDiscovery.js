@@ -282,7 +282,7 @@ function sourceHasSavedMatchUrl(state) {
 function inMatchUrlHuntWindow(kickoff, nowSec) {
   const mins = minutesUntilKickoff(kickoff, nowSec);
   if (mins == null) return false;
-  // Open at kickoff−1h (MATCH_URL_LEAD_MIN). Closed once kickoff is reached.
+  // Open at kickoff−90m (MATCH_URL_LEAD_MIN). Closed once kickoff is reached.
   if (mins > MATCH_URL_LEAD_MIN) return false;
   if (mins <= 0) return false;
   return true;
