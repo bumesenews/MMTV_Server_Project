@@ -6,6 +6,7 @@ const {
   playbackHeadersForClient,
   fillOriginFromReferer,
   pickPlaybackHeaders,
+  mergeCookieHeaders,
 } = require('../../utils/streamHeaders');
 const {
   isKeptAfterValidation,
@@ -27,8 +28,21 @@ const {
  * Browser-captured values win when present; source playbackHeaders fill gaps
  * (especially Cookie) so MainLive does not publish cookie-less CDN playlists.
  */
+function capturedPlaybackHeaders(raw) {
+  const fromStream =
+    raw?.streamHeaders && typeof raw.streamHeaders === 'object' ? raw.streamHeaders : {};
+  const fromHeaders = raw?.headers && typeof raw.headers === 'object' ? raw.headers : {};
+  const incoming = { ...fromStream, ...fromHeaders };
+  const cookie = mergeCookieHeaders(
+    mergeCookieHeaders(fromHeaders.Cookie || fromHeaders.cookie, fromStream.Cookie || fromStream.cookie),
+    raw?.playbackCookie
+  );
+  if (cookie) incoming.Cookie = cookie;
+  return incoming;
+}
+
 function mapExtractedStream(raw, { sourceName, matchUrl, sourceConfig }) {
-  const incoming = raw.headers || raw.streamHeaders || {};
+  const incoming = capturedPlaybackHeaders(raw);
   const baseline = mergePlaybackHeaders({
     streamHeaders: incoming,
     sourceConfig,
@@ -38,6 +52,8 @@ function mapExtractedStream(raw, { sourceName, matchUrl, sourceConfig }) {
   const preferred = raw.keepPlaybackHeaders
     ? { ...baseline, ...pickPlaybackHeaders(incoming) }
     : baseline;
+  const cookie = mergeCookieHeaders(incoming.Cookie || incoming.cookie, preferred.Cookie || preferred.cookie);
+  if (cookie) preferred.Cookie = cookie;
   const headers = playbackHeadersForClient(fillOriginFromReferer(preferred));
   const name = flutterStreamName({ ...raw, source: sourceName });
   return {

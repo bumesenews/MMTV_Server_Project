@@ -218,6 +218,35 @@ assert.strictEqual(
     'source Cookie fills gap when browser Cookie is missing'
   );
 
+  const cookieOnlyOnStreamHeaders = mapExtractedStream(
+    {
+      url: 'https://cdn.example/live/index.m3u8',
+      quality: 'HD',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 Browser',
+        Referer: 'https://player.example/embed/',
+      },
+      streamHeaders: {
+        Cookie: 'sid=from-stream-headers',
+      },
+    },
+    {
+      sourceName: 'cakhia',
+      matchUrl: 'https://cakhiazaa.tv/truc-tiep/foo',
+      sourceConfig: {},
+    }
+  );
+  assert.strictEqual(
+    cookieOnlyOnStreamHeaders.headers.Cookie,
+    'sid=from-stream-headers',
+    'Cookie on streamHeaders is kept when headers omit it'
+  );
+  assert.strictEqual(
+    cookieOnlyOnStreamHeaders.streamHeaders.Cookie,
+    'sid=from-stream-headers',
+    'saved streamHeaders keep the captured Cookie'
+  );
+
   const published = toPublicMatch({
     matchId: 'test_cookie',
     homeTeam: 'A',
@@ -234,6 +263,19 @@ assert.strictEqual(
     'session=abc; cf_clearance=xyz',
     'published Cookie matches captured value'
   );
+}
+
+const { StreamValidator } = require('../src/services/streamValidator');
+{
+  const validator = new StreamValidator({ http: { async get() { throw new Error('unused'); } } });
+  const merged = validator.headersWithResponseCookies(
+    { Referer: 'https://player.example/embed/', Cookie: 'page=1' },
+    'sid=from-playlist; Path=/; HttpOnly\ntoken=abc; Secure'
+  );
+  assert.ok(merged.Cookie.includes('page=1'), 'page cookie is kept');
+  assert.ok(merged.Cookie.includes('sid=from-playlist'), 'playlist Set-Cookie is kept');
+  assert.ok(merged.Cookie.includes('token=abc'), 'every Set-Cookie name is kept');
+  assert.ok(!/Path=|HttpOnly|Secure/i.test(merged.Cookie), 'Set-Cookie attributes are not playback cookies');
 }
 
 console.log('testMainLiveExtract: ok');

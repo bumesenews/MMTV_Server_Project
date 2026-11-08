@@ -9,6 +9,8 @@ const {
   playbackHeadersForClient,
   originReferer,
   inferPlayerReferer,
+  mergeCookieHeaders,
+  normalizeCookieHeader,
 } = require('../utils/streamHeaders');
 const {
   extractStreamsFromPage,
@@ -137,7 +139,12 @@ async function axiosGetPage(url, { referer, timeout = AXIOS_TIMEOUT_MS, retries 
       });
       const htmlRaw = typeof res.data === 'string' ? res.data : JSON.stringify(res.data);
       const html = htmlRaw.length > MAX_HTML_CHARS ? htmlRaw.slice(0, MAX_HTML_CHARS) : htmlRaw;
-      return { html, finalUrl: responseFinalUrl(res, url), status: res.status };
+      return {
+        html,
+        finalUrl: responseFinalUrl(res, url),
+        status: res.status,
+        cookie: normalizeCookieHeader(res.headers?.['set-cookie'] || res.headers?.['Set-Cookie']),
+      };
     } catch (err) {
       lastErr = err;
       if (!isRetryableHttpError(err) || attempt >= maxTries) throw err;
@@ -389,13 +396,17 @@ function isJsShellHtml(html) {
 }
 
 async function extractUrlFromEmbed(embedUrl, referer) {
-  const html = await axiosGetHtml(embedUrl, { referer });
+  const page = await axiosGetPage(embedUrl, { referer });
+  const html = page.html;
   const candidates = findStreamPatterns(html, embedUrl);
   const urlStream = html.match(/urlStream\s*=\s*["']([^"']+)["']/)?.[1];
   if (urlStream) candidates.push(urlStream);
   const streamingUrl = html.match(/streamingurl\s*[:=]\s*["']([^"']+)["']/i)?.[1];
   if (streamingUrl) candidates.push(streamingUrl);
-  return pickStreamUrl(candidates);
+  return {
+    url: pickStreamUrl(candidates),
+    cookie: page.cookie || '',
+  };
 }
 
 /**
@@ -429,11 +440,23 @@ async function extractStreamsViaAxios({
   const blockedKeep = [];
   const sourcePriority = Number(config.priority || 0);
   const htmlByUrl = new Map([[matchPageUrl, firstHtml]]);
+  const cookieByUrl = new Map();
+  const rememberCookie = (pageUrl, cookie) => {
+    const value = normalizeCookieHeader(cookie);
+    if (!pageUrl || !value) return;
+    cookieByUrl.set(pageUrl, mergeCookieHeaders(cookieByUrl.get(pageUrl), value));
+  };
+  rememberCookie(matchPageUrl, loaded.cookie);
+  rememberCookie(requestedMatchPageUrl, loaded.cookie);
 
-  const push = (url, quality = 'HD', via = 'axios', pageUrl = matchPageUrl, embedUrl = '') => {
+  const push = (url, quality = 'HD', via = 'axios', pageUrl = matchPageUrl, embedUrl = '', embedCookie = '') => {
     const normalized = normalizeStreamUrl(url);
     if (!normalized) return;
     const playerReferer = originReferer(embedUrl) || inferPlayerReferer(normalized) || pageUrl;
+    const cookie = mergeCookieHeaders(
+      mergeCookieHeaders(cookieByUrl.get(pageUrl), cookieByUrl.get(matchPageUrl)),
+      embedCookie
+    );
     streams.push({
       source: sourceName,
       type: 'm3u8',
@@ -441,7 +464,10 @@ async function extractStreamsViaAxios({
       url: normalized,
       headers: playbackHeadersForClient(
         mergePlaybackHeaders({
-          streamHeaders: { Referer: playerReferer },
+          streamHeaders: {
+            Referer: playerReferer,
+            ...(cookie ? { Cookie: cookie } : {}),
+          },
           sourceConfig: config,
           matchPageUrl: pageUrl,
           streamUrl: normalized,
@@ -453,6 +479,7 @@ async function extractStreamsViaAxios({
       priority: sourcePriority,
       checkedAt: new Date().toISOString(),
       via,
+      ...(cookie ? { keepPlaybackHeaders: true } : {}),
     });
   };
 
@@ -468,8 +495,11 @@ async function extractStreamsViaAxios({
         return;
       }
       try {
-        const url = await extractUrlFromEmbed(embedUrl, pageUrl);
-        if (url) push(url, name || tabName || 'HD', via, pageUrl, embedUrl);
+        const found = await extractUrlFromEmbed(embedUrl, pageUrl);
+        const url = found && typeof found === 'object' ? found.url : found;
+        const embedCookie = found && typeof found === 'object' ? found.cookie : '';
+        if (embedCookie) rememberCookie(embedUrl, embedCookie);
+        if (url) push(url, name || tabName || 'HD', via, pageUrl, embedUrl, embedCookie);
       } catch (err) {
         logger.debug('axios embed failed', {
           source: sourceName,
@@ -562,7 +592,9 @@ async function extractStreamsViaAxios({
       let html = htmlByUrl.get(candidate.pageUrl);
       if (!html) {
         try {
-          html = await axiosGetHtml(candidate.pageUrl, { referer: matchPageUrl });
+          const tabPage = await axiosGetPage(candidate.pageUrl, { referer: matchPageUrl });
+          html = tabPage.html;
+          rememberCookie(candidate.pageUrl, tabPage.cookie);
           htmlByUrl.set(candidate.pageUrl, html);
         } catch (err) {
           logger.debug('player tab fetch failed', {
@@ -617,7 +649,9 @@ async function extractStreamsViaAxios({
     let html = htmlByUrl.get(tab.url);
     if (!html) {
       try {
-        html = await axiosGetHtml(tab.url, { referer: matchPageUrl });
+        const tabPage = await axiosGetPage(tab.url, { referer: matchPageUrl });
+        html = tabPage.html;
+        rememberCookie(tab.url, tabPage.cookie);
         htmlByUrl.set(tab.url, html);
       } catch (err) {
         logger.debug('player tab fetch failed', {
@@ -835,11 +869,16 @@ async function extractStreamsAxiosThenPuppeteer({
               browserManager: browser,
               capturePlaybackHeaders,
             });
+            // Playlist Cookie often arrives on requestWillBeSentExtraInfo
+            // just after the extractor returns.
+            await sleep(400);
             if (!found.playbackCookie) {
               const cookie = await harvestPlaybackCookie(page, found, liveMatchUrl);
               if (cookie) found.playbackCookie = cookie;
             }
-            return found;
+            const stamped = applyPlaybackCookie(found, found.playbackCookie);
+            if (found.playbackCookie) stamped.playbackCookie = found.playbackCookie;
+            return stamped;
           } catch (err) {
             const capturedPage = (page && typeof page.url === 'function' && page.url()) || matchPageUrl;
             let captured = streamsFromCapture(page, sourceName, config, capturedPage);
@@ -958,12 +997,15 @@ function applyPlaybackCookie(streams, cookie) {
   if (!value) return streams || [];
   return (streams || []).map((stream) => {
     const headers = { ...(stream.headers || {}) };
-    if (headers.Cookie || headers.cookie) return stream;
-    headers.Cookie = value;
+    const merged = mergeCookieHeaders(headers.Cookie || headers.cookie, value);
+    if (!merged) return stream;
+    headers.Cookie = merged;
+    delete headers.cookie;
+    const streamHeaders = { ...(stream.streamHeaders || {}), ...headers, Cookie: merged };
     return {
       ...stream,
       headers,
-      streamHeaders: { ...(stream.streamHeaders || {}), ...headers },
+      streamHeaders,
       keepPlaybackHeaders: true,
     };
   });
@@ -977,7 +1019,15 @@ function mergeBrowserPlaybackStreams(primary, browserStreams) {
     const hit =
       extra.find((item) => playlistIdentity(item.url) === playlistIdentity(stream.url)) || sample;
     const same = playlistIdentity(hit.url) === playlistIdentity(stream.url);
-    const headers = { ...hit.headers };
+    const headers = { ...(stream.headers || {}), ...hit.headers };
+    const cookie = mergeCookieHeaders(
+      stream.headers?.Cookie || stream.headers?.cookie,
+      hit.headers?.Cookie || hit.headers?.cookie
+    );
+    if (cookie) {
+      headers.Cookie = cookie;
+      delete headers.cookie;
+    }
     return {
       ...stream,
       url: same ? hit.url : stream.url,
@@ -1016,6 +1066,7 @@ function streamsFromCapture(page, sourceName, config, matchPageUrl) {
       matchPageUrl,
       active: true,
       via: 'puppeteer-capture',
+      keepPlaybackHeaders: true,
     }));
 }
 

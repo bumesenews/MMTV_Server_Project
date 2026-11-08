@@ -584,6 +584,14 @@
       api('/teams'),
     ]);
     state.mainlive = matchData.matches || [];
+    const streamCookieText = (stream, match) =>
+      stream?.headers?.Cookie ||
+      stream?.headers?.cookie ||
+      stream?.streamHeaders?.Cookie ||
+      stream?.streamHeaders?.cookie ||
+      match?.streamHeaders?.Cookie ||
+      match?.streamHeaders?.cookie ||
+      '';
     const leagues = (leagueData.leagues || []).filter((l) => l.enabled !== false);
     const teams = (teamData.teams || []).filter((t) => t.enabled !== false);
     const leagueOpts = leagues
@@ -667,6 +675,7 @@
                     ${(m.streams || []).length}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}
                     ${m.streamUrl || (m.streams || []).length
                       ? `<div class="muted" style="font-size:0.72rem;word-break:break-all;max-width:220px">${esc(m.streamUrl || (m.streams[0] && m.streams[0].url) || '')}</div>
+                         ${streamCookieText(m.streams && m.streams[0], m) ? `<div class="muted" style="font-size:0.72rem;word-break:break-all;max-width:220px" title="${esc(streamCookieText(m.streams && m.streams[0], m))}">Cookie: ${esc(streamCookieText(m.streams && m.streams[0], m))}</div>` : ''}
                          <button type="button" class="danger" style="padding:2px 6px;font-size:0.7rem;margin-top:4px" data-act="clear-stream-url">Delete stream URL</button>`
                       : ''}
                   </td>
@@ -946,15 +955,23 @@
   async function manageMainLiveStreams(matchId) {
     const m = state.mainlive.find((x) => x.matchId === matchId);
     if (!m) return;
+    const cookieOf = (s) =>
+      s?.headers?.Cookie ||
+      s?.headers?.cookie ||
+      s?.streamHeaders?.Cookie ||
+      s?.streamHeaders?.cookie ||
+      '';
     let streams = (m.streams || []).map((s) => ({
       id: s.id,
       name: s.name || s.quality || 'HD',
       url: s.url || '',
       headers: {
-        'User-Agent': s.headers?.['User-Agent'] || '',
-        Referer: s.headers?.Referer || '',
-        ...(s.headers?.Cookie ? { Cookie: s.headers.Cookie } : {}),
-        ...(s.headers?.Origin ? { Origin: s.headers.Origin } : {}),
+        'User-Agent': s.headers?.['User-Agent'] || s.streamHeaders?.['User-Agent'] || '',
+        Referer: s.headers?.Referer || s.streamHeaders?.Referer || '',
+        ...(cookieOf(s) ? { Cookie: cookieOf(s) } : {}),
+        ...(s.headers?.Origin || s.streamHeaders?.Origin
+          ? { Origin: s.headers?.Origin || s.streamHeaders?.Origin }
+          : {}),
       },
       active: s.active !== false,
       type: s.type || 'm3u8',

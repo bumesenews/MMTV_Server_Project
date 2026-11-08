@@ -12,6 +12,8 @@ const {
   originFromUrl,
   GENERIC_PLAYER_REFERERS,
   PLAYBACK_UA_MOBILE,
+  mergeCookieHeaders,
+  normalizeCookieHeader,
 } = require('../utils/streamHeaders');
 
 const VALIDATION_STATE = {
@@ -222,12 +224,33 @@ class StreamValidator {
     return out.slice(0, 5);
   }
 
+  cookieFromResponse(headers) {
+    if (!headers) return '';
+    const raw = typeof headers.get === 'function'
+      ? headers.get('set-cookie')
+      : headers['set-cookie'] || headers['Set-Cookie'];
+    return normalizeCookieHeader(raw);
+  }
+
+  headersWithResponseCookies(headers, ...setCookies) {
+    let cookie = headers?.Cookie || headers?.cookie || '';
+    for (const extra of setCookies) {
+      // The cookie already sent with the playlist stays. Set-Cookie adds names.
+      cookie = mergeCookieHeaders(cookie, extra);
+    }
+    if (!cookie) return headers || {};
+    const next = { ...(headers || {}), Cookie: cookie };
+    delete next.cookie;
+    return next;
+  }
+
   async fetchPlaylist(url, headers) {
     const reqHeaders = { ...(headers || {}) };
     if (reqHeaders.Referer && !reqHeaders.Origin) {
       const origin = originFromUrl(reqHeaders.Referer);
       if (origin) reqHeaders.Origin = origin;
     }
+    const seen = [];
     try {
       const response = await this.http.get(url, {
         timeout: this.timeout,
@@ -237,10 +260,20 @@ class StreamValidator {
         validateStatus: () => true,
         maxContentLength: PLAYLIST_MAX_BYTES,
         maxBodyLength: PLAYLIST_MAX_BYTES,
+        beforeRedirect: (_options, details) => {
+          try {
+            const cookie = this.cookieFromResponse(details?.headers);
+            if (cookie) seen.push(cookie);
+          } catch {
+            // Redirect cookie capture must not fail the playlist check.
+          }
+        },
       });
-      return { response, error: null };
+      let setCookie = this.cookieFromResponse(response?.headers);
+      for (const extra of seen) setCookie = mergeCookieHeaders(setCookie, extra);
+      return { response, error: null, setCookie };
     } catch (err) {
-      return { response: null, error: err };
+      return { response: null, error: err, setCookie: '' };
     }
   }
 
@@ -333,9 +366,12 @@ class StreamValidator {
       for (const key of ['User-Agent', 'Referer', 'Origin', 'Cookie']) {
         if (!clientHeaders[key] && fetched[key]) clientHeaders[key] = fetched[key];
       }
-    } else if (!clientHeaders.Cookie && previous.Cookie) {
-      clientHeaders = { ...clientHeaders, Cookie: previous.Cookie };
     }
+    const cookie = mergeCookieHeaders(
+      mergeCookieHeaders(previous.Cookie, fetched.Cookie),
+      stream.playbackCookie
+    );
+    if (cookie) clientHeaders = { ...clientHeaders, Cookie: cookie };
     return {
       ...stream,
       active: true,
@@ -479,7 +515,12 @@ class StreamValidator {
     if (status < 200 || status >= 400) {
       const state = stateFromHttp(status);
       if (state === VALIDATION_STATE.HTTP_403) {
-        const blocked = this.blockedResult(stream, {
+        const blockedHeaders = this.headersWithResponseCookies(stream.headers || headers, fetched.setCookie);
+        const blocked = this.blockedResult({
+          ...stream,
+          headers: blockedHeaders,
+          streamHeaders: blockedHeaders,
+        }, {
           statusCode: status,
           contentType,
           retried,
@@ -537,8 +578,10 @@ class StreamValidator {
     }
 
     let playlistType = parsed.kind;
+    let variantCookie = '';
     if (parsed.kind === 'master' && this.resolveMasterVariant && parsed.variants[0]) {
       const variant = await this.fetchPlaylist(parsed.variants[0], headers);
+      variantCookie = variant.setCookie || '';
       if (!variant.error && variant.response && variant.response.status >= 200 && variant.response.status < 400) {
         const media = parseHlsPlaylist(String(variant.response.data || ''), parsed.variants[0]);
         if (media.state === VALIDATION_STATE.EMPTY_PLAYLIST || media.state === VALIDATION_STATE.NO_SEGMENTS) {
@@ -589,7 +632,8 @@ class StreamValidator {
       return result;
     }
 
-    const result = this.availableResult(stream, headers, {
+    const playbackHeaders = this.headersWithResponseCookies(headers, fetched.setCookie, variantCookie);
+    const result = this.availableResult(stream, playbackHeaders, {
       statusCode: status,
       contentType,
       playlistHash: contentHash(body),

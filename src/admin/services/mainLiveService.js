@@ -686,6 +686,16 @@ function normalizeStreamsInput(input = {}) {
       if (!url) continue;
       const name =
         String(raw.name || raw.quality || raw.streamName || 'HD').trim() || 'HD';
+      const headerSource = {
+        ...(raw.streamHeaders && typeof raw.streamHeaders === 'object' ? raw.streamHeaders : {}),
+        ...(raw.headers && typeof raw.headers === 'object' ? raw.headers : {}),
+      };
+      const headers = normalizeStreamHeaders(headerSource, {
+        userAgent: raw.userAgent,
+        referer: raw.referer,
+        origin: raw.origin,
+        cookie: raw.cookie || raw.playbackCookie || headerSource.Cookie || headerSource.cookie,
+      });
       rows.push({
         id: String(raw.id || '').trim() || newStreamId(),
         source: String(raw.source || 'manual').trim() || 'manual',
@@ -693,12 +703,8 @@ function normalizeStreamsInput(input = {}) {
         quality: name,
         name,
         url,
-        headers: normalizeStreamHeaders(raw.headers, {
-          userAgent: raw.userAgent,
-          referer: raw.referer,
-          origin: raw.origin,
-          cookie: raw.cookie,
-        }),
+        headers,
+        streamHeaders: headers,
         active: raw.active !== false,
         priority: Number.isFinite(Number(raw.priority)) ? Number(raw.priority) : 1000 - rows.length,
         checkedAt: new Date().toISOString(),
@@ -710,6 +716,18 @@ function normalizeStreamsInput(input = {}) {
     const url = String(input.streamUrl || input.url || '').trim();
     if (url) {
       const name = String(input.streamName || input.quality || 'HD').trim() || 'HD';
+      const headers = normalizeStreamHeaders(
+        {
+          ...(input.streamHeaders && typeof input.streamHeaders === 'object' ? input.streamHeaders : {}),
+          ...(input.headers && typeof input.headers === 'object' ? input.headers : {}),
+        },
+        {
+          userAgent: input.userAgent,
+          referer: input.referer,
+          origin: input.origin,
+          cookie: input.cookie || input.playbackCookie,
+        }
+      );
       rows.push({
         id: newStreamId(),
         source: 'manual',
@@ -717,12 +735,8 @@ function normalizeStreamsInput(input = {}) {
         quality: name,
         name,
         url,
-        headers: normalizeStreamHeaders(input.headers, {
-          userAgent: input.userAgent,
-          referer: input.referer,
-          origin: input.origin,
-          cookie: input.cookie,
-        }),
+        headers,
+        streamHeaders: headers,
         active: true,
         priority: 1000,
         checkedAt: new Date().toISOString(),
