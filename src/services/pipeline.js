@@ -1119,6 +1119,12 @@ class Pipeline {
               : null,
         attempts: Math.max(Number(repaired.attempts) || 0, Number(prev.attempts) || 0),
         lastAttemptAt: repaired.lastAttemptAt || prev.lastAttemptAt || null,
+        status: prev.statusLocked && (prev.manualStatus || prev.status)
+          ? prev.manualStatus || prev.status
+          : repaired.status,
+        manualStatus: prev.statusLocked && (prev.manualStatus || prev.status)
+          ? prev.manualStatus || prev.status
+          : repaired.manualStatus,
         statusLocked: Boolean(prev.statusLocked),
         manual: Boolean(prev.manual || repaired.manual),
         pinned: Boolean(prev.pinned || repaired.pinned),

@@ -12,7 +12,11 @@ const {
 const { clearSourceMatchUrl, inMatchUrlHuntWindow } = require('../../utils/matchUrlDiscovery');
 const { assertFeedKey } = require('../services/feedAdminService');
 const { collectSourceFailuresFromMatches } = require('../services/dashboardService');
-const { toAdminMatchDoc, listAdminEntries } = require('../../utils/adminMatch');
+const {
+  toAdminMatchDoc,
+  listAdminEntries,
+  overlayManualStatusesForAdmin,
+} = require('../../utils/adminMatch');
 const { postedMatchUrlRows } = require('../services/mainLiveService');
 
 function extractAndPublishMainLive(ctx, matchId, options) {
@@ -454,12 +458,15 @@ function createAdminRouter(ctx) {
         matches.push({ ...m, isManual: true, override: overrides[matchId] || null });
       }
     }
+    const visible = ctx.adminMatches
+      ? overlayManualStatusesForAdmin(matches, ctx.adminMatches._doc)
+      : matches;
     res.json({
       ok: true,
-      matches,
+      matches: visible,
       generatedAt: payload?.generatedAt || current?.generatedAt || null,
       timezone: payload?.timezone || current?.timezone || 'Asia/Yangon',
-      matchCount: matches.length,
+      matchCount: visible.length,
       meta: payload?.meta || current?.meta || null,
     });
   });
@@ -639,7 +646,7 @@ function createAdminRouter(ctx) {
           current.matches[idx] = {
             ...current.matches[idx],
             ...(patch.status != null
-              ? { status: patch.status, statusLocked: true }
+              ? { status: patch.status, manualStatus: patch.status, statusLocked: true }
               : {}),
             ...(patch.kickoff
               ? { kickoff: patch.kickoff, date: patch.date, time: patch.time }
@@ -649,6 +656,22 @@ function createAdminRouter(ctx) {
           };
           ctx.cache.writeJson(ctx.cache.currentPath, current);
         }
+      }
+
+      if (patch.status != null && ctx.adminMatches) {
+        const row =
+          (ctx.cache.getCurrent()?.matches || []).find((m) => m.matchId === matchId) || {};
+        await ctx.adminMatches.setManualStatus(
+          matchId,
+          patch.status,
+          {
+            ...row,
+            matchId,
+            status: patch.status,
+            statusLocked: true,
+          },
+          { actor: req.admin.username }
+        );
       }
 
       const published = await ctx.publish.republishFromCache({

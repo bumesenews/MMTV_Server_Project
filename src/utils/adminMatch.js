@@ -85,14 +85,41 @@ function normalizeAdminEntry(input = {}) {
   };
 }
 
+function withMergedManualStatuses(base, matches, local, remote) {
+  const manualStatuses = {
+    ...collectManualStatuses(remote),
+    ...collectManualStatuses(local),
+  };
+  const stamped = (matches || []).map((match) => {
+    const locked = match?.matchId ? manualStatuses[match.matchId] : null;
+    if (!locked?.status) return match;
+    return {
+      ...match,
+      status: locked.status,
+      manualStatus: locked.status,
+      statusLocked: true,
+    };
+  });
+  return toAdminMatchDoc({
+    ...(base || {}),
+    matches: stamped,
+    matchCount: stamped.length,
+    meta: {
+      ...((base && base.meta) || {}),
+      feed: 'admin-match',
+      manualStatuses,
+    },
+  });
+}
+
 function mergeAdminMatchDocs(local, remote) {
   const localMatches = listAdminEntries(local);
   const remoteMatches = listAdminEntries(remote);
   if (!localMatches.length && !remoteMatches.length) {
-    return toAdminMatchDoc(local || remote || emptyAdminMatchDoc());
+    return withMergedManualStatuses(local || remote || emptyAdminMatchDoc(), [], local, remote);
   }
-  if (!localMatches.length) return toAdminMatchDoc(remote);
-  if (!remoteMatches.length) return toAdminMatchDoc(local);
+  if (!localMatches.length) return withMergedManualStatuses(remote, remoteMatches, local, remote);
+  if (!remoteMatches.length) return withMergedManualStatuses(local, localMatches, local, remote);
 
   const localFull = localMatches.some(isFullAdminMatch);
   const remoteFull = remoteMatches.some(isFullAdminMatch);
@@ -115,7 +142,7 @@ function mergeAdminMatchDocs(local, remote) {
       );
     }
     const base = localFull ? local : remote;
-    return toAdminMatchDoc({ ...base, matches: [...byId.values()] });
+    return withMergedManualStatuses(base, [...byId.values()], local, remote);
   }
 
   const byId = new Map();
@@ -127,7 +154,7 @@ function mergeAdminMatchDocs(local, remote) {
     const n = normalizeAdminEntry(entry);
     if (n) byId.set(n.matchId, n);
   }
-  return { version: 1, matches: [...byId.values()] };
+  return withMergedManualStatuses({ version: 1 }, [...byId.values()], local, remote);
 }
 
 function upsertAdminEntry(doc, input) {
@@ -327,15 +354,141 @@ function applyStickyStoredMatch(fixture, stored) {
   return next;
 }
 
+function snapshotFromMatch(match) {
+  if (!match || typeof match !== 'object') return null;
+  return {
+    matchId: match.matchId,
+    homeTeam: match.homeTeam || '',
+    awayTeam: match.awayTeam || '',
+    league: match.league || '',
+    leagueIcon: match.leagueIcon || null,
+    date: match.date || '',
+    time: match.time || '',
+    kickoff: match.kickoff || null,
+    matchUrl: match.matchUrl || null,
+    streamUrl: match.streamUrl || null,
+    streams: Array.isArray(match.streams) ? match.streams : [],
+  };
+}
+
+/** Admin-picked SecondLive statuses. Automatic sync must not drop these. */
+function collectManualStatuses(doc) {
+  const raw = doc?.meta?.manualStatuses;
+  const map = {};
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const [id, rec] of Object.entries(raw)) {
+      if (!id || !rec?.status || rec.statusLocked === false) continue;
+      map[id] = {
+        status: rec.status,
+        statusLocked: true,
+        updatedAt: rec.updatedAt || null,
+        ...(rec.snapshot && typeof rec.snapshot === 'object'
+          ? { snapshot: rec.snapshot }
+          : {}),
+      };
+    }
+  }
+  for (const match of listAdminEntries(doc)) {
+    if (!match?.matchId || !match.statusLocked || !match.status || map[match.matchId]) continue;
+    map[match.matchId] = {
+      status: match.status,
+      statusLocked: true,
+      updatedAt: match.updatedAt || null,
+      snapshot: snapshotFromMatch(match),
+    };
+  }
+  return map;
+}
+
+function applyStoredManualStatus(match, doc) {
+  if (!match?.matchId) return match;
+  const rec = collectManualStatuses(doc)[match.matchId];
+  if (!rec?.status) return match;
+  return {
+    ...match,
+    status: rec.status,
+    manualStatus: rec.status,
+    statusLocked: true,
+  };
+}
+
+/**
+ * Write one admin-picked status onto admin-match.json.
+ * Stored under meta.manualStatuses so a later full sync cannot replace it.
+ */
+function setManualMatchStatus(doc, matchId, status, snapshot = null) {
+  const id = String(matchId || '').trim();
+  const nextStatus = String(status || '').trim();
+  if (!id || !nextStatus) throw new Error('matchId and status are required');
+  const base = toAdminMatchDoc(doc || emptyAdminMatchDoc());
+  const manualStatuses = collectManualStatuses(base);
+  const prev = manualStatuses[id] || {};
+  const snap =
+    snapshot && typeof snapshot === 'object'
+      ? { ...snapshotFromMatch(snapshot), matchId: id }
+      : prev.snapshot || null;
+  manualStatuses[id] = {
+    status: nextStatus,
+    statusLocked: true,
+    updatedAt: new Date().toISOString(),
+    ...(snap ? { snapshot: { ...snap, status: nextStatus, statusLocked: true } } : {}),
+  };
+  const matches = listAdminEntries(base).map((match) => {
+    if (match.matchId !== id) return match;
+    return {
+      ...match,
+      status: nextStatus,
+      manualStatus: nextStatus,
+      statusLocked: true,
+    };
+  });
+  return toAdminMatchDoc({
+    ...base,
+    matches,
+    matchCount: matches.length,
+    meta: {
+      ...(base.meta || {}),
+      feed: 'admin-match',
+      manualStatuses,
+    },
+  });
+}
+
 function preserveDiscoveredFields(previousDoc, nextDoc) {
   const prevById = new Map(
     listAdminEntries(previousDoc).map((m) => [m.matchId, m])
   );
+  // Previous locks win. A pipeline republish must not replace an admin status.
+  const manualStatuses = {
+    ...collectManualStatuses(nextDoc),
+    ...collectManualStatuses(previousDoc),
+  };
   const matches = listAdminEntries(nextDoc).map((m) => {
     const prev = prevById.get(m.matchId);
-    return prev ? applyStickyStoredMatch(m, prev) : m;
+    const sticky = prev ? applyStickyStoredMatch(m, prev) : m;
+    const locked = manualStatuses[sticky.matchId];
+    if (!locked?.status) return sticky;
+    return {
+      ...sticky,
+      status: locked.status,
+      manualStatus: locked.status,
+      statusLocked: true,
+    };
   });
-  return toAdminMatchDoc({ ...nextDoc, matches, matchCount: matches.length });
+  const prevMeta =
+    previousDoc?.meta && typeof previousDoc.meta === 'object' ? previousDoc.meta : {};
+  const nextMeta = nextDoc?.meta && typeof nextDoc.meta === 'object' ? nextDoc.meta : {};
+  return toAdminMatchDoc({
+    ...nextDoc,
+    matches,
+    matchCount: matches.length,
+    meta: {
+      ...nextMeta,
+      ...prevMeta,
+      feed: 'admin-match',
+      manualStatuses,
+    },
+  });
 }
 
 function extractOverrideEntry(stored) {
@@ -368,13 +521,40 @@ function applyAdminMatchDocToMatches(matches = [], doc) {
   const overrideById = new Map(
     listOverrideEntries(doc).map((e) => [e.matchId, e])
   );
-  if (!storedById.size) return matches;
-  return (matches || []).map((m) => {
-    const stored = storedById.get(m.matchId);
-    let next = stored ? applyStickyStoredMatch(m, stored) : m;
-    const entry = overrideById.get(m.matchId);
-    return entry ? applyAdminEntryToFixture(next, entry) : next;
-  });
+  const stamped = !storedById.size
+    ? matches || []
+    : (matches || []).map((m) => {
+        const stored = storedById.get(m.matchId);
+        let next = stored ? applyStickyStoredMatch(m, stored) : m;
+        const entry = overrideById.get(m.matchId);
+        return entry ? applyAdminEntryToFixture(next, entry) : next;
+      });
+  return stamped.map((match) => applyStoredManualStatus(match, doc));
+}
+
+/**
+ * Admin panel list: saved manual status wins, including matches the public
+ * feed already dropped (for example a manual END).
+ */
+function overlayManualStatusesForAdmin(matches, doc) {
+  const list = (matches || []).map((match) => applyStoredManualStatus(match, doc));
+  const seen = new Set(list.map((match) => match.matchId).filter(Boolean));
+  for (const [matchId, rec] of Object.entries(collectManualStatuses(doc))) {
+    if (seen.has(matchId)) continue;
+    const snap = rec.snapshot && typeof rec.snapshot === 'object' ? rec.snapshot : {};
+    list.push({
+      ...snap,
+      matchId,
+      homeTeam: snap.homeTeam || '(saved)',
+      awayTeam: snap.awayTeam || '',
+      league: snap.league || '',
+      status: rec.status,
+      manualStatus: rec.status,
+      statusLocked: true,
+      streams: Array.isArray(snap.streams) ? snap.streams : [],
+    });
+  }
+  return list;
 }
 
 module.exports = {
@@ -396,4 +576,8 @@ module.exports = {
   applyStickyStoredMatch,
   preserveDiscoveredFields,
   applyAdminMatchDocToMatches,
+  collectManualStatuses,
+  applyStoredManualStatus,
+  setManualMatchStatus,
+  overlayManualStatusesForAdmin,
 };

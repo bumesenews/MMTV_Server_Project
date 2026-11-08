@@ -8,6 +8,7 @@ const {
   clearAdminStreamUrl,
   findAdminEntry,
   applyAdminMatchDocToMatches,
+  setManualMatchStatus,
 } = require('../../utils/adminMatch');
 
 class AdminMatchService {
@@ -67,6 +68,17 @@ class AdminMatchService {
     const saved = await this.config.saveAdminMatchConfig(next, {
       actor,
       message: `chore: remove admin-match ${matchId}`,
+    });
+    this._doc = next;
+    return { doc: next, saved };
+  }
+
+  async setManualStatus(matchId, status, snapshot = null, { actor } = {}) {
+    const doc = await this.load(true);
+    const next = setManualMatchStatus(doc, matchId, status, snapshot);
+    const saved = await this.config.saveAdminMatchConfig(next, {
+      actor,
+      message: `chore: lock admin-match status ${matchId} ${status}`,
     });
     this._doc = next;
     return { doc: next, saved };

@@ -246,7 +246,21 @@ function dropRemovedManualStreams(streams, incoming) {
   });
 }
 
+function preferManualStatus(prev, incoming) {
+  if (incoming?.statusLocked && (incoming.manualStatus || incoming.status)) {
+    return incoming.manualStatus || incoming.status;
+  }
+  if (prev?.statusLocked && (prev.manualStatus || prev.status)) {
+    return prev.manualStatus || prev.status;
+  }
+  return null;
+}
+
 function combineMatchRecords(prev, incoming) {
+  const lockedStatus = preferManualStatus(prev, incoming);
+  const lockedFields = lockedStatus
+    ? { status: lockedStatus, manualStatus: lockedStatus, statusLocked: true }
+    : { statusLocked: Boolean(prev?.statusLocked || incoming?.statusLocked) };
   // Admin cleared stream URL(s) for this fixture — do not resurrect from
   // previous matches.json during republish sync.
   if (incoming?.streamsCleared) {
@@ -255,7 +269,7 @@ function combineMatchRecords(prev, incoming) {
       ...incoming,
       matchId: incoming.matchId || prev.matchId,
       manual: Boolean(prev.manual || incoming.manual),
-      statusLocked: Boolean(prev.statusLocked || incoming.statusLocked),
+      ...lockedFields,
       pinned: Boolean(prev.pinned || incoming.pinned),
       featured: Boolean(prev.featured || incoming.featured),
       streams: [],
@@ -327,7 +341,7 @@ function combineMatchRecords(prev, incoming) {
     ...incoming,
     matchId: incoming.matchId || prev.matchId,
     manual: Boolean(prev.manual || incoming.manual),
-    statusLocked: Boolean(prev.statusLocked || incoming.statusLocked),
+    ...lockedFields,
     pinned: Boolean(prev.pinned || incoming.pinned),
     featured: Boolean(prev.featured || incoming.featured),
     streams: keptStreams,

@@ -662,5 +662,53 @@ console.log('\n=== TEST 12 public stream aggregation (count, clone, manual, mult
   );
 }
 
+console.log('\n=== TEST 11 manual status survives admin-match sync ===');
+{
+  const {
+    setManualMatchStatus,
+    preserveDiscoveredFields,
+    applyAdminMatchDocToMatches,
+    overlayManualStatusesForAdmin,
+  } = require('../src/utils/adminMatch');
+
+  const locked = setManualMatchStatus(emptyAdminMatchDoc(), fixture.matchId, 'END', fixture);
+  check('manual END stored on admin-match meta', locked.meta.manualStatuses[fixture.matchId].status === 'END');
+  check('manual END is locked', locked.meta.manualStatuses[fixture.matchId].statusLocked === true);
+
+  const autoPreparing = {
+    ...fixture,
+    status: 'PREPARING_STREAM',
+    statusLocked: false,
+    streams: [],
+  };
+  const preserved = preserveDiscoveredFields(
+    locked,
+    generateFlutterJson([autoPreparing])
+  );
+  check(
+    'republish keeps manual END',
+    preserved.meta.manualStatuses[fixture.matchId].status === 'END' &&
+      preserved.matches[0].status === 'END' &&
+      preserved.matches[0].statusLocked === true
+  );
+
+  const applied = applyAdminMatchDocToMatches([autoPreparing], locked);
+  check('apply puts manual END ahead of PREPARING', applied[0].status === 'END' && applied[0].statusLocked === true);
+  check('apply records manualStatus for later auto passes', applied[0].manualStatus === 'END');
+
+  const liveLock = setManualMatchStatus(emptyAdminMatchDoc(), fixture.matchId, 'LIVE', fixture);
+  const liveApplied = applyAdminMatchDocToMatches([autoPreparing], liveLock);
+  check('manual LIVE is kept too', liveApplied[0].status === 'LIVE' && liveApplied[0].manualStatus === 'LIVE');
+
+  const dropped = overlayManualStatusesForAdmin([], locked);
+  check(
+    'admin reload still shows a manual END that left the public feed',
+    dropped.length === 1 && dropped[0].status === 'END' && dropped[0].homeTeam === 'Cagliari'
+  );
+
+  const reopened = overlayManualStatusesForAdmin([autoPreparing], locked);
+  check('admin reload replaces PREPARING with saved END', reopened[0].status === 'END' && reopened.length === 1);
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

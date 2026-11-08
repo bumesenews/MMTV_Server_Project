@@ -56,9 +56,10 @@ function resolveMatchStatus(match, options = {}) {
     return 'END';
   }
 
-  // Admin / manual fixtures: keep the status set from the admin panel
-  if (match.statusLocked && match.status) {
-    return match.status;
+  // Admin / manual fixtures: keep the status set from the admin panel.
+  // manualStatus wins when an earlier automatic pass already replaced status.
+  if (match.statusLocked && (match.manualStatus || match.status)) {
+    return match.manualStatus || match.status;
   }
 
   const kickSec = toUtcUnixSeconds(match.kickoff);
