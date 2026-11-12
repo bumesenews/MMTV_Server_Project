@@ -38,6 +38,8 @@ const DEFAULT_CRONS = Object.freeze({
   HIGHLIGHT_CRON: '0 5,8 * * *',
   RESULTS_CRON: '0 6,10 * * *',
   TIPS_CRON: '0 7,11 * * *',
+  // Daily gate. The job itself runs only when the last check is >= 2 days old.
+  HIGHLIGHT_PLAYBACK_CRON: '0 4 * * *',
 });
 
 /**

@@ -26,6 +26,13 @@ const { isDirectMediaUrl } = require('../sources/highlightMedia');
 const { TipsSource, resolveTipsDay } = require('../sources/tips');
 const { buildEngineStreamingSources } = require('../sources/registry');
 const { HighlightManager } = require('./highlightManager');
+const {
+  checkHighlightPlayable,
+  isHighlightPlaybackDue,
+  markPlaybackChecked,
+  playbackIntervalDays,
+  readPlaybackState,
+} = require('./highlightPlayback');
 const { getScraperMonitor, isTimeoutError } = require('../monitor/scraper.monitor');
 const { getGithubMonitor } = require('../monitor/github.monitor');
 const { getTelegramService } = require('./telegram.service');
@@ -62,6 +69,7 @@ function tipsHaveNewData(previous, next) {
  * - Highlights 05:00, again 08:00 when the 05:00 scrape stored nothing new
  * - Results 06:00, again 10:00 when the 06:00 scrape stored nothing new
  * - Tips 07:00, again 11:00 when the 07:00 scrape stored nothing new
+ * - Highlight playback check every 2 days (04:00 gate): drop videos that cannot play
  * Peak 17:00–03:00 Yangon: Matches only among heavy scrapers.
  */
 class Pipeline {
@@ -76,8 +84,11 @@ class Pipeline {
     this.monitoring = null;
     this.running = false;
     this.highlightRunning = false;
+    this.playbackRunning = false;
+    this._playbackSince = 0;
     this.lastRun = null;
     this.lastHighlightRun = null;
+    this.lastPlaybackRun = null;
     this.lastTipsRun = null;
     this.tipsRunning = false;
     this.resultsRunning = false;
@@ -132,6 +143,7 @@ class Pipeline {
     const locks = [
       ['running', '_runningSince', 'pipeline'],
       ['highlightRunning', '_highlightSince', 'highlight'],
+      ['playbackRunning', '_playbackSince', 'highlight_playback'],
       ['tipsRunning', '_tipsSince', 'tips'],
     ];
     for (const [flag, sinceKey, label] of locks) {
@@ -179,6 +191,7 @@ class Pipeline {
       running: Boolean(this.running),
       tipsRunning: Boolean(this.tipsRunning),
       highlightRunning: Boolean(this.highlightRunning),
+      playbackRunning: Boolean(this.playbackRunning),
       locks: {
         pipeline: {
           active: Boolean(this.running),
@@ -195,6 +208,11 @@ class Pipeline {
           since: this._highlightSince || null,
           ageSec: lockAge(this._highlightSince),
         },
+        highlightPlayback: {
+          active: Boolean(this.playbackRunning),
+          since: this._playbackSince || null,
+          ageSec: lockAge(this._playbackSince),
+        },
       },
       pending: {
         matches: Boolean(this._pendingMatches),
@@ -204,6 +222,7 @@ class Pipeline {
       },
       lastRun: this.lastRun || null,
       lastHighlightRun: this.lastHighlightRun || null,
+      lastPlaybackRun: this.lastPlaybackRun || null,
       lastTipsRun: this.lastTipsRun || null,
       lastDiscoveryAt: this.lastDiscoveryAt || null,
       lastDiscoverySummary: this.lastDiscoverySummary || null,
@@ -1307,6 +1326,11 @@ class Pipeline {
       logger.warn('Highlight job already running — skip overlapping run');
       return { ok: false, reason: 'already_running' };
     }
+    if (this.playbackRunning) {
+      this._queueHighlights({ force, slot });
+      logger.warn('Highlight playback check active — queue highlight job');
+      return { ok: false, reason: 'playback_running', queued: true };
+    }
     if (this.running) {
       this._queueHighlights({ force, slot });
       logger.warn('Pipeline active — queue highlight job');
@@ -1578,12 +1602,180 @@ class Pipeline {
     }
   }
 
+  /**
+   * Every two days, probe each stored highlight video.
+   * Remove entries whose playlist or file cannot be played.
+   * Timeouts, HTTP 401/403, and 5xx keep the row (CDN blocks are not proof it is dead).
+   */
+  async pruneUnplayableHighlights({ force = false } = {}) {
+    this._clearStuckJobLocks();
+    const intervalDays = playbackIntervalDays(this.env);
+    const lastCheckedAt = readPlaybackState().lastCheckedAt || null;
+    if (!force && !isHighlightPlaybackDue(lastCheckedAt, null, intervalDays)) {
+      logger.info('Highlight playback check not due', { lastCheckedAt, intervalDays });
+      return { ok: true, reason: 'not_due', lastCheckedAt };
+    }
+    if (!mayRunLowPriorityHeavyJob(null, { force })) {
+      logger.info('Peak football window — skip highlight playback check');
+      return { ok: false, reason: 'peak_window' };
+    }
+    if (this.playbackRunning) {
+      return { ok: false, reason: 'already_running' };
+    }
+    if (this.highlightRunning || this.running) {
+      logger.info('Highlight playback check deferred — another job is writing feeds');
+      return { ok: false, reason: 'busy' };
+    }
+
+    this.playbackRunning = true;
+    this._playbackSince = Date.now();
+    const startedAt = Date.now();
+    const removed = [];
+    const feeds = {};
+
+    try {
+      const bundle = this.cache.getDeliveryBundle();
+      const feedKeys = ['highlight1', 'highlight2'];
+      let anyRemoved = false;
+
+      for (const feedKey of feedKeys) {
+        const previous =
+          bundle[feedKey] ||
+          (feedKey === 'highlight1' ? bundle.highlight : null);
+        const list = Array.isArray(previous?.highlights) ? previous.highlights : [];
+        if (!previous || !list.length) {
+          feeds[feedKey] = { ok: true, checked: 0, removed: 0, kept: 0 };
+          continue;
+        }
+
+        const kept = [];
+        const dropped = [];
+        for (const highlight of list) {
+          let verdict;
+          try {
+            verdict = await checkHighlightPlayable(highlight);
+          } catch (err) {
+            verdict = { remove: false, reason: 'check_failed', state: null };
+            logger.warn('Highlight playback check failed — keep video', {
+              feed: feedKey,
+              id: highlight?.id || null,
+              error: err.message,
+            });
+          }
+          if (verdict.remove) {
+            dropped.push({
+              id: highlight?.id || null,
+              title: highlight?.title || '',
+              reason: verdict.reason,
+            });
+            logger.info('Removing unplayable highlight', {
+              feed: feedKey,
+              id: highlight?.id || null,
+              title: highlight?.title || '',
+              reason: verdict.reason,
+            });
+          } else {
+            kept.push(highlight);
+          }
+        }
+
+        feeds[feedKey] = {
+          ok: true,
+          checked: list.length,
+          removed: dropped.length,
+          kept: kept.length,
+        };
+        removed.push(...dropped.map((row) => ({ feed: feedKey, ...row })));
+        if (!dropped.length) continue;
+
+        anyRemoved = true;
+        const manager = new HighlightManager();
+        const nextDelivery = manager.buildDelivery(kept, {
+          source: previous.source || '',
+          scraped_at: new Date().toISOString(),
+        });
+        this.cache.writeJson(this.cache.deliveryFiles[feedKey], nextDelivery);
+        bundle[feedKey] = nextDelivery;
+        if (feedKey === 'highlight1') {
+          this.cache.writeJson(this.cache.deliveryFiles.highlight, nextDelivery);
+          bundle.highlight = nextDelivery;
+          const current = this.cache.getCurrent();
+          if (current) {
+            this.cache.saveGenerated({
+              ...current,
+              highlights: kept,
+              highlightCount: kept.length,
+            });
+          }
+        }
+
+        try {
+          const github = await this.github.uploadJsonIfChanged(
+            this.github.paths[feedKey],
+            nextDelivery,
+            { previousLocal: previous, feedKey }
+          );
+          feeds[feedKey].uploaded = Boolean(github?.uploaded);
+          feeds[feedKey].github = github?.reason || (github?.uploaded ? 'updated' : 'unchanged');
+          if (feedKey === 'highlight1') {
+            await this.github.uploadJsonIfChanged(
+              this.github.paths.highlight,
+              nextDelivery,
+              { previousLocal: previous, feedKey: 'highlight' }
+            );
+          }
+        } catch (err) {
+          feeds[feedKey].uploaded = false;
+          feeds[feedKey].github = 'github_error';
+          logger.warn('Highlight playback GitHub upload failed', {
+            feed: feedKey,
+            error: err.message,
+          });
+        }
+      }
+
+      markPlaybackChecked(
+        {
+          removed: removed.length,
+          kept: feedKeys.reduce((sum, key) => sum + (feeds[key]?.kept || 0), 0),
+        },
+        new Date()
+      );
+
+      this.lastPlaybackRun = {
+        ok: true,
+        reason: anyRemoved ? 'pruned' : 'all_playable',
+        removed: removed.length,
+        feeds,
+        at: new Date().toISOString(),
+        durationMs: Date.now() - startedAt,
+      };
+      logEvent(events.SCRAPER_SUCCESS, 'Highlight playback check completed', this.lastPlaybackRun);
+      return { ok: true, ...this.lastPlaybackRun, removedItems: removed };
+    } catch (err) {
+      this.lastPlaybackRun = {
+        ok: false,
+        reason: err.message,
+        at: new Date().toISOString(),
+        durationMs: Date.now() - startedAt,
+      };
+      logEvent(events.SCRAPER_ERROR, 'Highlight playback check failed', { error: err.message });
+      return { ok: false, reason: err.message };
+    } finally {
+      this.playbackRunning = false;
+      this._playbackSince = 0;
+      await this._drainQueuedJobs().catch((err) => {
+        logger.error('Queued job drain failed', { error: err.message });
+      });
+    }
+  }
+
   async _drainQueuedJobs() {
     if (this._drainingQueued) return;
     this._drainingQueued = true;
     try {
       for (;;) {
-        if (this.running || this.highlightRunning || this.tipsRunning) {
+        if (this.running || this.highlightRunning || this.tipsRunning || this.playbackRunning) {
           return;
         }
 

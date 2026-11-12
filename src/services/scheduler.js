@@ -11,6 +11,11 @@ const {
   morningSlotName,
   shouldRunMorningSlot,
 } = require('../utils/morningRetry');
+const {
+  isHighlightPlaybackDue,
+  playbackIntervalDays,
+  readPlaybackState,
+} = require('./highlightPlayback');
 
 /**
  * Job schedule (Asia/Yangon) — 1GB RAM safe:
@@ -25,6 +30,7 @@ const {
  * Morning scrapes, Asia/Yangon. The second time runs only when the first
  * scrape did not store new data:
  * └── Highlights 05:00, again 08:00
+ * └── Highlight playback check every 2 days (daily 04:00 gate)
  * └── Results 06:00, again 10:00
  * └── Tips 07:00, again 11:00
  * Results defers while Matches, Highlights, or Tips are actually running.
@@ -40,6 +46,7 @@ class Scheduler {
     this.env = env;
     this.task = null;
     this.highlightTask = null;
+    this.highlightPlaybackTask = null;
     this.channelsTask = null;
     this.tipsTask = null;
     this.domainTask = null;
@@ -57,6 +64,8 @@ class Scheduler {
     const resultsExpression = this.env.RESULTS_CRON || DEFAULT_CRONS.RESULTS_CRON;
     const tipsExpression = this.env.TIPS_CRON || DEFAULT_CRONS.TIPS_CRON;
     const domainExpression = this.env.DOMAIN_CHECK_CRON || '0 * * * *';
+    const playbackExpression =
+      this.env.HIGHLIGHT_PLAYBACK_CRON || DEFAULT_CRONS.HIGHLIGHT_PLAYBACK_CRON;
 
     if (!cron.validate(expression)) {
       logger.error('Invalid PIPELINE_CRON expression', { expression });
@@ -196,6 +205,47 @@ class Scheduler {
       );
     }
 
+    if (this.env.HIGHLIGHT_PLAYBACK_ENABLED === 'false') {
+      logger.info('Highlight playback check disabled (HIGHLIGHT_PLAYBACK_ENABLED=false)');
+    } else if (!cron.validate(playbackExpression)) {
+      logger.error('Invalid HIGHLIGHT_PLAYBACK_CRON expression', {
+        expression: playbackExpression,
+      });
+    } else {
+      this.highlightPlaybackTask = cron.schedule(
+        playbackExpression,
+        async () => {
+          const at = nowYangon();
+          const lastCheckedAt = readPlaybackState().lastCheckedAt || null;
+          logger.info('Highlight playback scheduler tick', {
+            at: at.toISO(),
+            expression: playbackExpression,
+            lastCheckedAt,
+          });
+          if (!mayRunLowPriorityHeavyJob(at)) {
+            logger.info(
+              'Peak football window (17:00–03:00 Yangon) — skip highlight playback check'
+            );
+            return;
+          }
+          if (
+            !isHighlightPlaybackDue(lastCheckedAt, at.toJSDate(), playbackIntervalDays(this.env))
+          ) {
+            logger.info('Highlight videos checked within the last two days — skip');
+            return;
+          }
+          try {
+            await this.pipeline.pruneUnplayableHighlights({ force: false });
+          } catch (err) {
+            logger.error('Scheduled highlight playback check failed', {
+              error: err.message,
+            });
+          }
+        },
+        { timezone: 'Asia/Yangon' }
+      );
+    }
+
     if (this.env.DOMAIN_CHECK_ENABLED === 'false') {
       logger.info('Domain check scheduler disabled (DOMAIN_CHECK_ENABLED=false)');
     } else if (!cron.validate(domainExpression)) {
@@ -226,6 +276,7 @@ class Scheduler {
     logger.info('Scheduler started', {
       expression,
       highlightExpression,
+      playbackExpression,
       resultsExpression,
       tipsExpression,
       domainExpression,
@@ -243,6 +294,10 @@ class Scheduler {
     if (this.highlightTask) {
       this.highlightTask.stop();
       this.highlightTask = null;
+    }
+    if (this.highlightPlaybackTask) {
+      this.highlightPlaybackTask.stop();
+      this.highlightPlaybackTask = null;
     }
     if (this.channelsTask) {
       this.channelsTask.stop();

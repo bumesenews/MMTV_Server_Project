@@ -6,9 +6,17 @@ const { Pipeline } = require('../services/pipeline');
 async function main() {
   const force = process.argv.includes('--force');
   const highlightsOnly = process.argv.includes('--highlights');
+  const highlightPlaybackOnly = process.argv.includes('--highlight-playback');
   const tipsOnly = process.argv.includes('--tips');
   const resultsOnly = process.argv.includes('--results');
   const pipeline = new Pipeline(process.env);
+
+  if (highlightPlaybackOnly) {
+    logger.info('CLI highlight playback check');
+    const result = await pipeline.pruneUnplayableHighlights({ force: true });
+    console.log(JSON.stringify(result, null, 2));
+    process.exit(result.ok ? 0 : 1);
+  }
 
   if (highlightsOnly) {
     logger.info('CLI highlight job', { force });

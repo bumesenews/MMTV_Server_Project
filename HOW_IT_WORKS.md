@@ -128,6 +128,7 @@ All crons use timezone **`Asia/Yangon`**. Module: `src/services/scheduler.js`.
 |-----|-----|------|--------|
 | Main pipeline | `PIPELINE_CRON` | `*/5 * * * *` | `matches.json` (fixtures + Match URL + extract + status + publish) |
 | Highlights | `HIGHLIGHT_CRON` | `0 5,8 * * *` | `highlight1.json` + `highlight2.json` (08:00 only if 05:00 stored nothing new) |
+| Highlight playback | `HIGHLIGHT_PLAYBACK_CRON` | `0 4 * * *` | Every 2 days, remove highlight videos that cannot be played |
 | MyanmarTV | `MYANMARTV_CRON` | `*/8 * * * *` | `myanmartv.json` |
 | Tips | `TIPS_CRON` | `0 7,11 * * *` | `tips.json` (07:00, and 11:00 only if 07:00 stored nothing new) |
 | Domain check | `DOMAIN_CHECK_CRON` | `0 * * * *` | Telegram only |
@@ -393,6 +394,7 @@ Helper script to verify sites vs today’s fixtures: `node scripts/checkTodayMat
 - Runs **highlight1** (Hoofoot) then **highlight2** (Socolive video-highlight) sequentially
 - Writes `highlight1.json` (+ legacy `highlight.json` mirror) and `highlight2.json`
 - Empty / failed scrape → keep previous; GitHub `refuse_empty`
+- Playback check (`Pipeline.pruneUnplayableHighlights`): the 04:00 Yangon cron runs the check only when the last one is at least 2 days old. Each stored `m3u8` or `mp4` is probed. Videos that return 404 or 410, empty or broken playlists, or have no media URL are removed from `highlight1.json`, `highlight.json`, and `highlight2.json`, then uploaded. Timeouts, HTTP 401/403, and 5xx keep the row. `HIGHLIGHT_PLAYBACK_ENABLED=false` turns the cron off. Manual run: `npm run scrape -- --highlight-playback`
 
 ### Tips — `Pipeline.runTips`
 

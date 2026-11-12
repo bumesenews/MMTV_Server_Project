@@ -37,6 +37,8 @@ module.exports = {
         MAX_STREAM_RETRIES: '1',
         PIPELINE_CRON: '*/5 * * * *',
         HIGHLIGHT_CRON: '0 5,8 * * *',
+        HIGHLIGHT_PLAYBACK_CRON: '0 4 * * *',
+        HIGHLIGHT_PLAYBACK_ENABLED: 'true',
         RESULTS_CRON: '0 6,10 * * *',
         TIPS_CRON: '0 7,11 * * *',
         DOMAIN_CHECK_ENABLED: 'true',

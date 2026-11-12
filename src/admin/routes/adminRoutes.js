@@ -1637,6 +1637,29 @@ function createAdminRouter(ctx) {
     }
   });
 
+  router.post('/pipeline/highlight-playback', auth, editor, async (req, res) => {
+    try {
+      const result = await ctx.pipeline.pruneUnplayableHighlights({ force: true });
+      ctx.logService.add({
+        category: 'scraper',
+        action: 'highlight_playback',
+        message: `Highlight playback check removed=${result.removed || 0}`,
+        actor: req.admin.username,
+        meta: result,
+      });
+      if (['already_running', 'busy', 'peak_window'].includes(result.reason)) {
+        return res.status(409).json({
+          ok: false,
+          error: 'Highlight playback check did not run.',
+          reason: result.reason,
+        });
+      }
+      res.json({ ok: Boolean(result.ok), ...result });
+    } catch (err) {
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+
   router.post('/pipeline/highlights', auth, editor, async (req, res) => {
     try {
       const result = await ctx.pipeline.runHighlights({
@@ -1649,7 +1672,11 @@ function createAdminRouter(ctx) {
         actor: req.admin.username,
         meta: result,
       });
-      if (result.reason === 'already_running' || result.reason === 'pipeline_running') {
+      if (
+        result.reason === 'already_running' ||
+        result.reason === 'pipeline_running' ||
+        result.reason === 'playback_running'
+      ) {
         return res.status(409).json({
           ok: false,
           error: 'Another job is running. Try again shortly.',
