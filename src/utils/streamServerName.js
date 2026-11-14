@@ -63,8 +63,9 @@ function isManualStream(stream) {
 }
 
 /**
- * Public/final list: unique server names, max 1 auto stream per website, max 4 auto streams.
- * Manual/admin rows stay first and are not counted against the 4-site cap.
+ * Public/final list: one row per server name.
+ * Manual/admin rows stay first and are not counted against the 4-site auto cap.
+ * A repeated name, including several "MANUAL NICK" links, keeps the first row only.
  */
 function selectUniqueNamedStreams(streams, { maxAuto = 4 } = {}) {
   const manual = [];
@@ -76,6 +77,14 @@ function selectUniqueNamedStreams(streams, { maxAuto = 4 } = {}) {
   }
 
   const usedNames = new Set();
+  const keptManual = [];
+  for (const stream of manual) {
+    const name = streamServerName(stream);
+    if (!name || usedNames.has(name)) continue;
+    usedNames.add(name);
+    keptManual.push(stream);
+  }
+
   const usedSources = new Set();
   const picked = [];
   for (const stream of auto) {
@@ -88,7 +97,7 @@ function selectUniqueNamedStreams(streams, { maxAuto = 4 } = {}) {
     usedSources.add(source);
     picked.push(stream);
   }
-  return [...manual, ...picked];
+  return [...keptManual, ...picked];
 }
 
 module.exports = {

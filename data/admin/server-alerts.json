@@ -1,0 +1,13 @@
+{
+  "alerts": [
+    {
+      "id": "1794621307823",
+      "at": "2026-11-14T01:55:07.823Z",
+      "key": "github_upload_failed",
+      "title": "⚠️ GitHub Upload Failed",
+      "body": "⚠️ GitHub Upload Failed\nRepository:\nYOUR_GITHUB_OWNER/YOUR_GITHUB_REPO\nError:\nread ECONNRESET\nTime:\n2026-11-14 08:25:06 GMT+6:30",
+      "fingerprint": "gh::read ECONNRESET",
+      "telegram": "sent"
+    }
+  ]
+}

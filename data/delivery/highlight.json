@@ -1,119 +1,151 @@
 {
-  "source": "https://hoofoot.com/",
-  "scraped_at": "2026-09-06T01:18:51.121Z",
+  "source": "https://dasfootball.com/",
+  "scraped_at": "2026-11-14T01:55:06.687Z",
   "count": 8,
   "highlights": [
     {
-      "id": "37949",
-      "title": "Nijmegen FC v Bodo Glimt",
-      "img": "https://th.hoofoot.com/pics/37777.jpg",
-      "url": "https://hoofoot.com/?match=Nijmegen_FC_v_Bodo_Glimt_2026_08_19",
-      "match_date": "2026-08-19",
-      "embed_url": "https://app.videas.fr/embed/media/24cacea8-3e53-426d-ba13-398eaacedfbb/?title=false&logo=false",
-      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/93/a3/93a39884-167f-444c-a660-364cfc43b730/playlist.m3u8",
+      "id": "highlight1:slovakia-vs-faroe-islands-highlights-2026-11-13",
+      "title": "Slovakia vs Faroe Islands",
+      "img": "https://dasfootball.com/wp-content/uploads/2025/01/Dasfootball-Social.webp",
+      "url": "https://dasfootball.com/slovakia-vs-faroe-islands-highlights-2026-11-13/",
+      "match_date": "2026-11-13",
+      "embed_url": "https://dasfootball.com/slovakia-vs-faroe-islands-highlights-2026-11-13/",
+      "m3u8": "https://c-cdn.streamin.top/uploads/7280fceb.mp4",
       "headers": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://app.videas.fr/embed/media/24cacea8-3e53-426d-ba13-398eaacedfbb/?title=false&logo=false"
+        "Referer": "https://dasfootball.com/slovakia-vs-faroe-islands-highlights-2026-11-13/"
       },
-      "source": "highlight1"
+      "source": "highlight1",
+      "homeTeam": null,
+      "awayTeam": null,
+      "homeLogo": null,
+      "awayLogo": null
     },
     {
-      "id": "37948",
-      "title": "Celtic v LASK Linz",
-      "img": "https://th.hoofoot.com/pics/37776.jpg",
-      "url": "https://hoofoot.com/?match=Celtic_v_LASK_Linz_2026_08_19",
-      "match_date": "2026-08-19",
-      "embed_url": "https://app.videas.fr/embed/media/885ea4fc-2603-498a-bdbf-458549916e79/?title=false&logo=false",
-      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/f4/8e/f48ee092-6fd0-42a2-8104-3659e238db46/playlist.m3u8",
+      "id": "highlight1:serbia-vs-germany-highlights-2026-11-13",
+      "title": "Serbia vs Germany",
+      "img": "https://dasfootball.com/wp-content/uploads/2025/01/Dasfootball-Social.webp",
+      "url": "https://dasfootball.com/serbia-vs-germany-highlights-2026-11-13/",
+      "match_date": "2026-11-13",
+      "embed_url": "https://dasfootball.com/serbia-vs-germany-highlights-2026-11-13/",
+      "m3u8": "https://streamin.me/uploads/c0b4681c.mp4",
       "headers": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://app.videas.fr/embed/media/885ea4fc-2603-498a-bdbf-458549916e79/?title=false&logo=false"
+        "Referer": "https://dasfootball.com/serbia-vs-germany-highlights-2026-11-13/"
       },
-      "source": "highlight1"
+      "source": "highlight1",
+      "homeTeam": null,
+      "awayTeam": null,
+      "homeLogo": null,
+      "awayLogo": null
     },
     {
-      "id": "37947",
-      "title": "Atletico Madrid v Malaga",
-      "img": "https://th.hoofoot.com/pics/37775.jpg",
-      "url": "https://hoofoot.com/?match=Atletico_Madrid_v_Malaga_2026_08_19",
-      "match_date": "2026-08-19",
-      "embed_url": "https://app.videas.fr/embed/media/a402081d-62c2-4e4b-bb48-f49480b51023/?title=false&logo=false",
-      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/7c/73/7c7332cc-1d0d-4088-b2c7-3fdf60645fb4/playlist.m3u8",
+      "id": "highlight1:netherlands-vs-greece-highlights-2026-11-13",
+      "title": "Netherlands vs Greece",
+      "img": "https://dasfootball.com/wp-content/uploads/2025/01/Dasfootball-Social.webp",
+      "url": "https://dasfootball.com/netherlands-vs-greece-highlights-2026-11-13/",
+      "match_date": "2026-11-13",
+      "embed_url": "https://dasfootball.com/netherlands-vs-greece-highlights-2026-11-13/",
+      "m3u8": "https://streamin.me/uploads/9a3d3cff.mp4",
       "headers": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://app.videas.fr/embed/media/a402081d-62c2-4e4b-bb48-f49480b51023/?title=false&logo=false"
+        "Referer": "https://dasfootball.com/netherlands-vs-greece-highlights-2026-11-13/"
       },
-      "source": "highlight1"
+      "source": "highlight1",
+      "homeTeam": null,
+      "awayTeam": null,
+      "homeLogo": null,
+      "awayLogo": null
     },
     {
-      "id": "37946",
-      "title": "Barcelona v Al Ahly",
-      "img": "https://th.hoofoot.com/pics/37774.jpg",
-      "url": "https://hoofoot.com/?match=Barcelona_v_Al_Ahly_2026_08_19",
-      "match_date": "2026-08-19",
-      "embed_url": "https://app.videas.fr/embed/media/4d0480af-d567-4915-bab2-9ddb2c539c6f/?title=false&logo=false",
-      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/52/59/5259dc7b-153a-4adc-b4a8-d3725e731e5a/playlist.m3u8",
+      "id": "highlight1:moldova-vs-kazakhstan-highlights-2026-11-13",
+      "title": "Moldova vs Kazakhstan",
+      "img": "https://dasfootball.com/wp-content/uploads/2025/01/Dasfootball-Social.webp",
+      "url": "https://dasfootball.com/moldova-vs-kazakhstan-highlights-2026-11-13/",
+      "match_date": "2026-11-13",
+      "embed_url": "https://dasfootball.com/moldova-vs-kazakhstan-highlights-2026-11-13/",
+      "m3u8": "https://c-cdn.streamin.top/uploads/89a249ce.mp4",
       "headers": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://app.videas.fr/embed/media/4d0480af-d567-4915-bab2-9ddb2c539c6f/?title=false&logo=false"
+        "Referer": "https://dasfootball.com/moldova-vs-kazakhstan-highlights-2026-11-13/"
       },
-      "source": "highlight1"
+      "source": "highlight1",
+      "homeTeam": null,
+      "awayTeam": null,
+      "homeLogo": null,
+      "awayLogo": null
     },
     {
-      "id": "37945",
-      "title": "Fenerbahce v Lyon",
-      "img": "https://th.hoofoot.com/pics/37773.jpg",
-      "url": "https://hoofoot.com/?match=Fenerbahce_v_Olympique_Lyonnais_2026_08_18",
-      "match_date": "2026-08-18",
-      "embed_url": "https://app.videas.fr/embed/media/c784f4ed-c03a-4b29-983c-5f9ab12af83d/?title=false&logo=false",
-      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/b7/e9/b7e95d52-4319-45b2-85d3-b3e716693910/playlist.m3u8",
+      "id": "highlight1:luxembourg-vs-estonia-highlights-2026-11-13",
+      "title": "Luxembourg vs Estonia",
+      "img": "https://dasfootball.com/wp-content/uploads/2025/01/Dasfootball-Social.webp",
+      "url": "https://dasfootball.com/luxembourg-vs-estonia-highlights-2026-11-13/",
+      "match_date": "2026-11-13",
+      "embed_url": "https://dasfootball.com/luxembourg-vs-estonia-highlights-2026-11-13/",
+      "m3u8": "https://c-cdn.streamin.top/uploads/c6871091.mp4",
       "headers": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://app.videas.fr/embed/media/c784f4ed-c03a-4b29-983c-5f9ab12af83d/?title=false&logo=false"
+        "Referer": "https://dasfootball.com/luxembourg-vs-estonia-highlights-2026-11-13/"
       },
-      "source": "highlight1"
+      "source": "highlight1",
+      "homeTeam": null,
+      "awayTeam": null,
+      "homeLogo": null,
+      "awayLogo": null
     },
     {
-      "id": "37944",
-      "title": "Heidenheim v Bayern Munich",
-      "img": "https://th.hoofoot.com/pics/37772.jpg",
-      "url": "https://hoofoot.com/?match=Heidenheim_v_Bayern_Munich_2026_08_18",
-      "match_date": "2026-08-18",
-      "embed_url": "https://app.videas.fr/embed/media/a219bacd-41f5-40f3-8e3b-f4792e7dfd7b/?title=false&logo=false",
-      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/27/22/2722450d-48ec-42af-84be-e145d464c9c0/playlist.m3u8",
+      "id": "highlight1:liechtenstein-vs-azerbaijan-highlights-2026-11-13",
+      "title": "Liechtenstein vs Azerbaijan",
+      "img": "https://dasfootball.com/wp-content/uploads/2025/01/Dasfootball-Social.webp",
+      "url": "https://dasfootball.com/liechtenstein-vs-azerbaijan-highlights-2026-11-13/",
+      "match_date": "2026-11-13",
+      "embed_url": "https://dasfootball.com/liechtenstein-vs-azerbaijan-highlights-2026-11-13/",
+      "m3u8": "https://c-cdn.streamin.top/uploads/3bff19bb.mp4",
       "headers": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://app.videas.fr/embed/media/a219bacd-41f5-40f3-8e3b-f4792e7dfd7b/?title=false&logo=false"
+        "Referer": "https://dasfootball.com/liechtenstein-vs-azerbaijan-highlights-2026-11-13/"
       },
-      "source": "highlight1"
+      "source": "highlight1",
+      "homeTeam": null,
+      "awayTeam": null,
+      "homeLogo": null,
+      "awayLogo": null
     },
     {
-      "id": "37943",
-      "title": "Deportivo v Elche",
-      "img": "https://th.hoofoot.com/pics/37771.jpg",
-      "url": "https://hoofoot.com/?match=Deportivo_v_Elche_2026_08_17",
-      "match_date": "2026-08-17",
-      "embed_url": "https://app.videas.fr/embed/media/1af5f61a-748a-48fb-a447-71b1557346fd/?title=false&logo=false",
-      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/2d/67/2d675d24-14c3-4074-8956-f51726e75817/playlist.m3u8",
+      "id": "highlight1:bulgaria-vs-iceland-highlights-2026-11-13",
+      "title": "Bulgaria vs Iceland",
+      "img": "https://dasfootball.com/wp-content/uploads/2025/01/Dasfootball-Social.webp",
+      "url": "https://dasfootball.com/bulgaria-vs-iceland-highlights-2026-11-13/",
+      "match_date": "2026-11-13",
+      "embed_url": "https://dasfootball.com/bulgaria-vs-iceland-highlights-2026-11-13/",
+      "m3u8": "https://c-cdn.streamin.top/uploads/6876884c.mp4",
       "headers": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://app.videas.fr/embed/media/1af5f61a-748a-48fb-a447-71b1557346fd/?title=false&logo=false"
+        "Referer": "https://dasfootball.com/bulgaria-vs-iceland-highlights-2026-11-13/"
       },
-      "source": "highlight1"
+      "source": "highlight1",
+      "homeTeam": null,
+      "awayTeam": null,
+      "homeLogo": null,
+      "awayLogo": null
     },
     {
-      "id": "37935",
-      "title": "Arsenal v Manchester City",
-      "img": "https://th.hoofoot.com/pics/37763.jpg",
-      "url": "https://hoofoot.com/?match=Arsenal_v_Manchester_City_2026_08_16",
-      "match_date": "2026-08-16",
-      "embed_url": "https://app.videas.fr/embed/media/d1b44a3c-193a-4e9e-bcbe-4df943c3931b/?title=false&logo=false",
-      "m3u8": "https://cdn.videas.fr/v-medias/s5/hlsv1/85/09/85099d7c-d2e7-47a8-993e-4de4ac8bf2b9/playlist.m3u8",
+      "id": "highlight1:andorra-vs-gibraltar-highlights-2026-11-13",
+      "title": "Andorra vs Gibraltar",
+      "img": "https://dasfootball.com/wp-content/uploads/2025/01/Dasfootball-Social.webp",
+      "url": "https://dasfootball.com/andorra-vs-gibraltar-highlights-2026-11-13/",
+      "match_date": "2026-11-13",
+      "embed_url": "https://dasfootball.com/andorra-vs-gibraltar-highlights-2026-11-13/",
+      "m3u8": "https://c-cdn.streamin.top/uploads/36144727.mp4",
       "headers": {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "Referer": "https://app.videas.fr/embed/media/d1b44a3c-193a-4e9e-bcbe-4df943c3931b/?title=false&logo=false"
+        "Referer": "https://dasfootball.com/andorra-vs-gibraltar-highlights-2026-11-13/"
       },
-      "source": "highlight1"
+      "source": "highlight1",
+      "homeTeam": null,
+      "awayTeam": null,
+      "homeLogo": null,
+      "awayLogo": null
     }
   ]
 }

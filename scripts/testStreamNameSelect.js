@@ -107,5 +107,22 @@ console.log('\n=== Final list unique names + 1 per source ===');
   );
 }
 
+console.log('\n=== Duplicate manual names keep the first row ===');
+{
+  const out = selectUniqueNamedStreams([
+    { source: 'manual', name: 'NICK', url: 'https://nick-1' },
+    { source: 'manual', name: 'MANUAL NICK', url: 'https://nick-2' },
+    { source: 'manual', name: 'KOSOVO', url: 'https://kosovo' },
+    { source: 'manual', name: '6131', url: 'https://6131' },
+    { source: 'manual', name: 'ENG SD', url: 'https://eng' },
+    { source: 'manual', name: 'HD', url: 'https://hd' },
+  ]);
+  check(
+    'one NICK plus the other names',
+    out.map((s) => s.url).join(',') === 'https://nick-1,https://kosovo,https://6131,https://eng,https://hd',
+    out.map((s) => s.url).join(',')
+  );
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
