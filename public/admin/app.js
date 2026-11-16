@@ -503,12 +503,11 @@
     const addRow = (url = '', source = '') => {
       const wrap = document.createElement('div');
       wrap.className = 'ml-url-row';
-      wrap.style.cssText = 'display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap;margin-bottom:8px';
       wrap.innerHTML = `
-        <label style="flex:0 0 110px">Source
+        <label>Source
           <select data-ml-source>${matchUrlSourceOptions(source)}</select>
         </label>
-        <label style="flex:1;min-width:160px">Match page URL
+        <label>Match page URL
           <input data-ml-url type="text" value="${esc(url)}" placeholder="https://…/truc-tiep/…" />
         </label>
         <button type="button" class="danger" data-remove-url>Remove</button>`;
@@ -604,126 +603,162 @@
       leagues.map((l) => [String(l.standardName || '').toLowerCase(), l.iconUrl || ''])
     );
 
+    const headerOf = (stream, match, names) => {
+      for (const name of names) {
+        const value =
+          stream?.headers?.[name] ||
+          stream?.streamHeaders?.[name] ||
+          match?.streamHeaders?.[name] ||
+          '';
+        if (value) return String(value);
+      }
+      return '';
+    };
+    const streamViews = (m) =>
+      (m.streams || [])
+        .map((s) => {
+          const rows = [
+            ['m3u8', s.url || ''],
+            ['User-Agent', headerOf(s, m, ['User-Agent', 'user-agent'])],
+            ['Referer', headerOf(s, m, ['Referer', 'referer'])],
+            ['Origin', headerOf(s, m, ['Origin', 'origin'])],
+            ['Cookie', headerOf(s, m, ['Cookie', 'cookie']) || streamCookieText(s, m)],
+          ].filter(([, value]) => value);
+          return `
+            <div class="ml-stream-view">
+              <strong>${esc(s.name || s.quality || 'HD')}</strong>
+              ${rows
+                .map(
+                  ([label, value]) =>
+                    `<div class="ml-kv"><span>${esc(label)}</span><code title="${esc(value)}">${esc(value)}</code></div>`
+                )
+                .join('')}
+            </div>`;
+        })
+        .join('');
+
     pageEl.innerHTML = `
       <div class="panel">
         <p class="muted">Admin-only feed published to <code>mainlive.json</code> on GitHub. Separate from scraped <code>matches.json</code>.</p>
         <p class="muted"><strong>Kickoff date/time = Asia/Yangon wall clock</strong> (not UTC, not your browser timezone). Pick hour + <strong>AM or PM</strong>. Example: <code>7:30 PM</code> → <code>19:30 +06:30</code>.</p>
         <h3>Add MainLive Match</h3>
-        <form id="mainlive-create-form" class="grid-2">
-          <label>League
-            <input name="league" list="mainlive-league-list" required placeholder="Type any league name" autocomplete="off" />
-            <datalist id="mainlive-league-list">${leagueOpts}</datalist>
-          </label>
-          <label>League logo URL<input name="leagueIcon" placeholder="https://.../league.png" /></label>
-          <label>Home team name
-            <input name="homeTeam" list="mainlive-team-list" required placeholder="Home team" />
-          </label>
-          <label>Home team logo URL<input name="homeLogo" placeholder="https://.../home.png" /></label>
-          <label>Away team name
-            <input name="awayTeam" list="mainlive-team-list" required placeholder="Away team" />
-          </label>
-          <label>Away team logo URL<input name="awayLogo" placeholder="https://.../away.png" /></label>
-          <datalist id="mainlive-team-list">${teamOpts}</datalist>
-          <label>Date (Asia/Yangon)<input name="date" type="date" required /></label>
-          ${clock12SelectsHtml('time', '7:00 PM')}
-          <label>Status
-            <select name="status">
-              <option>Scheduled</option>
-              <option>LIVE</option>
-              <option>END</option>
-            </select>
-          </label>
-          <div style="grid-column:1/-1">
-            <strong>Match page URLs</strong>
-            <p class="muted" style="margin:4px 0 8px">Add as many streaming-site pages as you need. Each one is searched for an m3u8.</p>
+        <form id="mainlive-create-form" class="ml-form">
+          <div class="ml-block">
+            <h4>Match</h4>
+            <div class="grid-2">
+              <label>League
+                <input name="league" list="mainlive-league-list" required placeholder="Type any league name" autocomplete="off" />
+                <datalist id="mainlive-league-list">${leagueOpts}</datalist>
+              </label>
+              <label>League logo URL<input name="leagueIcon" placeholder="https://.../league.png" /></label>
+              <label>Home team name
+                <input name="homeTeam" list="mainlive-team-list" required placeholder="Home team" />
+              </label>
+              <label>Home team logo URL<input name="homeLogo" placeholder="https://.../home.png" /></label>
+              <label>Away team name
+                <input name="awayTeam" list="mainlive-team-list" required placeholder="Away team" />
+              </label>
+              <label>Away team logo URL<input name="awayLogo" placeholder="https://.../away.png" /></label>
+              <datalist id="mainlive-team-list">${teamOpts}</datalist>
+              <label>Date (Asia/Yangon)<input name="date" type="date" required /></label>
+              ${clock12SelectsHtml('time', '7:00 PM')}
+              <label>Status
+                <select name="status">
+                  <option>Scheduled</option>
+                  <option>LIVE</option>
+                  <option>END</option>
+                </select>
+              </label>
+            </div>
+          </div>
+          <div class="ml-block">
+            <div class="ml-block-head">
+              <h4>Match page URLs</h4>
+            </div>
+            <p class="muted" style="margin:0">Add one page per row. Use <strong>+ Add URL</strong> for more pages on the same match, and <strong>Remove</strong> to drop a row.</p>
             <div id="mainlive-match-urls"></div>
           </div>
-          <div style="grid-column:1/-1">
-            <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px">
-              <strong>Stream URLs</strong>
+          <div class="ml-block">
+            <div class="ml-block-head">
+              <h4>Streams</h4>
               <button type="button" class="secondary" id="mainlive-add-stream">+ Add stream</button>
             </div>
-            <p class="muted" style="margin:0 0 8px">Each match page above is searched for an m3u8. You can still add m3u8s by hand below. Each hand-entered stream saves User-Agent, Referer, Cookie, and Origin.</p>
+            <p class="muted" style="margin:0">Optional. Each stream stores an m3u8 plus User-Agent, Referer, Origin, and Cookie. Leave a row blank to skip it.</p>
             <div id="mainlive-streams"></div>
           </div>
-          <div style="grid-column:1/-1"><button type="submit">Create MainLive Match</button></div>
+          <div><button type="submit">Create MainLive Match</button></div>
         </form>
       </div>
-      <div class="panel">
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Match</th><th>League</th><th>Kickoff</th><th>Status</th><th>Match URLs</th><th>Streams</th><th>Flags</th><th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${state.mainlive.map((m) => `
-                <tr data-id="${esc(m.matchId)}">
-                  <td>
-                    <strong>${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</strong>
-                    <div class="muted" style="font-size:0.75rem">${esc(m.matchId)}</div>
-                  </td>
-                  <td>${esc(m.league || '')}${m.leagueIcon ? `<div><img src="${esc(m.leagueIcon)}" alt="" style="height:18px;margin-top:4px" /></div>` : ''}</td>
-                  <td>${esc(m.date || '')} ${esc(formatClock12(m.time || m.kickoff))} <span class="muted" style="font-size:0.7rem">Yangon</span></td>
-                  <td><span class="badge ${m.status === 'LIVE' ? 'live' : ''}">${esc(m.status || '')}</span></td>
-                  <td>
-                    <div class="ml-url-box"></div>
-                    <button type="button" class="secondary" data-act="save-match-url" title="Save page URLs. m3u8 search runs from 30 minutes before kickoff until 30 minutes after">Save URLs</button>
-                  </td>
-                  <td>
-                    ${(m.streams || []).length}${m.matchUrlStatus ? ` · ${esc(m.matchUrlStatus)}` : ''}
-                    ${m.streamUrl || (m.streams || []).length
-                      ? `<div class="muted" style="font-size:0.72rem;word-break:break-all;max-width:220px">${esc(m.streamUrl || (m.streams[0] && m.streams[0].url) || '')}</div>
-                         ${streamCookieText(m.streams && m.streams[0], m) ? `<div class="muted" style="font-size:0.72rem;word-break:break-all;max-width:220px" title="${esc(streamCookieText(m.streams && m.streams[0], m))}">Cookie: ${esc(streamCookieText(m.streams && m.streams[0], m))}</div>` : ''}
-                         <button type="button" class="danger" style="padding:2px 6px;font-size:0.7rem;margin-top:4px" data-act="clear-stream-url">Delete stream URL</button>`
-                      : ''}
-                  </td>
-                  <td>
-                    ${m.pinned ? '<span class="badge">PIN</span>' : ''}
-                    ${m.featured ? '<span class="badge">FEAT</span>' : ''}
-                  </td>
-                  <td>
-                    <div class="row">
-                      <button class="secondary" data-act="toggle" data-field="pinned">${m.pinned ? 'Unpin' : 'Pin'}</button>
-                      <button class="secondary" data-act="toggle" data-field="featured">${m.featured ? 'Unfeature' : 'Feature'}</button>
-                      <button class="secondary" data-act="streams">Streams</button>
-                      <label class="row" style="gap:6px;align-items:center;margin:0" title="Auto: Live at 5 minutes before kickoff only when a stream URL is saved. No stream stays Preparing, then End 30 minutes after kickoff. Manual: the status you pick stays locked.">
-                        <span class="badge">${m.statusLocked ? 'MANUAL' : 'AUTO'}</span>
-                        <span style="font-size:0.78rem">Manual</span>
-                        <input type="checkbox" data-act="auto-status" ${m.statusLocked ? '' : 'checked'} />
-                        <span style="font-size:0.78rem">Auto</span>
-                      </label>
-                      <select data-act="status">
-                        ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-                      </select>
-                      <input data-act="kickoff-date" type="date" value="${esc(m.date || '')}" title="Asia/Yangon date" />
-                      <select data-act="kickoff-hour" title="Hour">
-                        ${Array.from({ length: 12 }, (_, i) => i + 1).map((h) => {
-                          const cur = parseClockTo12(m.time || m.kickoff);
-                          return `<option value="${h}" ${h === cur.hour ? 'selected' : ''}>${h}</option>`;
-                        }).join('')}
-                      </select>
-                      <select data-act="kickoff-minute" title="Minute">
-                        ${Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map((min) => {
-                          const cur = parseClockTo12(m.time || m.kickoff);
-                          return `<option value="${min}" ${min === cur.minute ? 'selected' : ''}>${min}</option>`;
-                        }).join('')}
-                      </select>
-                      <select data-act="kickoff-period" title="AM or PM">
-                        ${['AM', 'PM'].map((p) => {
-                          const cur = parseClockTo12(m.time || m.kickoff);
-                          return `<option value="${p}" ${p === cur.period ? 'selected' : ''}>${p}</option>`;
-                        }).join('')}
-                      </select>
-                      <button class="secondary" data-act="save-kickoff" title="Saved as Asia/Yangon">Set Time (Yangon)</button>
-                      <button class="danger" data-act="delete">Delete</button>
-                    </div>
-                  </td>
-                </tr>`).join('') || '<tr><td colspan="8" class="muted">No MainLive matches yet. Add one above.</td></tr>'}
-            </tbody>
-          </table>
-        </div>
+      <div class="ml-list">
+        ${state.mainlive.map((m) => `
+          <article class="ml-card" data-id="${esc(m.matchId)}">
+            <div class="ml-card-head">
+              <div>
+                <h3>${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</h3>
+                <div class="muted" style="font-size:0.75rem">${esc(m.matchId)}</div>
+              </div>
+              <span class="badge ${m.status === 'LIVE' ? 'live' : ''}">${esc(m.status || '')}</span>
+            </div>
+            <div class="ml-meta">
+              <span>${esc(m.league || '—')}${m.leagueIcon ? ` <img src="${esc(m.leagueIcon)}" alt="" style="height:16px;vertical-align:middle" />` : ''}</span>
+              <span>${esc(m.date || '')} ${esc(formatClock12(m.time || m.kickoff))} <span class="muted">Yangon</span></span>
+              ${m.pinned ? '<span class="badge">PIN</span>' : ''}
+              ${m.featured ? '<span class="badge">FEAT</span>' : ''}
+              ${m.matchUrlStatus ? `<span class="badge">${esc(m.matchUrlStatus)}</span>` : ''}
+            </div>
+            <div class="ml-block">
+              <div class="ml-block-head">
+                <h4>Match page URLs</h4>
+                <span class="muted">${mainLivePageUrls(m).length} saved</span>
+              </div>
+              <div class="ml-url-box"></div>
+              <div><button type="button" class="secondary" data-act="save-match-url" title="Save page URLs. m3u8 search runs from 30 minutes before kickoff until 30 minutes after">Save URLs</button></div>
+            </div>
+            <div class="ml-block">
+              <div class="ml-block-head">
+                <h4>m3u8, headers</h4>
+                <button type="button" class="secondary" data-act="streams">Edit streams</button>
+              </div>
+              ${streamViews(m) || '<p class="muted" style="margin:0">No m3u8 yet. Save a match page URL, or add a stream by hand.</p>'}
+              ${m.streamUrl || (m.streams || []).length
+                ? '<div><button type="button" class="danger" data-act="clear-stream-url">Delete stream URL</button></div>'
+                : ''}
+            </div>
+            <div class="ml-actions">
+              <button class="secondary" data-act="toggle" data-field="pinned">${m.pinned ? 'Unpin' : 'Pin'}</button>
+              <button class="secondary" data-act="toggle" data-field="featured">${m.featured ? 'Unfeature' : 'Feature'}</button>
+              <label class="row" style="gap:6px;align-items:center;margin:0" title="Auto: Live at 5 minutes before kickoff only when a stream URL is saved. No stream stays Preparing, then End 30 minutes after kickoff. Manual: the status you pick stays locked.">
+                <span class="badge">${m.statusLocked ? 'MANUAL' : 'AUTO'}</span>
+                <span style="font-size:0.78rem">Manual</span>
+                <input type="checkbox" data-act="auto-status" ${m.statusLocked ? '' : 'checked'} />
+                <span style="font-size:0.78rem">Auto</span>
+              </label>
+              <select data-act="status">
+                ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+              </select>
+              <input data-act="kickoff-date" type="date" value="${esc(m.date || '')}" title="Asia/Yangon date" />
+              <select data-act="kickoff-hour" title="Hour">
+                ${Array.from({ length: 12 }, (_, i) => i + 1).map((h) => {
+                  const cur = parseClockTo12(m.time || m.kickoff);
+                  return `<option value="${h}" ${h === cur.hour ? 'selected' : ''}>${h}</option>`;
+                }).join('')}
+              </select>
+              <select data-act="kickoff-minute" title="Minute">
+                ${Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map((min) => {
+                  const cur = parseClockTo12(m.time || m.kickoff);
+                  return `<option value="${min}" ${min === cur.minute ? 'selected' : ''}>${min}</option>`;
+                }).join('')}
+              </select>
+              <select data-act="kickoff-period" title="AM or PM">
+                ${['AM', 'PM'].map((p) => {
+                  const cur = parseClockTo12(m.time || m.kickoff);
+                  return `<option value="${p}" ${p === cur.period ? 'selected' : ''}>${p}</option>`;
+                }).join('')}
+              </select>
+              <button class="secondary" data-act="save-kickoff" title="Saved as Asia/Yangon">Set Time (Yangon)</button>
+              <button class="danger" data-act="delete">Delete</button>
+            </div>
+          </article>`).join('') || '<div class="panel"><p class="muted">No MainLive matches yet. Add one above.</p></div>'}
       </div>`;
 
     const form = $('#mainlive-create-form');
@@ -731,24 +766,22 @@
     const defaultQualities = ['HD', 'SD', 'Full HD'];
     const addStreamRow = (name = 'HD', url = '', headers = {}) => {
       const row = document.createElement('div');
-      row.className = 'mainlive-stream-row';
-      row.style.cssText =
-        'border:1px solid var(--border, #333);border-radius:8px;padding:10px;margin-bottom:10px';
+      row.className = 'ml-stream-edit';
       const ua = headers['User-Agent'] || headers.userAgent || '';
       const referer = headers.Referer || headers.referer || '';
       const cookie = headers.Cookie || headers.cookie || '';
       const origin = headers.Origin || headers.origin || '';
       row.innerHTML = `
-        <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap">
-          <label style="flex:0 0 120px">Name
+        <div class="ml-stream-top">
+          <label>Name
             <input name="streamName[]" value="${esc(name)}" placeholder="HD / SD" list="mainlive-quality-list" />
           </label>
-          <label style="flex:1;min-width:220px">m3u8 URL
+          <label>m3u8
             <input name="streamUrl[]" value="${esc(url)}" placeholder="https://.../index.m3u8" />
           </label>
           <button type="button" class="danger" data-remove-stream>Remove</button>
         </div>
-        <div class="grid-2" style="margin-top:8px">
+        <div class="grid-2">
           <label>User-Agent
             <input name="streamUa[]" value="${esc(ua)}" placeholder="Mozilla/5.0 ..." />
           </label>
@@ -758,10 +791,10 @@
           <label>Origin
             <input name="streamOrigin[]" value="${esc(origin)}" placeholder="https://source.example" />
           </label>
+          <label>Cookie
+            <input name="streamCookie[]" value="${esc(cookie)}" placeholder="name=value; name2=value2" autocomplete="off" />
+          </label>
         </div>
-        <label style="display:block;margin-top:8px">Cookie
-          <input name="streamCookie[]" value="${esc(cookie)}" placeholder="name=value; name2=value2" autocomplete="off" />
-        </label>
       `;
       row.querySelector('[data-remove-stream]').addEventListener('click', () => {
         row.remove();
@@ -777,8 +810,8 @@
     addStreamRow('HD');
     $('#mainlive-add-stream').addEventListener('click', () => addStreamRow('SD'));
     mountMatchUrlEditor($('#mainlive-match-urls'), []);
-    pageEl.querySelectorAll('tr[data-id] .ml-url-box').forEach((box) => {
-      const id = box.closest('tr')?.dataset.id;
+    pageEl.querySelectorAll('.ml-card .ml-url-box').forEach((box) => {
+      const id = box.closest('.ml-card')?.dataset.id;
       const match = state.mainlive.find((item) => item.matchId === id);
       mountMatchUrlEditor(box, mainLivePageUrls(match));
     });
@@ -848,7 +881,7 @@
       }
     });
 
-    pageEl.querySelectorAll('tr[data-id]').forEach((tr) => {
+    pageEl.querySelectorAll('.ml-card').forEach((tr) => {
       const id = tr.dataset.id;
       tr.querySelectorAll('[data-act="toggle"]').forEach((btn) => {
         btn.addEventListener('click', async () => {
@@ -977,11 +1010,9 @@
       type: s.type || 'm3u8',
     }));
     const overlay = document.createElement('div');
-    overlay.style.cssText =
-      'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;display:flex;align-items:center;justify-content:center;padding:16px';
+    overlay.className = 'modal-wrap';
     const card = document.createElement('div');
-    card.className = 'panel';
-    card.style.cssText = 'width:min(920px,100%);max-height:90vh;overflow:auto';
+    card.className = 'panel ml-dialog';
 
     const syncFromDom = () => {
       const rows = [...card.querySelectorAll('#ml-stream-list [data-i]')];
@@ -1016,24 +1047,24 @@
     const renderList = () => {
       card.innerHTML = `
         <h3>Streams · ${esc(m.homeTeam)} vs ${esc(m.awayTeam)}</h3>
-        <p class="muted" style="margin-top:0">Paste match page URLs to auto-find m3u8, or enter m3u8s by hand. Origin is saved with User-Agent, Referer, and Cookie.</p>
+        <p class="muted" style="margin-top:0">Add as many match page URLs as this match needs. Each hand-entered stream saves m3u8, User-Agent, Referer, Origin, and Cookie.</p>
         <div id="ml-match-urls" style="margin-bottom:8px"></div>
         <button type="button" class="secondary" id="ml-find-m3u8">Find m3u8</button>
         <p class="muted" style="margin-top:0">${m.matchUrlStatus ? `Extract: ${esc(m.matchUrlStatus)}${m.matchUrlExtractError ? ` (${esc(m.matchUrlExtractError)})` : ''}` : ''}</p>
         <div id="ml-stream-list">
           ${streams.map((s, i) => `
-            <div style="border:1px solid var(--border,#333);border-radius:8px;padding:10px;margin-bottom:10px" data-i="${i}">
-              <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap">
-                <label style="flex:0 0 120px">Name<input data-name value="${esc(s.name || 'HD')}" list="mainlive-quality-list" /></label>
-                <label style="flex:1;min-width:220px">m3u8 URL<input data-url value="${esc(s.url || '')}" placeholder="https://.../index.m3u8" /></label>
+            <div class="ml-stream-edit" data-i="${i}">
+              <div class="ml-stream-top">
+                <label>Name<input data-name value="${esc(s.name || 'HD')}" list="mainlive-quality-list" /></label>
+                <label>m3u8<input data-url value="${esc(s.url || '')}" placeholder="https://.../index.m3u8" /></label>
                 <button type="button" class="danger" data-del>Remove</button>
               </div>
-              <div class="grid-2" style="margin-top:8px">
+              <div class="grid-2">
                 <label>User-Agent<input data-ua value="${esc(s.headers?.['User-Agent'] || '')}" placeholder="Mozilla/5.0 ..." /></label>
                 <label>Referer<input data-referer value="${esc(s.headers?.Referer || '')}" placeholder="https://source.example/" /></label>
                 <label>Origin<input data-origin value="${esc(s.headers?.Origin || '')}" placeholder="https://source.example" /></label>
+                <label>Cookie<input data-cookie value="${esc(s.headers?.Cookie || '')}" placeholder="name=value; name2=value2" autocomplete="off" /></label>
               </div>
-              <label style="display:block;margin-top:8px">Cookie<input data-cookie value="${esc(s.headers?.Cookie || '')}" placeholder="name=value; name2=value2" autocomplete="off" /></label>
             </div>
           `).join('') || '<p class="muted">No streams yet.</p>'}
         </div>

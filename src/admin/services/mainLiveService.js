@@ -473,12 +473,15 @@ class MainLiveService {
     // Refresh unlocked statuses before encrypt/publish.
     this.applyAutoStatuses();
     const matches = this.list().map((m) =>
-      toPublicMatch({
-        ...m,
-        // Flutter / matches.json clock: "7:30 PM" (store stays 24h HH:mm for admin).
-        date: formatDateDisplay(m.kickoff) || m.date,
-        time: formatTime12(m.kickoff) || m.time,
-      })
+      attachPublishedMatchUrls(
+        toPublicMatch({
+          ...m,
+          // Flutter / matches.json clock: "7:30 PM" (store stays 24h HH:mm for admin).
+          date: formatDateDisplay(m.kickoff) || m.date,
+          time: formatTime12(m.kickoff) || m.time,
+        }),
+        m
+      )
     );
     const payload = {
       version: 1,
@@ -497,6 +500,18 @@ class MainLiveService {
     payload.meta.checksum = hashPayload(sanitizeForCompare(payload));
     return encryptPublicMatchesPayload(payload);
   }
+}
+
+/** Copy admin match pages onto mainlive.json as matchurl1, matchurl2, ... */
+function attachPublishedMatchUrls(published, stored) {
+  const next = published && typeof published === 'object' ? { ...published } : {};
+  const urls = matchUrlEntries(stored)
+    .map((row) => String(row?.url || '').trim())
+    .filter(Boolean);
+  urls.forEach((url, index) => {
+    next[`matchurl${index + 1}`] = url;
+  });
+  return next;
 }
 
 function aggregateMatchUrlStatus(urls) {

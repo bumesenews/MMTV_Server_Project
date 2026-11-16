@@ -251,5 +251,23 @@ const manualEnd = svc.create({
 assert.strictEqual(svc.update(manualEnd.matchId, { status: 'END' }), null);
 assert.strictEqual(svc.get(manualEnd.matchId), null, 'setting End removes the match');
 
+const withPages = svc.create({
+  homeTeam: 'Page Home',
+  awayTeam: 'Page Away',
+  league: 'Test League',
+  date: '2026-12-01',
+  time: '20:00',
+  status: 'Scheduled',
+  matchUrls: [
+    { url: 'https://example.com/match/one', source: 'cakhia' },
+    { url: 'https://example.com/match/two', source: 'xoilac' },
+  ],
+});
+const published = svc.toDeliveryPayload();
+const pageRow = published.matches.find((row) => row.matchId === withPages.matchId);
+assert.strictEqual(pageRow.matchurl1, 'https://example.com/match/one');
+assert.strictEqual(pageRow.matchurl2, 'https://example.com/match/two');
+assert.strictEqual(pageRow.matchurl3, undefined);
+
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log('testMainLiveStatus: ok');
