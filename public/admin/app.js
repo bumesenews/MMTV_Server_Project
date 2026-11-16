@@ -660,6 +660,8 @@
               </label>
               <label>Away team logo URL<input name="awayLogo" placeholder="https://.../away.png" /></label>
               <datalist id="mainlive-team-list">${teamOpts}</datalist>
+            </div>
+            <div class="ml-when">
               <label>Date (Asia/Yangon)<input name="date" type="date" required /></label>
               ${clock12SelectsHtml('time', '7:00 PM')}
               <label>Status
@@ -704,6 +706,7 @@
               <span>${esc(m.date || '')} ${esc(formatClock12(m.time || m.kickoff))} <span class="muted">Yangon</span></span>
               ${m.pinned ? '<span class="badge">PIN</span>' : ''}
               ${m.featured ? '<span class="badge">FEAT</span>' : ''}
+              ${m.search ? '<span class="badge">SEARCH</span>' : ''}
               ${m.matchUrlStatus ? `<span class="badge">${esc(m.matchUrlStatus)}</span>` : ''}
             </div>
             <div class="ml-block">
@@ -725,38 +728,47 @@
                 : ''}
             </div>
             <div class="ml-actions">
-              <button class="secondary" data-act="toggle" data-field="pinned">${m.pinned ? 'Unpin' : 'Pin'}</button>
-              <button class="secondary" data-act="toggle" data-field="featured">${m.featured ? 'Unfeature' : 'Feature'}</button>
-              <label class="row" style="gap:6px;align-items:center;margin:0" title="Auto: Live at 5 minutes before kickoff only when a stream URL is saved. No stream stays Preparing, then End 30 minutes after kickoff. Manual: the status you pick stays locked.">
-                <span class="badge">${m.statusLocked ? 'MANUAL' : 'AUTO'}</span>
-                <span style="font-size:0.78rem">Manual</span>
-                <input type="checkbox" data-act="auto-status" ${m.statusLocked ? '' : 'checked'} />
-                <span style="font-size:0.78rem">Auto</span>
-              </label>
-              <select data-act="status">
-                ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
-              </select>
-              <input data-act="kickoff-date" type="date" value="${esc(m.date || '')}" title="Asia/Yangon date" />
-              <select data-act="kickoff-hour" title="Hour">
-                ${Array.from({ length: 12 }, (_, i) => i + 1).map((h) => {
-                  const cur = parseClockTo12(m.time || m.kickoff);
-                  return `<option value="${h}" ${h === cur.hour ? 'selected' : ''}>${h}</option>`;
-                }).join('')}
-              </select>
-              <select data-act="kickoff-minute" title="Minute">
-                ${Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map((min) => {
-                  const cur = parseClockTo12(m.time || m.kickoff);
-                  return `<option value="${min}" ${min === cur.minute ? 'selected' : ''}>${min}</option>`;
-                }).join('')}
-              </select>
-              <select data-act="kickoff-period" title="AM or PM">
-                ${['AM', 'PM'].map((p) => {
-                  const cur = parseClockTo12(m.time || m.kickoff);
-                  return `<option value="${p}" ${p === cur.period ? 'selected' : ''}>${p}</option>`;
-                }).join('')}
-              </select>
-              <button class="secondary" data-act="save-kickoff" title="Saved as Asia/Yangon">Set Time (Yangon)</button>
-              <button class="danger" data-act="delete">Delete</button>
+              <div class="ml-action-group">
+                <button class="secondary" data-act="toggle" data-field="pinned">${m.pinned ? 'Unpin' : 'Pin'}</button>
+                <button class="secondary" data-act="toggle" data-field="featured">${m.featured ? 'Unfeature' : 'Feature'}</button>
+                <span class="ml-bool" title="Writes search true or false on this match in mainlive.json">
+                  <span>search</span>
+                  <button type="button" class="${m.search ? 'is-on' : ''}" data-act="set-search" data-value="true">true</button>
+                  <button type="button" class="${m.search ? '' : 'is-on'}" data-act="set-search" data-value="false">false</button>
+                </span>
+                <label class="ml-switch" title="Auto: Live at 5 minutes before kickoff only when a stream URL is saved. No stream stays Preparing, then End 30 minutes after kickoff. Manual: the status you pick stays locked.">
+                  <span class="badge">${m.statusLocked ? 'MANUAL' : 'AUTO'}</span>
+                  <span>Manual</span>
+                  <input type="checkbox" data-act="auto-status" ${m.statusLocked ? '' : 'checked'} />
+                  <span>Auto</span>
+                </label>
+                <select data-act="status" title="Status">
+                  ${['Scheduled', 'LIVE', 'END', 'PREPARING_STREAM'].map((s) => `<option ${m.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+                </select>
+                <button class="danger" data-act="delete">Delete</button>
+              </div>
+              <div class="ml-action-group">
+                <input data-act="kickoff-date" type="date" value="${esc(m.date || '')}" title="Asia/Yangon date" />
+                <select data-act="kickoff-hour" title="Hour">
+                  ${Array.from({ length: 12 }, (_, i) => i + 1).map((h) => {
+                    const cur = parseClockTo12(m.time || m.kickoff);
+                    return `<option value="${h}" ${h === cur.hour ? 'selected' : ''}>${h}</option>`;
+                  }).join('')}
+                </select>
+                <select data-act="kickoff-minute" title="Minute">
+                  ${Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0')).map((min) => {
+                    const cur = parseClockTo12(m.time || m.kickoff);
+                    return `<option value="${min}" ${min === cur.minute ? 'selected' : ''}>${min}</option>`;
+                  }).join('')}
+                </select>
+                <select data-act="kickoff-period" title="AM or PM">
+                  ${['AM', 'PM'].map((p) => {
+                    const cur = parseClockTo12(m.time || m.kickoff);
+                    return `<option value="${p}" ${p === cur.period ? 'selected' : ''}>${p}</option>`;
+                  }).join('')}
+                </select>
+                <button class="secondary" data-act="save-kickoff" title="Saved as Asia/Yangon">Set Time (Yangon)</button>
+              </div>
             </div>
           </article>`).join('') || '<div class="panel"><p class="muted">No MainLive matches yet. Add one above.</p></div>'}
       </div>`;
@@ -883,6 +895,23 @@
 
     pageEl.querySelectorAll('.ml-card').forEach((tr) => {
       const id = tr.dataset.id;
+      tr.querySelectorAll('[data-act="set-search"]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const search = btn.dataset.value === 'true';
+          const m = state.mainlive.find((x) => x.matchId === id);
+          if (Boolean(m?.search) === search) return;
+          try {
+            await api(`/mainlive/${encodeURIComponent(id)}`, {
+              method: 'PATCH',
+              body: JSON.stringify({ search }),
+            });
+            toast(`search: ${search}`);
+            renderMainLive();
+          } catch (err) {
+            toast(err.message, 'error');
+          }
+        });
+      });
       tr.querySelectorAll('[data-act="toggle"]').forEach((btn) => {
         btn.addEventListener('click', async () => {
           const field = btn.dataset.field;

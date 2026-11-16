@@ -268,6 +268,12 @@ const pageRow = published.matches.find((row) => row.matchId === withPages.matchI
 assert.strictEqual(pageRow.matchurl1, 'https://example.com/match/one');
 assert.strictEqual(pageRow.matchurl2, 'https://example.com/match/two');
 assert.strictEqual(pageRow.matchurl3, undefined);
+assert.strictEqual(pageRow.search, false, 'search defaults to false in mainlive.json');
+const searched = svc.update(withPages.matchId, { search: true });
+assert.strictEqual(searched.search, true);
+const republished = svc.toDeliveryPayload();
+const searchedRow = republished.matches.find((row) => row.matchId === withPages.matchId);
+assert.strictEqual(searchedRow.search, true, 'search true is published on the match');
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log('testMainLiveStatus: ok');

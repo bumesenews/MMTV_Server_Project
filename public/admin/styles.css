@@ -115,6 +115,12 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
 }
 
 .ml-form { display: grid; gap: 0.9rem; }
+.ml-when {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1.3fr) repeat(3, minmax(4.75rem, 0.55fr)) minmax(8rem, 1fr);
+  gap: 0.75rem;
+  align-items: end;
+}
 .ml-block {
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -193,16 +199,56 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   word-break: break-all;
   color: var(--text);
 }
-.ml-actions { display: flex; flex-wrap: wrap; gap: 0.45rem; align-items: end; min-width: 0; }
-.ml-actions > select,
-.ml-actions > input,
-.ml-actions > button,
-.ml-actions > label {
-  width: auto;
+.ml-actions { display: grid; gap: 0.55rem; min-width: 0; }
+.ml-action-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  align-items: center;
+  min-width: 0;
 }
-.ml-actions input[type="date"] { width: 10.5rem; }
-.ml-actions select { width: auto; min-width: 4.5rem; }
-.ml-actions label.row input { width: auto; }
+.ml-action-group > select,
+.ml-action-group > input,
+.ml-action-group > button {
+  width: auto;
+  flex: 0 0 auto;
+}
+.ml-action-group input[type="date"] { width: 10.5rem; }
+.ml-action-group select { min-width: 4.5rem; }
+.ml-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--text);
+}
+.ml-switch input { width: auto; }
+.ml-bool {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg);
+  flex: 0 0 auto;
+}
+.ml-bool > span {
+  display: flex;
+  align-items: center;
+  padding: 0 0.6rem;
+  font-size: 0.78rem;
+  color: var(--muted);
+  border-right: 1px solid var(--border);
+}
+.ml-bool button {
+  min-width: 3.4rem;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  padding: 0.4rem 0.65rem;
+}
+.ml-bool button.is-on { background: var(--accent); color: #fff; }
 .ml-dialog {
   width: min(980px, 100%);
   max-height: 90vh;
@@ -217,6 +263,6 @@ th { color: var(--muted); font-weight: 600; font-size: 0.78rem; text-transform: 
   }
   .sidebar.open { transform: translateX(0); }
   .menu-btn { display: inline-flex; }
-  .grid-2 { grid-template-columns: 1fr; }
+  .grid-2, .ml-when { grid-template-columns: 1fr; }
   .ml-url-row, .ml-stream-top, .ml-kv { grid-template-columns: 1fr; }
 }

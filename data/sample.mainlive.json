@@ -21,6 +21,7 @@
       "status": "Scheduled",
       "pinned": false,
       "featured": false,
+      "search": false,
       "hasStreams": true,
       "streamCount": 1,
       "streams": [

@@ -92,6 +92,7 @@ class MainLiveService {
       status,
       pinned: Boolean(input.pinned),
       featured: Boolean(input.featured),
+      search: Boolean(input.search),
       streams,
       hasStreams: streams.length > 0,
       streamCount: streams.length,
@@ -132,6 +133,7 @@ class MainLiveService {
       'awayLogo',
       'pinned',
       'featured',
+      'search',
     ]) {
       if (patch[key] !== undefined) {
         if (
@@ -139,6 +141,8 @@ class MainLiveService {
           String(patch[key] || '').trim() === ''
         ) {
           next[key] = null;
+        } else if (key === 'pinned' || key === 'featured' || key === 'search') {
+          next[key] = Boolean(patch[key]);
         } else {
           next[key] = patch[key];
         }
@@ -511,6 +515,7 @@ function attachPublishedMatchUrls(published, stored) {
   urls.forEach((url, index) => {
     next[`matchurl${index + 1}`] = url;
   });
+  next.search = Boolean(stored?.search);
   return next;
 }
 
