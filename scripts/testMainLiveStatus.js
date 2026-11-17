@@ -274,6 +274,17 @@ assert.strictEqual(searched.search, true);
 const republished = svc.toDeliveryPayload();
 const searchedRow = republished.matches.find((row) => row.matchId === withPages.matchId);
 assert.strictEqual(searchedRow.search, true, 'search true is published on the match');
+assert.strictEqual(searchedRow.embed, null);
+assert.strictEqual(searchedRow.pairs, undefined);
+
+const withEmbed = svc.update(withPages.matchId, {
+  embed: ' https://player.example/embed/1 ',
+});
+assert.strictEqual(withEmbed.embed, 'https://player.example/embed/1');
+const embedPublished = svc.toDeliveryPayload();
+const embedRow = embedPublished.matches.find((row) => row.matchId === withPages.matchId);
+assert.strictEqual(embedRow.embed, 'https://player.example/embed/1');
+assert.strictEqual(embedRow.pairs, undefined);
 
 fs.rmSync(tmp, { recursive: true, force: true });
 console.log('testMainLiveStatus: ok');

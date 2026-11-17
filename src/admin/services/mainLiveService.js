@@ -93,6 +93,7 @@ class MainLiveService {
       pinned: Boolean(input.pinned),
       featured: Boolean(input.featured),
       search: Boolean(input.search),
+      embed: normalizeEmbed(input.embed),
       streams,
       hasStreams: streams.length > 0,
       streamCount: streams.length,
@@ -147,6 +148,10 @@ class MainLiveService {
           next[key] = patch[key];
         }
       }
+    }
+
+    if (patch.embed !== undefined) {
+      next.embed = normalizeEmbed(patch.embed);
     }
 
     if (patch.status !== undefined) {
@@ -516,7 +521,13 @@ function attachPublishedMatchUrls(published, stored) {
     next[`matchurl${index + 1}`] = url;
   });
   next.search = Boolean(stored?.search);
+  next.embed = normalizeEmbed(stored?.embed);
   return next;
+}
+
+function normalizeEmbed(value) {
+  const text = String(value ?? '').trim();
+  return text || null;
 }
 
 function aggregateMatchUrlStatus(urls) {

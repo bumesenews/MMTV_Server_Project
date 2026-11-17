@@ -688,6 +688,14 @@
             <p class="muted" style="margin:0">Optional. Each stream stores an m3u8 plus User-Agent, Referer, Origin, and Cookie. Leave a row blank to skip it.</p>
             <div id="mainlive-streams"></div>
           </div>
+          <div class="ml-block">
+            <div class="ml-block-head">
+              <h4>Embed</h4>
+            </div>
+            <label>Embed URL
+              <input name="embed" placeholder="https://.../embed/..." />
+            </label>
+          </div>
           <div><button type="submit">Create MainLive Match</button></div>
         </form>
       </div>
@@ -726,6 +734,15 @@
               ${m.streamUrl || (m.streams || []).length
                 ? '<div><button type="button" class="danger" data-act="clear-stream-url">Delete stream URL</button></div>'
                 : ''}
+            </div>
+            <div class="ml-block">
+              <div class="ml-block-head">
+                <h4>Embed</h4>
+              </div>
+              <label>Embed URL
+                <input data-act="embed" value="${esc(m.embed || '')}" placeholder="https://.../embed/..." />
+              </label>
+              <div><button type="button" class="secondary" data-act="save-embed">Save embed</button></div>
             </div>
             <div class="ml-actions">
               <div class="ml-action-group">
@@ -876,6 +893,7 @@
             time: time12FromFields(fd.get('timeHour'), fd.get('timeMinute'), fd.get('timePeriod')),
             status: fd.get('status'),
             matchUrls: readMatchUrls($('#mainlive-match-urls')),
+            embed: fd.get('embed'),
             streams,
           }),
         });
@@ -936,6 +954,19 @@
         try {
           await api(`/mainlive/${encodeURIComponent(id)}/stream-url`, { method: 'DELETE' });
           toast('Stream URL deleted · mainlive.json published');
+          renderMainLive();
+        } catch (err) {
+          toast(err.message, 'error');
+        }
+      });
+      tr.querySelector('[data-act="save-embed"]')?.addEventListener('click', async () => {
+        try {
+          const embed = tr.querySelector('[data-act="embed"]')?.value || '';
+          await api(`/mainlive/${encodeURIComponent(id)}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ embed }),
+          });
+          toast('Embed saved · mainlive.json published');
           renderMainLive();
         } catch (err) {
           toast(err.message, 'error');
